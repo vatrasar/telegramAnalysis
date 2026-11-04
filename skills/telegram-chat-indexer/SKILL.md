@@ -64,14 +64,14 @@ This system applies **Reply-Anchored Threading with Forward Burst Propagation (R
 
 Whenever tasked with analyzing a chat export (e.g. located in `rozmowy/` or provided by the user):
 
-### Step 0: Pre-Flight Configuration & Validation
+### Step 0: Pre-Flight Configuration & Validation (HARD STOP GATE)
 Run the validator:
 ```bash
 python3 project/scripts/setup_config.py
 ```
-- If exit code is 2 (`ACTION_REQUIRED`): Prompt the user to enter their API key in `config/embeddings_config.json` (outside agent folder) and pause until confirmed.
-- If exit code indicates error (3, 4, 5, 6): Notify the user of the exact error (invalid key, insufficient credits, wrong model, or network).
-- If exit code is 0 (`SUCCESS`): Proceed to Step 1.
+- **If exit code is 2 (`ACTION_REQUIRED`):** HARD STOP. The API key has not been configured. Prompt the user to enter their API key in `config/embeddings_config.json` (outside the agent folder) and **HALT EXECUTION IMMEDIATELY**. Do not call `db_builder.py`, `query_chat.py`, or any other tool until the user explicitly confirms they have configured the key.
+- **If exit code indicates error (3, 4, 5, 6):** HARD STOP. Notify the user of the exact diagnostic error (invalid key, insufficient credits, wrong model, or network failure) and pause.
+- **If exit code is 0 (`SUCCESS`):** Configuration and connectivity verified. Proceed to Step 1.
 
 ### Step 1: Build the Analytical Database (Single or Multi-Chat)
 Execute the database builder in bash with one or more export files:
@@ -88,8 +88,8 @@ python3 project/scripts/db_builder.py rozmowy/*.json -o chat.db --clean
 ```
 *Creates `chat.db` with isolated chats, indexed messages, collision-free threads, independent per-chat silence gaps, and FTS5 search.*
 
-### Step 2: (Optional) Index Semantic Vectors (OpenRouter or Local)
-If `config/embeddings_config.json` is configured with OpenRouter API key, or if local `sentence-transformers` is installed:
+### Step 2: Index Semantic Vectors (MANDATORY PREREQUISITE)
+Vector indexing is a **mandatory prerequisite** for qualitative psychological analysis. The agent must **NEVER** skip this step or silently downgrade to lexical FTS5 search without explicit user consent:
 ```bash
 # Indexes all unindexed threads across all chats incrementally:
 python3 project/scripts/vector_indexer.py --db chat.db --index
@@ -97,7 +97,7 @@ python3 project/scripts/vector_indexer.py --db chat.db --index
 # Or index/filter a specific chat:
 python3 project/scripts/vector_indexer.py --db chat.db --index --chat ania
 ```
-*(Note: If not configured, `query_chat.py` automatically falls back to SQLite FTS5 BM25 search with zero errors).*
+*Note: Generating dense vector embeddings allows `query_chat.py --semantic` to retrieve high-level psychological constructs, defensive patterns, and emotional undertones. The agent must verify vector indexing completion before proceeding to analysis.*
 
 ### Step 3: Phase 1 – Quantitative Mining
 Run the CLI to extract hard statistical facts before doing psychological interpretation:

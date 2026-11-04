@@ -8,40 +8,59 @@
 
 ---
 
-## 2. Pre-Flight Configuration & User Handshake (Mandatory Startup)
+## 2. Pre-Flight Configuration & User Handshake (Mandatory Startup Gate)
 Before performing any ingestion, indexing, or chat analysis, the agent **MUST** run the pre-flight configuration script:
 ```bash
 python3 project/scripts/setup_config.py
 ```
 
+### HARD STOP BRAMKA BLOKUJĄCA (Zero-Assumption Rule):
+If `setup_config.py` returns **ANY exit code other than 0** (e.g., Code 2, 3, 4, 5, 6):
+- **ABSOLUTE PROHIBITION ON DOWNSTREAM ACTIONS:** You are strictly forbidden from calling ANY further tools or scripts (`db_builder.py`, `query_chat.py`, `vector_indexer.py`, or `read_file` on chat logs).
+- **NO SILENT DOWNGRADE / NO EXECUTION BIAS:** You MUST NOT rationalize: *"I will build the database or use FTS5/BM25 while waiting for the key to save time"*. Semantic vector indexing is a mandatory requirement.
+- **IMMEDIATE USER PROMPT ONLY:** Your execution must halt immediately. Your output to the user must be limited strictly to requesting the configuration/API key and waiting for their explicit response.
+- **EXPLICIT OPT-OUT ONLY:** The agent may ONLY proceed without embeddings if the user explicitly instructs in plain text to run in offline / FTS5-only mode (e.g. *"proceed with FTS5 only"*).
+
 ### Action Protocols Based on Pre-Flight Result:
 1. **If Exit Code 2 (`ACTION_REQUIRED`):**
    - The config file was either just generated or still contains placeholder credentials (`YOUR_OPENROUTER_API_KEY_HERE`).
-   - **DO NOT proceed.** Pause execution and ask the user directly:
+   - **DO NOT proceed.** Halt execution and ask the user directly:
      > *"I have initialized your configuration file at `config/embeddings_config.json` (outside the agent package and protected by `.gitignore`). Please open it, enter your OpenRouter API key and preferred embedding model, and let me know when you're done so I can proceed."*
-   - Wait for user confirmation before calling any indexing scripts.
+   - Stop and wait for user confirmation. Do not call any further tools.
 2. **If Exit Code 3, 4, 5, or 6 (`ERROR`):**
    - **DO NOT guess or proceed silently.** Report the exact diagnostic error directly to the user:
      - **Code 3 (HTTP 401):** *"Authentication failed (HTTP 401). Your OpenRouter API key in `config/embeddings_config.json` appears to be invalid or expired. Please check your key at openrouter.ai/keys."*
      - **Code 4 (HTTP 402):** *"Insufficient credits (HTTP 402). Your OpenRouter account balance is empty or your key's spending limit has been reached. Please check openrouter.ai/credits."*
      - **Code 5 (HTTP 404):** *"Model not found (HTTP 404). The embedding model specified in `config/embeddings_config.json` does not exist on OpenRouter."*
      - **Code 6 (Network Error):** *"Network failure. Unable to reach `openrouter.ai`. Please check internet/proxy connectivity."*
-   - Ask the user to resolve the specific issue and let you know when ready.
+   - Halt execution and ask the user to resolve the issue.
 3. **If Exit Code 0 (`SUCCESS`):**
-   - Credentials and connectivity verified. Proceed immediately to Step 3.
+   - Credentials and connectivity verified. Proceed immediately to Section 3.
 
 ---
 
-## 3. Context Protection & Database Mandate
+## 3. Mandatory Ingestion & Indexing Pipeline
 - **NEVER load raw chat logs (>1,000 messages) directly into the model context.**
-- When handed chat exports (e.g. in `rozmowy/` or as multiple JSON files):
-  1. Check if `chat.db` exists in workspace root.
-  2. Ingest all conversation files into the unified analytical database:
-     ```bash
-     python3 project/scripts/db_builder.py rozmowy/*.json -o chat.db
-     ```
-     *(Supports multiple files from different contacts, multi-part chat splits, and incremental additions without wiping previous data).*
-  3. All data exploration, cross-relational mining, and quote retrieval must be performed through `project/scripts/query_chat.py` (with optional `--chat <id_or_name>` filtering) or direct SQL queries against `chat.db`.
+- The ingestion and indexing pipeline follows a strict 3-step sequence that must be completed before any analysis starts:
+
+### Step 3.1: Database Ingestion (SQLite + FTS5)
+Ingest all conversation files into the unified analytical database:
+```bash
+python3 project/scripts/db_builder.py rozmowy/*.json -o chat.db
+```
+*(Supports multiple files from different contacts, multi-part chat splits, and incremental additions without wiping previous data).*
+
+### Step 3.2: Semantic Vector Indexing (MANDATORY PREREQUISITE)
+Immediately after building the database, generate vector embeddings for all conversation threads:
+```bash
+python3 project/scripts/vector_indexer.py --db chat.db --index
+```
+- **DO NOT SKIP THIS STEP.** Vector indexing converts reconstructed dialogue threads into dense semantic embeddings.
+- It is a required prerequisite for `--semantic` searches and psychological concept retrieval in Phase 2.
+- The agent must verify that this step completed successfully before moving to query or analysis stages.
+
+### Step 3.3: Data Exploration & Analysis via CLI
+All data exploration, cross-relational mining, and quote retrieval must be performed through `project/scripts/query_chat.py` (with optional `--chat <id_or_name>` filtering) or direct SQL queries against `chat.db`.
 
 ---
 

@@ -268,6 +268,10 @@ def search_semantic_batch(
             cur = conn.cursor()
         else:
             # Fallback to FTS5 for each query
+            print(f"\n[!] WARNING: Database '{db_path}' contains NO vector embeddings!", file=sys.stderr)
+            print("    Embedding configuration in config/embeddings_config.json is missing or placeholder.", file=sys.stderr)
+            print("    Falling back to lexical FTS5 (BM25) search. Real semantic embeddings were NOT used.", file=sys.stderr)
+            print("    To fix: Complete setup ('python3 project/scripts/setup_config.py') and run vector indexing ('python3 project/scripts/vector_indexer.py --db <db> --index').\n", file=sys.stderr)
             results_map: Dict[str, List[Dict[str, Any]]] = {}
             for query in queries:
                 clean_q = "".join(c if c.isalnum() or c.isspace() else " " for c in query).strip()
