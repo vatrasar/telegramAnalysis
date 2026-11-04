@@ -133,7 +133,7 @@ def index_threads(
     Supports incremental indexing (only unindexed threads) unless force=True.
     """
     config = load_config()
-    provider = config.get("provider", "local").lower()
+    provider = config.get("provider", "openrouter").lower()
 
     conn = sqlite3.connect(db_path)
     init_vector_table(conn)
@@ -244,7 +244,7 @@ def search_semantic_batch(
         return {}
 
     config = load_config()
-    provider = config.get("provider", "local").lower()
+    provider = config.get("provider", "openrouter").lower()
 
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()

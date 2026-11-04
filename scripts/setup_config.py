@@ -32,11 +32,8 @@ def init_config() -> int:
             shutil.copy(TEMPLATE_PATH, CONFIG_PATH)
         else:
             default_conf = {
-                "provider": "openrouter",
                 "api_key": "YOUR_OPENROUTER_API_KEY_HERE",
-                "model": "openai/text-embedding-3-small",
-                "endpoint": "https://openrouter.ai/api/v1/embeddings",
-                "batch_size": 50
+                "model": "openai/text-embedding-3-small"
             }
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
                 json.dump(default_conf, f, indent=2)
