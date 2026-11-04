@@ -81,6 +81,32 @@ People rarely narrate their life sequentially; they drop autobiographical crumbs
 - **Relational History:** Significant past romantic relationships, breakups, betrayals, formative lessons.
 - **Turning Points (Crucibles):** Severe illness, bereavement, financial crisis, career shifts, therapy, or moments of profound loss of control.
 
+> [!CAUTION]
+> **Biographical Integrity & Entity Resolution Engine**
+> 1. **Proportional Verification (The Materiality Principle):**
+>    - *The Golden Test:* *"Does attributing this action/event to Person B instead of Person A alter the meaning, gravity, or analytical takeaway?"*
+>    - *Low-Stakes (0 tokens wasted):* Casual activities, moods, media consumption (*"watching a movie with indian guy"*, *"bored with friend"*). If the exact identity does not alter the psychological conclusion about the subject, DO NOT launch identity searches. Treat as generic "friend/partner" without burning tokens.
+>    - *High-Stakes (Mandatory Verification Gate):* Trigger targeted identity verification whenever attributing any **consequential or high-gravity event**, including:
+>      a) Writing start/end dates or relationship durations in the biographical timeline (**The Span Claim Gate**).
+>      b) Consequential or extreme events: crimes, violence, major financial exchanges, severe betrayal, or legal/physical conflicts.
+>      c) Character & relational pathology attributions: assigning persistent manipulation, harassment, or toxic dynamics to a specific person.
+>      d) Core psychological crucibles: formative traumas, foundational trust fractures, and primary attachment wounds.
+> 2. **Relational Roles vs. Demographic Attributes (The NPC Filter):**
+>    - Relational roles (*"sister"*, *"ex"*, *"boss"*, *"therapist"*) denote guaranteed bonds with the subject (distinguishing them from strangers/NPCs).
+>    - **Bond $\neq$ Uniqueness:** A relational role guarantees a bond, but does **NOT** guarantee a 1-to-1 individual mapping (a subject can have multiple sisters simultaneously, or sequential bosses and partners across different years).
+>    - Demographic attributes (*"indian guy"*, *"policeman"*, *"blonde girl"*) are surface descriptors. Never promote an episodic demographic encounter (e.g. stranger at a mall, brief chatroom encounter) into the Cast of Characters. Categorize as **Episodic Bystander / NPC**.
+> 3. **Action/Behavioral Signature & Conversational Inertia:**
+>    - In active relational eras (e.g. 2023–2024 breakup aftermath), generic references (*"indian guy"*, *"that guy"*) sharing a romantic/partner behavioral signature (jealousy, commitment battles, marriage demands, breakup grief) inherit the dominant partner (Hilal) via Conversational Inertia at **O(1) zero token overhead**.
+>    - An interaction lacking a romantic signature (e.g. passive listener on a chat in 2020) does not strictly exclude the partner, but represents **Lack of Evidentiary Proof**—it must never be used to anchor a romantic relationship span without explicit identity confirmation.
+> 4. **Cardinality State Machine ($K=1$ vs. $K \ge 2$) & Role Containers:**
+>    - *Uniqueness Assumption ($K=1$):* If only one person is known in a relational role across the entire archive (e.g. subject explicitly has only one sister), map directly to that person. Do not create artificial unresolved overhead.
+>    - *Concurrent Multi-Entity Collision ($K \ge 2$, e.g. Multiple Sisters / Multiple Peters):* If multiple individuals hold the same role simultaneously (e.g. one sister married in London, another aged 12), a bare mention (*"my sister"*) CANNOT be mapped to an individual without a distinguishing anchor (name, age, city, topic continuity). Route to a collective role container (e.g. `Sister_Unresolved`).
+>    - *Sequential Roles Across Timelines (e.g. Bosses, Therapists, Partners):* A role like *"my boss"* changes over time across career pivots. It maps to a specific person ONLY when grounded in the chronological employment timeline (e.g. Boss at Company A in 2021 vs. Boss at Company B in 2023). If the employer context is ambiguous, route to `Boss_Unresolved`.
+>    - *Container-Level Psychological Analysis:* In psychological analyses of family dynamics or authority relations, analyze the interaction at the container level without forcing a premature or false biographical attribution.
+> 5. **Negative Anchor Audit & Span Claim Gate:**
+>    - Query for definitive negative milestones (e.g. `boyfriend OR chłopak OR ex OR first time OR never OR until`). An explicit quote such as *"I didn't even have a boyfriend until last year"* is an iron-clad falsification gate that instantly disqualifies earlier romantic relationships.
+>    - Never synthesize continuous multi-year spans (e.g. "2020–2023") by interpolating between disconnected mentions. Fact-pin every timeline claim with supporting message IDs (`[#ID | YYYY-MM-DD]`).
+
 #### 2. Cast of Characters (Relational Constellation)
 Systematically audit all significant recurring third parties mentioned in the logs:
 - **Family Members:** Parents, siblings, grandparents, children, in-laws.
@@ -90,6 +116,7 @@ Systematically audit all significant recurring third parties mentioned in the lo
 - **Rivals / Adversaries:** Individuals with whom the subject entered sharp dispute or estrangement.
 
 For each figure, determine:
+- **Exact Identification:** Distinct name/alias, active dates, and context of meeting. If multiple figures share a nationality or generic label, list them as explicitly separate entities.
 - **Their Role:** Authority figure, emotional anchor, dependent responsibility, rival, or trigger.
 - **Recurring Themes:** What situations invoke this person?
 - **Emotional Stance & Boundaries:** Does the subject show deference, resentment, warmth, contempt, envy, or filial guilt? Can they set firm boundaries, or do they capitulate?

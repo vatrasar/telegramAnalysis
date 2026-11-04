@@ -76,7 +76,30 @@ Before reading individual quotes or forming premature psychological conclusions:
 
 ### Stage 2: Biographical Dossier & Cast of Characters
 1. **Origin Story Reconstruction:** Search for autobiographical fragments across school, university, past relationships, career pivots, and formative crucibles.
-2. **Relational Constellation:** Identify all key third parties (family, friends, romantic prospects/exes, authorities, rivals), their roles, recurring themes, and the subject's emotional stance and boundary setting toward them.
+2. **Negative Anchor Audit (Falsification Gate):**
+   - Explicitly query for milestone boundaries and absolute declarations (e.g. *"first boyfriend/girlfriend"*, *"never dated before"*, *"didn't have [...] until"*, *"first job"*).
+   - A single negative anchor (e.g. *"I didn't have a boyfriend until 2023"*) acts as an iron-clad falsification filter that invalidates any prior dating hypotheses.
+3. **Relational Constellation & Entity Disambiguation (The 4-Principle Engine):**
+   - **Principle A: Relational Roles vs. Demographic Attributes (The NPC Filter):**
+     - Relational roles (*"sister"*, *"ex"*, *"boss"*, *"therapist"*) denote guaranteed bonds with the subject (distinguishing them from random strangers/NPCs).
+     - **Bond $\neq$ Uniqueness:** A relational role guarantees a bond, but does **NOT** guarantee a 1-to-1 individual mapping (a subject can have multiple sisters simultaneously, or sequential bosses and partners across different years).
+     - Demographic attributes (*"indian guy"*, *"policeman"*, *"blonde girl"*) are surface descriptors. Never promote an episodic demographic encounter (e.g. stranger at a mall, street interaction, random chatroom lurker) into the Cast of Characters. Categorize as **Episodic Bystander / NPC**.
+   - **Principle B: Action/Behavioral Signature & Conversational Inertia:**
+     - Within an active relational era (e.g. 2023–2024 breakup aftermath), references to generic labels (*"indian guy"*, *"that guy"*) sharing a romantic/partner behavioral signature (jealousy, commitment battles, marriage pressure, breakup aftermath) inherit the dominant partner (Hilal) via Conversational Inertia at **O(1) zero token overhead**.
+     - An interaction lacking romantic signature (e.g. passive listener on a chat in 2020) does not strictly exclude the partner, but constitutes **Lack of Evidentiary Proof**—it must never be used to anchor a romantic relationship span without explicit identity confirmation.
+   - **Principle C: Cardinality State Machine ($K=1$ vs. $K \ge 2$) & Role Containers:**
+     - *Uniqueness Assumption ($K=1$):* If only one person is known in a relational role across the entire archive (e.g. subject explicitly has only one sister), map directly to that person. Do not create artificial unresolved overhead.
+     - *Concurrent Multi-Entity Collision ($K \ge 2$, e.g. Multiple Sisters / Multiple Peters):* If multiple individuals hold the same role simultaneously (e.g. one sister married in London, another aged 12), a bare mention (*"my sister"*) CANNOT be mapped to an individual without a distinguishing anchor (name, age, city, topic continuity). Route to a collective role container (e.g. `Sister_Unresolved`).
+     - *Sequential Roles Across Timelines (e.g. Bosses, Therapists, Partners):* A role like *"my boss"* changes over time across career pivots. It maps to a specific person ONLY when grounded in the chronological employment timeline (e.g. Boss at Company A in 2021 vs. Boss at Company B in 2023). If the employer context is ambiguous, route to `Boss_Unresolved`.
+     - *Container-Level Psychological Analysis:* To analyze emotional dynamics (authority conflict with bosses, sibling rivalry), the exact individual identity is often secondary; analyze the behavior at the container level without falsifying individual biographies.
+   - **Principle D: Proportional Verification (The Materiality Principle):**
+     - **The Golden Test:** *"Does attributing this action/event to Person B instead of Person A alter the meaning, gravity, or analytical takeaway?"*
+     - **Low-Stakes (0 tokens wasted):** Generic lifestyle habits, minor daily moods, ambient background activities (*"watching a movie with indian guy"*, *"bored on discord with friend"*). If the true identity has zero bearing on the psychological insight about the subject, DO NOT launch identity queries. Treat as generic "friend/partner" without burning tokens.
+     - **High-Stakes (Mandatory Verification Gate):** Targeted identity verification is strictly required whenever attributing any **consequential or high-gravity event**, including:
+       1. **Biographical Milestones & Spans (The Span Claim Gate):** Start/end dates, relationship durations, formal bond status.
+       2. **High-Gravity & Consequential Actions:** Crimes, violence, major financial exchanges, severe betrayal, life-altering decisions, legal or physical conflicts.
+       3. **Character & Relational Pathology Attributions:** Assigning toxic dynamics, manipulation, harassment, or persistent behavioral patterns to a specific person.
+       4. **Core Psychological Crucibles:** Formative traumas, foundational trust fractures, and primary attachment wounds.
 
 ### Stage 3: Intensive Discussions & Life Spheres Audit
 1. Audit all intensive discussions using the **3-Point Thread Inspection Method** (Trigger $\to$ Core Stances $\to$ Resolution/Exit).
@@ -97,6 +120,17 @@ Before reading individual quotes or forming premature psychological conclusions:
 ## 5. Disentanglement & Contextual Integrity
 - Always respect the **thread anchor**: When analyzing a quote, check whether it was an answer to an explicit question or an unquoted continuation of a thought burst.
 - **Never cite an isolated message in a vacuum:** Always inspect surrounding context using `query_chat.py --thread <thread_id>` or `--from-msg <id> -w 5`. Verify the stimulus, the reaction, and the aftermath.
+- **Entity Disambiguation Protocol (Anti-Conflation Rule):**
+  - **Shared Attribute Trap:** Never conflate two distinct people simply because they share descriptive traits (e.g. same nationality, city, app, ethnicity, or generic role like "friend" / "ex").
+  - Maintain clear entity profiles: `Name/Alias` + `Active Date Range` + `Context/Platform` + `True Nature of Bond` (platonic online friend vs. romantic partner).
+  - Actively cross-check names before attributing actions: verify whether a story belongs to Person A or Person B.
+- **Strict Timeline Bridging Ban (The Span Claim Gate):**
+  - Never synthesize continuous multi-year spans (e.g. *"2020–2023"*) from disjointed mentions across years.
+  - The **Span Claim Gate** enforces that whenever claiming a relationship duration or start year in a dossier, the agent MUST run a targeted query to verify continuity across intervening years or find a direct duration quote.
+  - Distinguish between *"known someone casually since [Year]"* vs. *"actively dated during [Year]"*.
+  - Treat isolated mentions of distant years (e.g. 2020 mentioned in a 2024 chat) as potential retrospective flashbacks (*Outliers*), requiring inspection of that specific anchor message before linking it to an ongoing entity.
+- **Fact-Pinning in Biographical Dossiers:**
+  - In `00_dossier_and_timeline.md` and `01_cast_of_characters.md`, every biographical milestone, relationship entry, and ex-partner summary MUST be anchored by verifiable message IDs (`[#ID | YYYY-MM-DD]`). Never draft biographical narratives from loose semantic impressions.
 
 ---
 
