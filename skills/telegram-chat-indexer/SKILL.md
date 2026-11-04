@@ -73,27 +73,45 @@ python3 project/scripts/setup_config.py
 - If exit code indicates error (3, 4, 5, 6): Notify the user of the exact error (invalid key, insufficient credits, wrong model, or network).
 - If exit code is 0 (`SUCCESS`): Proceed to Step 1.
 
-### Step 1: Build the Analytical Database
-Execute the database builder in bash:
+### Step 1: Build the Analytical Database (Single or Multi-Chat)
+Execute the database builder in bash with one or more export files:
 ```bash
-python3 project/scripts/db_builder.py <path/to/result.json> -o chat.db
+# Ingest all chat exports at once (e.g. from multiple contacts):
+python3 project/scripts/db_builder.py rozmowy/*.json -o chat.db
+
+# Or ingest files incrementally without wiping existing database chats:
+python3 project/scripts/db_builder.py rozmowy/partner.json -o chat.db
+python3 project/scripts/db_builder.py rozmowy/mama.json -o chat.db
+
+# Or force rebuild from scratch:
+python3 project/scripts/db_builder.py rozmowy/*.json -o chat.db --clean
 ```
-*Creates `chat.db` with indexed messages, disentangled threads, silence gaps, and FTS5 search.*
+*Creates `chat.db` with isolated chats, indexed messages, collision-free threads, independent per-chat silence gaps, and FTS5 search.*
 
 ### Step 2: (Optional) Index Semantic Vectors (OpenRouter or Local)
 If `config/embeddings_config.json` is configured with OpenRouter API key, or if local `sentence-transformers` is installed:
 ```bash
+# Indexes all unindexed threads across all chats incrementally:
 python3 project/scripts/vector_indexer.py --db chat.db --index
+
+# Or index/filter a specific chat:
+python3 project/scripts/vector_indexer.py --db chat.db --index --chat ania
 ```
 *(Note: If not configured, `query_chat.py` automatically falls back to SQLite FTS5 BM25 search with zero errors).*
 
 ### Step 3: Phase 1 – Quantitative Mining
 Run the CLI to extract hard statistical facts before doing psychological interpretation:
 ```bash
-# Combine multiple metrics in a single execution:
+# List all indexed chats in the database:
+python3 project/scripts/query_chat.py --db chat.db --list-chats
+
+# Global overview across all chats combined:
 python3 project/scripts/query_chat.py --db chat.db --stats --gaps --timeline
 
-# Or output as structured JSON for fast agent ingestion:
+# Or filter specifically to one relationship / contact:
+python3 project/scripts/query_chat.py --db chat.db --chat mama --stats --gaps
+
+# Output as structured JSON for fast agent ingestion:
 python3 project/scripts/query_chat.py --db chat.db --stats --gaps --timeline --json
 ```
 
@@ -101,16 +119,17 @@ python3 project/scripts/query_chat.py --db chat.db --stats --gaps --timeline --j
 The CLI supports simultaneous multi-query execution, batch repeated flags, and JSON output:
 
 ```bash
-# 1. Multi-keyword search across messages or threads in one call:
+# 1. Multi-keyword search across all chats or filtered by chat:
 python3 project/scripts/query_chat.py --db chat.db -s "mama" -s "ojciec" -s "pieniądze"
+python3 project/scripts/query_chat.py --db chat.db --chat partner -s "zaufanie" -s "odrzucenie"
 
-# 2. Batch semantic psychological search in a single pass:
+# 2. Batch semantic psychological search across all conversations:
 python3 project/scripts/query_chat.py --db chat.db \
   --semantic "refusing vulnerability and emotional suppression" \
   --semantic "fear of abandonment and anxious attachment"
 
-# 3. Retrieve multiple threads or quote chains simultaneously:
-python3 project/scripts/query_chat.py --db chat.db -t thread_101 -t 14502 -c 14502
+# 3. Retrieve specific conversation thread:
+python3 project/scripts/query_chat.py --db chat.db -t c_11111_t101 -c 14502
 
 # 4. Comprehensive single-turn exploration with structured JSON:
 python3 project/scripts/query_chat.py --db chat.db \
@@ -130,20 +149,30 @@ python3 project/scripts/query_chat.py --db chat.db \
 
 ## 4. SQLite Schema Reference for Custom SQL Queries
 
-The agent can also query `project/data/chat.db` directly using SQLite:
+The agent can also query `chat.db` directly using SQLite:
+
+### `chats` Table (Catalog of all indexed contacts / conversations)
+- `chat_id` (TEXT PRIMARY KEY): Unique chat slug (e.g. `c_11111` or `c_mama`).
+- `chat_name` (TEXT): Display name from Telegram export.
+- `chat_type` (TEXT): `personal_chat`, `private_group`, etc.
+- `source_files` (TEXT): Source JSON file path(s).
+- `total_messages`, `total_threads` (INTEGER).
+- `start_date`, `end_date` (TEXT).
 
 ### `messages` Table
-- `id` (INTEGER): Message ID from Telegram.
+- `chat_id` (TEXT): Identifier of the chat stream.
+- `id` (INTEGER): Message ID from Telegram (`PRIMARY KEY (chat_id, id)`).
 - `date` (TEXT): ISO8601 timestamp (`YYYY-MM-DDTHH:MM:SS`).
 - `sender` (TEXT): Sender display name.
 - `reply_to_id` (INTEGER): Quoted message ID (if any).
-- `thread_id` (TEXT): Assigned conversation thread identifier.
+- `thread_id` (TEXT): Assigned conversation thread identifier (e.g. `c_11111_t101`).
 - `link_type` (TEXT): `explicit_reply`, `burst_continuation`, `inferred_response`, or `session_root`.
 - `text` (TEXT): Plain message text.
 - `char_count`, `word_count` (INTEGER).
 
 ### `threads` Table
-- `thread_id` (TEXT): Unique thread ID (e.g. `thread_101` or `session_500`).
+- `thread_id` (TEXT PRIMARY KEY): Globally unique thread ID (`<chat_id>_t<id>` or `<chat_id>_s<id>`).
+- `chat_id` (TEXT): Originating chat stream.
 - `anchor_message_id` (INTEGER): Quoted anchor message ID.
 - `start_date`, `end_date` (TEXT): Thread timeframe.
 - `message_count` (INTEGER): Number of messages in this topic.
@@ -152,6 +181,7 @@ The agent can also query `project/data/chat.db` directly using SQLite:
 - `dialogue_text` (TEXT): Reconstructed transcript ready for LLM consumption.
 
 ### `silence_gaps` Table
+- `chat_id` (TEXT): The chat where the silence occurred.
 - `silence_start_date`, `silence_end_date` (TEXT): Inactivity timeframe.
 - `silence_duration_hours` (REAL): Duration in hours.
 - `last_sender` (TEXT): Who sent the last message before silence.

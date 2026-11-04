@@ -34,10 +34,14 @@ python3 project/scripts/setup_config.py
 
 ## 3. Context Protection & Database Mandate
 - **NEVER load raw chat logs (>1,000 messages) directly into the model context.**
-- When handed a chat export (e.g. in `rozmowy/` or as a JSON file):
-  1. Verify if `chat.db` (or `data/chat.db`) exists in workspace root.
-  2. If not, build it immediately: `python3 project/scripts/db_builder.py <path_to_json> -o chat.db`.
-  3. All data exploration and quote retrieval must be performed through `project/scripts/query_chat.py` or direct SQL queries against `chat.db`.
+- When handed chat exports (e.g. in `rozmowy/` or as multiple JSON files):
+  1. Check if `chat.db` exists in workspace root.
+  2. Ingest all conversation files into the unified analytical database:
+     ```bash
+     python3 project/scripts/db_builder.py rozmowy/*.json -o chat.db
+     ```
+     *(Supports multiple files from different contacts, multi-part chat splits, and incremental additions without wiping previous data).*
+  3. All data exploration, cross-relational mining, and quote retrieval must be performed through `project/scripts/query_chat.py` (with optional `--chat <id_or_name>` filtering) or direct SQL queries against `chat.db`.
 
 ---
 

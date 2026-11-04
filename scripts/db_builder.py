@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
 """
-Telegram Chat Database Builder & Thread Disentangler.
-Converts Telegram desktop export (result.json) into an analytical SQLite database
+Telegram Multi-Chat Database Builder & Thread Disentangler.
+Converts one or more Telegram desktop export JSON files into an analytical SQLite database
 with conversation threads reconstructed via reply DAGs, anchor resolution,
-and forward burst propagation.
+and forward burst propagation (RAT-FBP).
+
+Supports multi-file workflows:
+- Multiple chats with different people stored cleanly in the same database without collisions.
+- Merging multi-part export files from the same chat.
+- Incremental imports without wiping existing chats (unless --clean is passed).
 """
 
 import os
 import sys
+import glob
 import json
+import re
 import sqlite3
 import argparse
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Set
 
 BURST_THRESHOLD_SECONDS = 180  # 3 minutes: burst continuation threshold
 SESSION_GAP_SECONDS = 7200     # 2 hours: silence threshold for new conversation session
@@ -44,10 +51,41 @@ def parse_iso_date(date_str: str) -> Tuple[datetime, int]:
     return dt, int(dt.timestamp())
 
 
+def derive_chat_id(data: Dict[str, Any], filepath: str, explicit_id: Optional[str] = None) -> str:
+    """Generate a clean, collision-free chat identifier."""
+    if explicit_id:
+        clean = re.sub(r"[^\w]+", "_", explicit_id).strip("_").lower()
+        return clean if clean.startswith("c_") else f"c_{clean}"
+
+    raw_id = data.get("id")
+    if raw_id is not None and str(raw_id).strip() != "":
+        clean_id = str(raw_id).strip().replace("-", "m")
+        return f"c_{clean_id}"
+
+    # Fallback to sanitized filename stem
+    base = os.path.splitext(os.path.basename(filepath))[0]
+    clean_stem = re.sub(r"[^\w]+", "_", base).strip("_").lower()
+    return f"c_{clean_stem}" if clean_stem else "c_default"
+
+
 def create_schema(conn: sqlite3.Connection):
-    """Initialize relational and FTS5 tables in SQLite."""
+    """Initialize relational and FTS5 tables in SQLite with multi-chat support."""
     cur = conn.cursor()
-    
+
+    # Chats catalog
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS chats (
+        chat_id TEXT PRIMARY KEY,
+        chat_name TEXT NOT NULL,
+        chat_type TEXT,
+        source_files TEXT NOT NULL,
+        total_messages INTEGER NOT NULL,
+        total_threads INTEGER NOT NULL,
+        start_date TEXT,
+        end_date TEXT
+    );
+    """)
+
     # Metadata table
     cur.execute("""
     CREATE TABLE IF NOT EXISTS metadata (
@@ -56,10 +94,11 @@ def create_schema(conn: sqlite3.Connection):
     );
     """)
 
-    # Messages table
+    # Messages table (composite primary key on chat_id + message id)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY,
+        chat_id TEXT NOT NULL,
+        id INTEGER NOT NULL,
         date TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
         sender TEXT NOT NULL,
@@ -70,18 +109,22 @@ def create_schema(conn: sqlite3.Connection):
         link_type TEXT NOT NULL,
         text TEXT NOT NULL,
         char_count INTEGER NOT NULL,
-        word_count INTEGER NOT NULL
+        word_count INTEGER NOT NULL,
+        PRIMARY KEY (chat_id, id)
     );
     """)
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(thread_id);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_reply ON messages(reply_to_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_chat_thread ON messages(chat_id, thread_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_chat_ts ON messages(chat_id, timestamp);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_chat_sender ON messages(chat_id, sender);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_chat_reply ON messages(chat_id, reply_to_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_thread_global ON messages(thread_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_ts_global ON messages(timestamp);")
 
     # Threads table
     cur.execute("""
     CREATE TABLE IF NOT EXISTS threads (
         thread_id TEXT PRIMARY KEY,
+        chat_id TEXT NOT NULL,
         anchor_message_id INTEGER,
         start_date TEXT NOT NULL,
         end_date TEXT NOT NULL,
@@ -95,13 +138,15 @@ def create_schema(conn: sqlite3.Connection):
         dialogue_text TEXT NOT NULL
     );
     """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_threads_chat ON threads(chat_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_threads_start ON threads(start_timestamp);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_threads_gap ON threads(gap_before_seconds);")
 
-    # Silence / Gaps table
+    # Silence / Gaps table (calculated strictly within each individual chat)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS silence_gaps (
         gap_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id TEXT NOT NULL,
         silence_start_date TEXT NOT NULL,
         silence_end_date TEXT NOT NULL,
         silence_duration_seconds INTEGER NOT NULL,
@@ -111,11 +156,14 @@ def create_schema(conn: sqlite3.Connection):
         after_thread_id TEXT
     );
     """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_gaps_chat ON silence_gaps(chat_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_gaps_duration ON silence_gaps(silence_duration_seconds);")
 
-    # Full-Text Search (FTS5) for fast keyword search with BM25
+    # Full-Text Search (FTS5) for messages
     cur.execute("""
     CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
         message_id UNINDEXED,
+        chat_id UNINDEXED,
         date UNINDEXED,
         sender UNINDEXED,
         thread_id UNINDEXED,
@@ -124,10 +172,11 @@ def create_schema(conn: sqlite3.Connection):
     );
     """)
 
-    # FTS for threads (allows searching whole conversation threads directly)
+    # Full-Text Search (FTS5) for threads
     cur.execute("""
     CREATE VIRTUAL TABLE IF NOT EXISTS threads_fts USING fts5(
         thread_id UNINDEXED,
+        chat_id UNINDEXED,
         start_date UNINDEXED,
         participants UNINDEXED,
         dialogue_text,
@@ -138,12 +187,11 @@ def create_schema(conn: sqlite3.Connection):
     conn.commit()
 
 
-def disentangle_threads(messages: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+def disentangle_threads(messages: List[Dict[str, Any]], chat_id: str) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     """
-    Apply Reply-Anchored Threading with Forward Burst Propagation (RAT-FBP).
-    Disentangles interleaved multi-topic chats where participants juggle many topics simultaneously.
+    Apply Reply-Anchored Threading with Forward Burst Propagation (RAT-FBP)
+    scoped to a single chat stream.
     """
-    # 1. Normalize and sort valid messages chronologically
     valid_msgs = []
     for m in messages:
         if m.get("type") != "message":
@@ -160,7 +208,7 @@ def disentangle_threads(messages: List[Dict[str, Any]]) -> Tuple[List[Dict[str, 
         sender_id = str(m.get("from_id") or "")
         msg_id = m.get("id")
         date_str = m.get("date")
-        
+
         reply_to_id = m.get("reply_to_message_id")
         if not reply_to_id and isinstance(m.get("reply_to"), dict):
             reply_to_id = m.get("reply_to", {}).get("reply_to_message_id")
@@ -170,6 +218,7 @@ def disentangle_threads(messages: List[Dict[str, Any]]) -> Tuple[List[Dict[str, 
 
         dt, ts = parse_iso_date(date_str)
         valid_msgs.append({
+            "chat_id": chat_id,
             "id": int(msg_id),
             "date": date_str,
             "datetime": dt,
@@ -185,7 +234,7 @@ def disentangle_threads(messages: List[Dict[str, Any]]) -> Tuple[List[Dict[str, 
     valid_msgs.sort(key=lambda x: x["timestamp"])
     msg_dict = {m["id"]: m for m in valid_msgs}
 
-    # 2. First pass: establish parentage & link types
+    # First pass: establish parentage & link types
     last_msg_per_sender: Dict[str, int] = {}
     last_msg_overall: Optional[Dict[str, Any]] = None
 
@@ -205,7 +254,6 @@ def disentangle_threads(messages: List[Dict[str, Any]]) -> Tuple[List[Dict[str, 
             parent_id = reply_to
             link_type = "explicit_reply"
         elif last_msg_overall and last_msg_overall["sender"] == sender and (ts - last_msg_overall["timestamp"] <= BURST_THRESHOLD_SECONDS):
-            # Same sender sent their previous message within burst window
             parent_id = last_msg_overall["id"]
             link_type = "burst_continuation"
         elif sender in last_msg_per_sender:
@@ -225,11 +273,11 @@ def disentangle_threads(messages: List[Dict[str, Any]]) -> Tuple[List[Dict[str, 
         last_msg_per_sender[sender] = m_id
         last_msg_overall = m
 
-    # 3. Second pass: Thread assignment & Topic clustering
-    # Each explicit reply to an original message defines a focused thread topic for that anchor message.
-    # Burst continuations inherit their parent's thread topic.
+    # Second pass: Thread assignment & Topic clustering
     thread_map: Dict[int, str] = {}
     anchor_map: Dict[str, Optional[int]] = {}
+    thread_prefix = f"{chat_id}_t"
+    session_prefix = f"{chat_id}_s"
 
     for m in valid_msgs:
         m_id = m["id"]
@@ -238,26 +286,21 @@ def disentangle_threads(messages: List[Dict[str, Any]]) -> Tuple[List[Dict[str, 
 
         if l_type == "explicit_reply" and p_id:
             parent_m = msg_dict[p_id]
-            # If parent was itself an explicit reply or in an existing thread_topic, continue it
-            if parent_m["link_type"] in ("explicit_reply", "inferred_response") or (p_id in thread_map and thread_map[p_id].startswith("thread_")):
+            if parent_m["link_type"] in ("explicit_reply", "inferred_response") or (p_id in thread_map and thread_map[p_id].startswith(thread_prefix)):
                 t_id = thread_map[p_id]
             else:
-                # Parent was an original message/burst; this reply starts a focused thread on p_id
-                t_id = f"thread_{p_id}"
+                t_id = f"{thread_prefix}{p_id}"
                 anchor_map[t_id] = p_id
             thread_map[m_id] = t_id
         elif p_id and p_id in thread_map:
             t_id = thread_map[p_id]
-            thread_map[m_id] = t_id
         else:
-            # Standalone root or session root
-            t_id = f"session_{m_id}"
+            t_id = f"{session_prefix}{m_id}"
             thread_map[m_id] = t_id
             anchor_map[t_id] = None
 
         m["thread_id"] = t_id
 
-    # 4. Compile Thread objects with anchor messages included in the transcript
     threads_data: Dict[str, Dict[str, Any]] = {}
     for m in valid_msgs:
         t_id = m["thread_id"]
@@ -272,57 +315,63 @@ def disentangle_threads(messages: List[Dict[str, Any]]) -> Tuple[List[Dict[str, 
     return valid_msgs, threads_data
 
 
-def build_database(json_path: str, db_path: str):
-    """Parse JSON and construct the complete SQLite analytical database."""
-    print(f"[*] Reading export file: {json_path}")
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+def insert_chat_data(
+    conn: sqlite3.Connection,
+    chat_id: str,
+    chat_name: str,
+    chat_type: str,
+    source_files: List[str],
+    raw_messages: List[Dict[str, Any]]
+) -> Tuple[int, int, int]:
+    """Process and insert a single chat's messages, threads, and silence gaps."""
+    processed_msgs, threads_data = disentangle_threads(raw_messages, chat_id)
+    if not processed_msgs:
+        print(f"[!] Warning: No valid messages found for chat '{chat_name}' ({chat_id}). Skipping.")
+        return 0, 0, 0
 
-    chat_name = data.get("name", "Telegram Chat")
-    raw_messages = data.get("messages", [])
-    print(f"[*] Loaded {len(raw_messages)} raw items. Disentangling threads...")
-
-    processed_msgs, threads_data = disentangle_threads(raw_messages)
-    print(f"[*] Disentangled into {len(processed_msgs)} messages across {len(threads_data)} distinct threads.")
-
-    if os.path.exists(db_path):
-        os.remove(db_path)
-
-    conn = sqlite3.connect(db_path)
-    create_schema(conn)
     cur = conn.cursor()
 
+    # Clean existing data for this chat_id to ensure clean idempotency
+    cur.execute("DELETE FROM chats WHERE chat_id = ?;", (chat_id,))
+    cur.execute("DELETE FROM messages WHERE chat_id = ?;", (chat_id,))
+    cur.execute("DELETE FROM threads WHERE chat_id = ?;", (chat_id,))
+    cur.execute("DELETE FROM silence_gaps WHERE chat_id = ?;", (chat_id,))
+    cur.execute("DELETE FROM messages_fts WHERE chat_id = ?;", (chat_id,))
+    cur.execute("DELETE FROM threads_fts WHERE chat_id = ?;", (chat_id,))
+
+    # If vector table exists, clean old embeddings for this chat
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_embeddings';")
+    if cur.fetchone()[0] > 0:
+        cur.execute("DELETE FROM thread_embeddings WHERE chat_id = ?;", (chat_id,))
+
     msg_dict = {m["id"]: m for m in processed_msgs}
+    start_date = processed_msgs[0]["date"]
+    end_date = processed_msgs[-1]["date"]
 
-    cur.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)", ("chat_name", chat_name))
-    cur.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)", ("total_messages", str(len(processed_msgs))))
-    cur.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)", ("total_threads", str(len(threads_data))))
-
-    # Insert messages & FTS
-    msg_rows = []
-    fts_rows = []
-
-    for m in processed_msgs:
-        msg_rows.append((
-            m["id"], m["date"], m["timestamp"], m["sender"], m["sender_id"],
+    # 1. Insert messages
+    msg_rows = [
+        (
+            m["chat_id"], m["id"], m["date"], m["timestamp"], m["sender"], m["sender_id"],
             m["reply_to_id"], m["thread_id"], m["parent_id"], m["link_type"],
             m["text"], m["char_count"], m["word_count"]
-        ))
-        fts_rows.append((
-            m["id"], m["date"], m["sender"], m["thread_id"], m["text"]
-        ))
-
+        )
+        for m in processed_msgs
+    ]
     cur.executemany("""
-    INSERT INTO messages (id, date, timestamp, sender, sender_id, reply_to_id, thread_id, parent_id, link_type, text, char_count, word_count)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    INSERT INTO messages (chat_id, id, date, timestamp, sender, sender_id, reply_to_id, thread_id, parent_id, link_type, text, char_count, word_count)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, msg_rows)
 
+    fts_rows = [
+        (m["id"], m["chat_id"], m["date"], m["sender"], m["thread_id"], m["text"])
+        for m in processed_msgs
+    ]
     cur.executemany("""
-    INSERT INTO messages_fts (message_id, date, sender, thread_id, text)
-    VALUES (?, ?, ?, ?, ?);
+    INSERT INTO messages_fts (message_id, chat_id, date, sender, thread_id, text)
+    VALUES (?, ?, ?, ?, ?, ?);
     """, fts_rows)
 
-    # Compile Threads and Silence Gaps
+    # 2. Compile and insert threads & silence gaps
     thread_rows = []
     thread_fts_rows = []
     gap_rows = []
@@ -338,13 +387,13 @@ def build_database(json_path: str, db_path: str):
 
         first_msg = msgs[0]
         last_msg = msgs[-1]
-        start_date = first_msg["date"]
-        start_ts = first_msg["timestamp"]
-        end_date = last_msg["date"]
-        end_ts = last_msg["timestamp"]
-        duration = end_ts - start_ts
+        t_start_date = first_msg["date"]
+        t_start_ts = first_msg["timestamp"]
+        t_end_date = last_msg["date"]
+        t_end_ts = last_msg["timestamp"]
+        duration = t_end_ts - t_start_ts
         initiator = first_msg["sender"]
-        
+
         all_senders = {m["sender"] for m in msgs}
         if anchor_id and anchor_id in msg_dict:
             all_senders.add(msg_dict[anchor_id]["sender"])
@@ -352,12 +401,13 @@ def build_database(json_path: str, db_path: str):
 
         gap_before = None
         if prev_thread_end_ts is not None:
-            gap_before = start_ts - prev_thread_end_ts
+            gap_before = t_start_ts - prev_thread_end_ts
             if gap_before >= LONG_SILENCE_SECONDS:
                 duration_hrs = round(gap_before / 3600.0, 1)
                 gap_rows.append((
+                    chat_id,
                     datetime.fromtimestamp(prev_thread_end_ts).isoformat(),
-                    start_date,
+                    t_start_date,
                     gap_before,
                     duration_hrs,
                     prev_thread_last_sender or "Unknown",
@@ -383,45 +433,213 @@ def build_database(json_path: str, db_path: str):
         dialogue_text = "\n".join(dialogue_lines)
 
         thread_rows.append((
-            t_id, anchor_id, start_date, end_date, start_ts, end_ts,
+            t_id, chat_id, anchor_id, t_start_date, t_end_date, t_start_ts, t_end_ts,
             duration, len(msgs), ",".join(participants), initiator,
             gap_before, dialogue_text
         ))
 
         thread_fts_rows.append((
-            t_id, start_date, ",".join(participants), dialogue_text
+            t_id, chat_id, t_start_date, ",".join(participants), dialogue_text
         ))
 
-        prev_thread_end_ts = max(prev_thread_end_ts or 0, end_ts)
+        prev_thread_end_ts = max(prev_thread_end_ts or 0, t_end_ts)
         prev_thread_last_sender = last_msg["sender"]
 
     cur.executemany("""
-    INSERT INTO threads (thread_id, anchor_message_id, start_date, end_date, start_timestamp, end_timestamp, duration_seconds, message_count, participants, initiator, gap_before_seconds, dialogue_text)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    INSERT INTO threads (thread_id, chat_id, anchor_message_id, start_date, end_date, start_timestamp, end_timestamp, duration_seconds, message_count, participants, initiator, gap_before_seconds, dialogue_text)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, thread_rows)
 
     cur.executemany("""
-    INSERT INTO threads_fts (thread_id, start_date, participants, dialogue_text)
-    VALUES (?, ?, ?, ?);
+    INSERT INTO threads_fts (thread_id, chat_id, start_date, participants, dialogue_text)
+    VALUES (?, ?, ?, ?, ?);
     """, thread_fts_rows)
 
     cur.executemany("""
-    INSERT INTO silence_gaps (silence_start_date, silence_end_date, silence_duration_seconds, silence_duration_hours, last_sender, initiator, after_thread_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?);
+    INSERT INTO silence_gaps (chat_id, silence_start_date, silence_end_date, silence_duration_seconds, silence_duration_hours, last_sender, initiator, after_thread_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?);
     """, gap_rows)
+
+    # 3. Insert or update chats catalog
+    cur.execute("""
+    INSERT INTO chats (chat_id, chat_name, chat_type, source_files, total_messages, total_threads, start_date, end_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+    """, (
+        chat_id, chat_name, chat_type, ", ".join(source_files),
+        len(processed_msgs), len(threads_data), start_date, end_date
+    ))
+
+    return len(processed_msgs), len(threads_data), len(gap_rows)
+
+
+def build_databases(
+    input_patterns: List[str],
+    db_path: str,
+    clean: bool = False,
+    chat_id_override: Optional[str] = None
+):
+    """
+    Parse one or more JSON export files and build/update the SQLite multi-chat analytical database.
+    """
+    resolved_files: List[str] = []
+    for pat in input_patterns:
+        if os.path.isdir(pat):
+            found = glob.glob(os.path.join(pat, "*.json"))
+            resolved_files.extend(sorted(found))
+        else:
+            expanded = glob.glob(pat)
+            if expanded:
+                resolved_files.extend(sorted(expanded))
+            elif os.path.exists(pat):
+                resolved_files.append(pat)
+
+    # Deduplicate while preserving order
+    unique_files = []
+    seen_files = set()
+    for f in resolved_files:
+        abs_f = os.path.abspath(f)
+        if abs_f not in seen_files:
+            seen_files.add(abs_f)
+            unique_files.append(f)
+
+    if not unique_files:
+        print(f"[!] Error: No JSON files found matching patterns: {input_patterns}")
+        sys.exit(1)
+
+    print(f"[*] Discovered {len(unique_files)} export file(s) for ingestion.")
+
+    if clean and os.path.exists(db_path):
+        print(f"[*] --clean specified: Removing existing database at {db_path}")
+        os.remove(db_path)
+
+    os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    create_schema(conn)
+
+    # Read and group files by resolved chat_id
+    chats_grouped: Dict[str, Dict[str, Any]] = {}
+
+    for filepath in unique_files:
+        print(f"[*] Reading: {filepath}")
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            print(f"[!] Warning: Could not read {filepath}: {e}. Skipping.")
+            continue
+
+        c_id = derive_chat_id(data, filepath, chat_id_override if len(unique_files) == 1 else None)
+        c_name = data.get("name") or os.path.splitext(os.path.basename(filepath))[0]
+        c_type = data.get("type", "personal_chat")
+        msgs = data.get("messages", [])
+
+        if c_id not in chats_grouped:
+            chats_grouped[c_id] = {
+                "chat_id": c_id,
+                "chat_name": c_name,
+                "chat_type": c_type,
+                "source_files": [filepath],
+                "messages": list(msgs)
+            }
+        else:
+            # Merge multi-part files for the same chat
+            chats_grouped[c_id]["source_files"].append(filepath)
+            chats_grouped[c_id]["messages"].extend(msgs)
+
+    total_all_msgs = 0
+    total_all_threads = 0
+    total_all_gaps = 0
+
+    print(f"[*] Grouped into {len(chats_grouped)} distinct chat stream(s). Disentangling...")
+
+    for c_id, chat_info in chats_grouped.items():
+        # Deduplicate messages by ID within the same chat (handles multi-part exports)
+        raw_msgs = chat_info["messages"]
+        seen_msg_ids: Set[Any] = set()
+        deduped_msgs = []
+        for m in raw_msgs:
+            m_id = m.get("id")
+            if m_id is not None:
+                if m_id not in seen_msg_ids:
+                    seen_msg_ids.add(m_id)
+                    deduped_msgs.append(m)
+            else:
+                deduped_msgs.append(m)
+
+        print(f"\n---> Ingesting Chat '{chat_info['chat_name']}' (ID: {c_id})")
+        print(f"     Source files: {', '.join(chat_info['source_files'])}")
+        print(f"     Raw items: {len(raw_msgs)} (Deduped: {len(deduped_msgs)})")
+
+        n_msgs, n_threads, n_gaps = insert_chat_data(
+            conn=conn,
+            chat_id=c_id,
+            chat_name=chat_info["chat_name"],
+            chat_type=chat_info["chat_type"],
+            source_files=chat_info["source_files"],
+            raw_messages=deduped_msgs
+        )
+
+        total_all_msgs += n_msgs
+        total_all_threads += n_threads
+        total_all_gaps += n_gaps
+
+        print(f"     [+] Disentangled: {n_msgs} messages | {n_threads} threads | {n_gaps} silences (>24h)")
+
+    # Update summary metadata
+    cur = conn.cursor()
+    cur.execute("SELECT count(*) FROM messages;")
+    db_total_msgs = cur.fetchone()[0]
+    cur.execute("SELECT count(*) FROM threads;")
+    db_total_threads = cur.fetchone()[0]
+    cur.execute("SELECT count(*) FROM chats;")
+    db_total_chats = cur.fetchone()[0]
+
+    cur.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?);", ("total_chats", str(db_total_chats)))
+    cur.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?);", ("total_messages", str(db_total_msgs)))
+    cur.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?);", ("total_threads", str(db_total_threads)))
+    cur.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?);", ("schema_version", "2.0"))
+    cur.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?);", ("last_updated", datetime.now().isoformat()))
 
     conn.commit()
     conn.close()
-    print(f"[+] Successfully built SQLite database at: {db_path}")
-    print(f"    - Messages: {len(msg_rows)}")
-    print(f"    - Clean Disentangled Threads: {len(thread_rows)}")
-    print(f"    - Long Silences (>24h): {len(gap_rows)}")
+
+    print("\n" + "=" * 60)
+    print(f"✨ Successfully built/updated database at: {db_path}")
+    print(f"   - Total Indexed Chats:    {db_total_chats}")
+    print(f"   - Total Messages in DB:   {db_total_msgs}")
+    print(f"   - Total Threads in DB:    {db_total_threads}")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Build analytical SQLite DB from Telegram chat export.")
-    parser.add_argument("json_file", help="Path to Telegram export result.json")
-    parser.add_argument("--output", "-o", default="chat_index.db", help="Output SQLite database path")
+    parser = argparse.ArgumentParser(
+        description="Build analytical SQLite DB from one or more Telegram chat exports (multi-chat support)."
+    )
+    parser.add_argument(
+        "json_files",
+        nargs="+",
+        help="Path(s) to Telegram export JSON files or wildcards (e.g. rozmowy/*.json)"
+    )
+    parser.add_argument(
+        "--output", "-o",
+        default="chat.db",
+        help="Output SQLite database path (default: chat.db)"
+    )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Clean/recreate database from scratch, removing existing data"
+    )
+    parser.add_argument(
+        "--chat-id",
+        type=str,
+        help="Explicitly specify or override chat_id for imported file (single chat only)"
+    )
     args = parser.parse_args()
 
-    build_database(args.json_file, args.output)
+    build_databases(
+        input_patterns=args.json_files,
+        db_path=args.output,
+        clean=args.clean,
+        chat_id_override=args.chat_id
+    )

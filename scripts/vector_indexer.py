@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Thread Vector Indexer with OpenRouter & Local Embedding Support.
+Thread Vector Indexer with OpenRouter & Local Embedding Support (Multi-Chat Aware).
 Embeds conversation threads and computes cosine similarity for psychological concept retrieval.
 
 Supported modes:
@@ -49,17 +49,19 @@ def is_local_ml_available() -> bool:
 
 
 def init_vector_table(conn: sqlite3.Connection):
-    """Create table for vector embeddings in SQLite."""
+    """Create table for vector embeddings in SQLite with multi-chat support."""
     cur = conn.cursor()
     cur.execute("""
     CREATE TABLE IF NOT EXISTS thread_embeddings (
         thread_id TEXT PRIMARY KEY,
+        chat_id TEXT,
         start_date TEXT,
         participants TEXT,
         dialogue_text TEXT,
         embedding BLOB
     );
     """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_embeddings_chat ON thread_embeddings(chat_id);")
     conn.commit()
 
 
@@ -76,9 +78,7 @@ def deserialize_vector(blob: bytes) -> List[float]:
 
 def dot_product(v1: List[float], v2: List[float]) -> float:
     """Compute dot product / cosine similarity between normalized vectors."""
-    # Assuming normalized vectors from API or model
     dot = sum(x * y for x, y in zip(v1, v2))
-    # Normalize if needed
     norm1 = sum(x * x for x in v1) ** 0.5
     norm2 = sum(y * y for y in v2) ** 0.5
     if norm1 > 0 and norm2 > 0:
@@ -113,7 +113,6 @@ def fetch_openrouter_embeddings(texts: List[str], model: str, api_key: str, endp
         with urllib.request.urlopen(req, timeout=60) as resp:
             resp_body = json.loads(resp.read().decode("utf-8"))
             data_items = resp_body.get("data", [])
-            # Sort by index to preserve order
             data_items.sort(key=lambda x: x.get("index", 0))
             return [item["embedding"] for item in data_items]
     except urllib.error.HTTPError as e:
@@ -123,31 +122,55 @@ def fetch_openrouter_embeddings(texts: List[str], model: str, api_key: str, endp
         raise RuntimeError(f"OpenRouter Connection Error: {e}")
 
 
-def index_threads(db_path: str, model_override: Optional[str] = None):
-    """Embed all threads in the database using OpenRouter or local sentence-transformers."""
+def index_threads(
+    db_path: str,
+    model_override: Optional[str] = None,
+    chat_filter: Optional[str] = None,
+    force: bool = False
+) -> bool:
+    """
+    Embed threads in the database using OpenRouter or local sentence-transformers.
+    Supports incremental indexing (only unindexed threads) unless force=True.
+    """
     config = load_config()
     provider = config.get("provider", "local").lower()
-    
+
     conn = sqlite3.connect(db_path)
     init_vector_table(conn)
     cur = conn.cursor()
 
-    cur.execute("SELECT thread_id, start_date, participants, dialogue_text FROM threads")
-    rows = cur.fetchall()
-    if not rows:
-        print("[!] No threads found in database. Build the database first with db_builder.py.")
-        conn.close()
-        return False
+    query = """
+    SELECT t.thread_id, t.chat_id, t.start_date, t.participants, t.dialogue_text
+    FROM threads t
+    """
+    params: List[Any] = []
 
-    print(f"[*] Found {len(rows)} threads to embed.")
+    if not force:
+        query += " LEFT JOIN thread_embeddings te ON t.thread_id = te.thread_id WHERE te.thread_id IS NULL "
+    else:
+        query += " WHERE 1=1 "
+
+    if chat_filter:
+        query += " AND (t.chat_id = ? OR t.chat_id IN (SELECT chat_id FROM chats WHERE chat_name = ? OR chat_name LIKE ?)) "
+        params.extend([chat_filter, chat_filter, f"%{chat_filter}%"])
+
+    cur.execute(query, params)
+    rows = cur.fetchall()
+
+    if not rows:
+        print("[+] All selected conversation threads are already embedded. (Use --force to re-embed).")
+        conn.close()
+        return True
+
+    print(f"[*] Found {len(rows)} new/unindexed threads to embed.")
     batch_metadata = []
     batch_texts = []
 
     for r in rows:
-        t_id, s_date, parts, text = r
+        t_id, c_id, s_date, parts, text = r
         clean_text = text[:4000]  # Respect token limits for embedding models
         batch_texts.append(clean_text)
-        batch_metadata.append((t_id, s_date, parts, text))
+        batch_metadata.append((t_id, c_id, s_date, parts, text))
 
     # Mode 1: OpenRouter API
     if provider in ("openrouter", "api", "openai"):
@@ -176,7 +199,7 @@ def index_threads(db_path: str, model_override: Optional[str] = None):
             print("[!] 'provider' is set to 'local', but 'sentence-transformers' is not installed.")
             print("    Options:")
             print("    1. Install local ML: pip install sentence-transformers")
-            print("    2. OR configure OpenRouter in project/config/embeddings_config.json")
+            print("    2. OR configure OpenRouter in config/embeddings_config.json")
             print("    (Note: Fast FTS5 search is currently active without any installation).")
             conn.close()
             return False
@@ -195,13 +218,13 @@ def index_threads(db_path: str, model_override: Optional[str] = None):
 
     # Insert embeddings
     insert_rows = []
-    for (t_id, s_date, parts, text), emb in zip(batch_metadata, all_embeddings):
+    for (t_id, c_id, s_date, parts, text), emb in zip(batch_metadata, all_embeddings):
         blob = serialize_vector(emb)
-        insert_rows.append((t_id, s_date, parts, text, blob))
+        insert_rows.append((t_id, c_id, s_date, parts, text, blob))
 
     cur.executemany("""
-    INSERT OR REPLACE INTO thread_embeddings (thread_id, start_date, participants, dialogue_text, embedding)
-    VALUES (?, ?, ?, ?, ?);
+    INSERT OR REPLACE INTO thread_embeddings (thread_id, chat_id, start_date, participants, dialogue_text, embedding)
+    VALUES (?, ?, ?, ?, ?, ?);
     """, insert_rows)
 
     conn.commit()
@@ -210,7 +233,12 @@ def index_threads(db_path: str, model_override: Optional[str] = None):
     return True
 
 
-def search_semantic_batch(db_path: str, queries: List[str], top_k: int = 5) -> Dict[str, List[Dict[str, Any]]]:
+def search_semantic_batch(
+    db_path: str,
+    queries: List[str],
+    top_k: int = 5,
+    chat_filter: Optional[str] = None
+) -> Dict[str, List[Dict[str, Any]]]:
     """Search conversation threads by multiple semantic concepts in a single batch pass."""
     if not queries:
         return {}
@@ -235,7 +263,7 @@ def search_semantic_batch(db_path: str, queries: List[str], top_k: int = 5) -> D
         if has_openrouter or has_local:
             print("[*] Vectors not yet indexed. Generating embeddings now...")
             conn.close()
-            index_threads(db_path)
+            index_threads(db_path, chat_filter=chat_filter)
             conn = sqlite3.connect(db_path)
             cur = conn.cursor()
         else:
@@ -247,23 +275,40 @@ def search_semantic_batch(db_path: str, queries: List[str], top_k: int = 5) -> D
                 if not words:
                     results_map[query] = []
                     continue
-                match_query = " OR ".join(words)
+                terms = []
+                for w in words:
+                    terms.append(f'"{w}"')
+                    if len(w) >= 5:
+                        stem = w[:-2] if w.endswith(('ść', 'ch', 'em', 'om', 'ów', 'mi')) else (w[:-1] if w.endswith(('a', 'e', 'y', 'i', 'o', 'u', 'ę', 'ą')) else w)
+                        if len(stem) >= 3:
+                            terms.append(f'"{stem}"*')
+                match_query = " OR ".join(terms)
                 try:
-                    cur.execute("""
-                    SELECT thread_id, start_date, participants, dialogue_text, bm25(threads_fts) as rank
-                    FROM threads_fts
+                    sql = """
+                    SELECT tf.thread_id, tf.chat_id, coalesce(c.chat_name, tf.chat_id) as chat_name,
+                           tf.start_date, tf.participants, tf.dialogue_text, bm25(threads_fts) as rank
+                    FROM threads_fts tf
+                    LEFT JOIN chats c ON tf.chat_id = c.chat_id
                     WHERE threads_fts MATCH ?
-                    ORDER BY rank ASC
-                    LIMIT ?;
-                    """, (match_query, top_k))
+                    """
+                    p = [match_query]
+                    if chat_filter:
+                        sql += " AND (tf.chat_id = ? OR c.chat_name = ? OR c.chat_name LIKE ?) "
+                        p.extend([chat_filter, chat_filter, f"%{chat_filter}%"])
+                    sql += " ORDER BY rank ASC LIMIT ?; "
+                    p.append(top_k)
+
+                    cur.execute(sql, p)
                     q_res = []
                     for r in cur.fetchall():
                         q_res.append({
                             "thread_id": r[0],
-                            "start_date": r[1],
-                            "participants": r[2],
-                            "dialogue_text": r[3],
-                            "score": round(-float(r[4]), 3)
+                            "chat_id": r[1],
+                            "chat_name": r[2],
+                            "start_date": r[3],
+                            "participants": r[4],
+                            "dialogue_text": r[5],
+                            "score": round(-float(r[6]), 3)
                         })
                     results_map[query] = q_res
                 except Exception:
@@ -283,20 +328,33 @@ def search_semantic_batch(db_path: str, queries: List[str], top_k: int = 5) -> D
         model = SentenceTransformer(model_name)
         query_vecs = model.encode(queries, normalize_embeddings=True).tolist()
 
-    # Read stored thread vectors once
-    cur.execute("SELECT thread_id, start_date, participants, dialogue_text, embedding FROM thread_embeddings")
+    # Read stored thread vectors
+    sql = """
+    SELECT te.thread_id, te.chat_id, coalesce(c.chat_name, te.chat_id) as chat_name,
+           te.start_date, te.participants, te.dialogue_text, te.embedding
+    FROM thread_embeddings te
+    LEFT JOIN chats c ON te.chat_id = c.chat_id
+    """
+    params = []
+    if chat_filter:
+        sql += " WHERE te.chat_id = ? OR c.chat_name = ? OR c.chat_name LIKE ? "
+        params.extend([chat_filter, chat_filter, f"%{chat_filter}%"])
+
+    cur.execute(sql, params)
     thread_rows = []
     for r in cur.fetchall():
-        thread_rows.append((r[0], r[1], r[2], r[3], deserialize_vector(r[4])))
+        thread_rows.append((r[0], r[1], r[2], r[3], r[4], r[5], deserialize_vector(r[6])))
     conn.close()
 
     results_map: Dict[str, List[Dict[str, Any]]] = {}
     for q_text, q_vec in zip(queries, query_vecs):
         scored = []
-        for t_id, s_date, parts, text, emb in thread_rows:
+        for t_id, c_id, c_name, s_date, parts, text, emb in thread_rows:
             sim = dot_product(q_vec, emb)
             scored.append({
                 "thread_id": t_id,
+                "chat_id": c_id,
+                "chat_name": c_name,
                 "start_date": s_date,
                 "participants": parts,
                 "dialogue_text": text,
@@ -308,28 +366,35 @@ def search_semantic_batch(db_path: str, queries: List[str], top_k: int = 5) -> D
     return results_map
 
 
-def search_semantic(db_path: str, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+def search_semantic(
+    db_path: str,
+    query: str,
+    top_k: int = 5,
+    chat_filter: Optional[str] = None
+) -> List[Dict[str, Any]]:
     """Search conversation threads by a single semantic concept."""
-    res = search_semantic_batch(db_path, [query], top_k=top_k)
+    res = search_semantic_batch(db_path, [query], top_k=top_k, chat_filter=chat_filter)
     return res.get(query, [])
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Embed conversation threads for semantic psychological search.")
-    parser.add_argument("--db", default="chat_index.db", help="Path to SQLite database")
+    parser = argparse.ArgumentParser(description="Embed conversation threads for semantic psychological search (multi-chat aware).")
+    parser.add_argument("--db", default="chat.db", help="Path to SQLite database")
     parser.add_argument("--index", action="store_true", help="Run indexing on threads")
+    parser.add_argument("--chat", "-C", type=str, help="Filter indexing or search to a specific chat (id or name)")
+    parser.add_argument("--force", action="store_true", help="Force re-indexing of already embedded threads")
     parser.add_argument("--search", type=str, help="Semantic search query")
     parser.add_argument("--top-k", type=int, default=5, help="Number of results to return")
     parser.add_argument("--model", type=str, help="Override model name")
     args = parser.parse_args()
 
     if args.index:
-        index_threads(args.db, args.model)
+        index_threads(args.db, model_override=args.model, chat_filter=args.chat, force=args.force)
     elif args.search:
-        results = search_semantic(args.db, args.search, args.top_k)
+        results = search_semantic(args.db, args.search, top_k=args.top_k, chat_filter=args.chat)
         print(f"\n--- Top {len(results)} Semantic Matches for: '{args.search}' ---")
         for i, res in enumerate(results, 1):
-            print(f"\n[{i}] Thread: {res['thread_id']} | Date: {res['start_date'][:10]} | Score: {res['score']}")
+            print(f"\n[{i}] Thread: {res['thread_id']} | Chat: {res.get('chat_name', res.get('chat_id'))} | Date: {res['start_date'][:10]} | Score: {res['score']}")
             print(f"Participants: {res['participants']}")
             print(res["dialogue_text"])
             print("-" * 50)

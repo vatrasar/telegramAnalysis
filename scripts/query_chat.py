@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Telegram Chat Analysis Query CLI.
+Telegram Multi-Chat Analysis Query CLI.
 Provides quantitative mining (Phase 1) and qualitative psychological retrieval (Phase 2)
-over preprocessed SQLite and vector chat data.
+over preprocessed SQLite and vector chat data with multi-chat support.
 
 Supports:
+- Multi-chat filtering via --chat <chat_id_or_name> and chat catalog via --list-chats
 - Multi-query simultaneous execution (e.g. --stats --gaps --timeline in one call)
 - Repeated batch queries (--semantic "q1" --semantic "q2" or -s "term1" -s "term2")
 - Batch JSON execution via --batch-json <file_or_string>
@@ -18,7 +19,7 @@ import math
 import sqlite3
 import argparse
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 try:
     from vector_indexer import search_semantic, search_semantic_batch
@@ -44,43 +45,168 @@ def format_duration(seconds: int) -> str:
 
 
 # ==============================================================================
+# CHAT RESOLUTION & CATALOG
+# ==============================================================================
+
+def get_chats_catalog(db_path: str) -> List[Dict[str, Any]]:
+    """Retrieve catalog of all indexed chats in the database."""
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='chats';")
+    if cur.fetchone()[0] == 0:
+        conn.close()
+        return []
+
+    cur.execute("""
+    SELECT chat_id, chat_name, chat_type, source_files, total_messages, total_threads, start_date, end_date
+    FROM chats
+    ORDER BY total_messages DESC;
+    """)
+    rows = cur.fetchall()
+    conn.close()
+
+    return [
+        {
+            "chat_id": r[0],
+            "chat_name": r[1],
+            "chat_type": r[2],
+            "source_files": r[3],
+            "total_messages": r[4],
+            "total_threads": r[5],
+            "start_date": r[6][:10] if r[6] else None,
+            "end_date": r[7][:10] if r[7] else None
+        }
+        for r in rows
+    ]
+
+
+def resolve_chat(db_path: str, chat_arg: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Resolve chat_arg into (chat_id, chat_name).
+    Matches by exact chat_id, exact chat_name, or case-insensitive substring.
+    """
+    if not chat_arg:
+        return None, None
+
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='chats';")
+    if cur.fetchone()[0] == 0:
+        conn.close()
+        return chat_arg, chat_arg
+
+    # 1. Exact match on chat_id
+    cur.execute("SELECT chat_id, chat_name FROM chats WHERE chat_id = ?;", (chat_arg,))
+    row = cur.fetchone()
+    if row:
+        conn.close()
+        return row[0], row[1]
+
+    # 2. Case-insensitive exact match on chat_name
+    cur.execute("SELECT chat_id, chat_name FROM chats WHERE lower(chat_name) = lower(?);", (chat_arg,))
+    row = cur.fetchone()
+    if row:
+        conn.close()
+        return row[0], row[1]
+
+    # 3. Case-insensitive substring match
+    cur.execute("SELECT chat_id, chat_name FROM chats WHERE lower(chat_name) LIKE lower(?);", (f"%{chat_arg}%",))
+    rows = cur.fetchall()
+    conn.close()
+
+    if len(rows) == 1:
+        return rows[0][0], rows[0][1]
+    elif len(rows) > 1:
+        print(f"[!] Ambiguous chat identifier '{chat_arg}'. Matches multiple chats:")
+        for r in rows:
+            print(f"    - ID: {r[0]} | Name: '{r[1]}'")
+        print("    Please specify an exact chat_id using --chat <id>.")
+        sys.exit(1)
+
+    print(f"[!] Chat '{chat_arg}' not found in database.")
+    print("    Available chats:")
+    catalog = get_chats_catalog(db_path)
+    for c in catalog:
+        print(f"    - {c['chat_id']}: '{c['chat_name']}' ({c['total_messages']} msgs)")
+    sys.exit(1)
+
+
+# ==============================================================================
 # DATA RETRIEVAL FUNCTIONS (PURE DATA)
 # ==============================================================================
 
-def get_stats(db_path: str) -> Dict[str, Any]:
-    """Retrieve Phase 1 quantitative metrics as structured data."""
+def get_stats(db_path: str, chat_id: Optional[str] = None) -> Dict[str, Any]:
+    """Retrieve Phase 1 quantitative metrics as structured data (global or chat-specific)."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    cur.execute("SELECT count(*), min(date), max(date) FROM messages")
+    where_msg = "WHERE chat_id = ?" if chat_id else ""
+    where_thr = "WHERE chat_id = ?" if chat_id else ""
+    where_gap = "WHERE chat_id = ?" if chat_id else ""
+    params = [chat_id] if chat_id else []
+
+    cur.execute(f"SELECT count(*), min(date), max(date) FROM messages {where_msg};", params)
     total_msgs, min_date, max_date = cur.fetchone()
 
-    cur.execute("SELECT count(*) FROM threads")
+    cur.execute(f"SELECT count(*) FROM threads {where_thr};", params)
     total_threads = cur.fetchone()[0]
 
-    cur.execute("SELECT count(*) FROM silence_gaps")
+    cur.execute(f"SELECT count(*) FROM silence_gaps {where_gap};", params)
     total_gaps = cur.fetchone()[0]
 
-    cur.execute("""
+    # Participant metrics
+    cur.execute(f"""
     SELECT sender, count(*), round(avg(word_count), 1), sum(word_count)
     FROM messages
+    {where_msg}
     GROUP BY sender
-    ORDER BY count(*) DESC
-    """)
+    ORDER BY count(*) DESC;
+    """, params)
     participants = []
     for row in cur.fetchall():
         sender, count, avg_w, sum_w = row
         pct = round((count / total_msgs * 100), 1) if total_msgs else 0.0
+
+        chats_active = []
+        if not chat_id:
+            cur.execute("""
+            SELECT DISTINCT c.chat_name
+            FROM messages m
+            JOIN chats c ON m.chat_id = c.chat_id
+            WHERE m.sender = ?;
+            """, (sender,))
+            chats_active = [r[0] for r in cur.fetchall()]
+
         participants.append({
             "sender": sender,
             "messages": count,
             "share_percentage": pct,
             "avg_words_per_msg": avg_w or 0.0,
-            "total_words": sum_w or 0
+            "total_words": sum_w or 0,
+            "chats_active": chats_active
         })
+
+    # Catalog breakdown if overall stats
+    chats_data = []
+    if not chat_id:
+        cur.execute("""
+        SELECT c.chat_id, c.chat_name, c.total_messages, c.total_threads, c.start_date, c.end_date
+        FROM chats c
+        ORDER BY c.total_messages DESC;
+        """)
+        for r in cur.fetchall():
+            chats_data.append({
+                "chat_id": r[0],
+                "chat_name": r[1],
+                "messages": r[2],
+                "threads": r[3],
+                "date_range": f"{r[4][:10] if r[4] else ''} to {r[5][:10] if r[5] else ''}"
+            })
 
     conn.close()
     return {
+        "filtered_chat_id": chat_id,
+        "total_chats": len(chats_data) if not chat_id else 1,
         "total_messages": total_msgs or 0,
         "total_threads": total_threads or 0,
         "long_silences_over_24h": total_gaps or 0,
@@ -88,36 +214,48 @@ def get_stats(db_path: str) -> Dict[str, Any]:
             "start": str(min_date)[:10] if min_date else None,
             "end": str(max_date)[:10] if max_date else None
         },
+        "chats": chats_data,
         "participants": participants
     }
 
 
-def get_silence_gaps(db_path: str, min_hours: float = 24.0) -> Dict[str, Any]:
-    """Retrieve silence gaps and initiative ratios as structured data."""
+def get_silence_gaps(db_path: str, min_hours: float = 24.0, chat_id: Optional[str] = None) -> Dict[str, Any]:
+    """Retrieve silence gaps and initiative ratios (calculated strictly per chat)."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    cur.execute("""
-    SELECT silence_start_date, silence_end_date, silence_duration_seconds, last_sender, initiator, after_thread_id
-    FROM silence_gaps
-    WHERE silence_duration_hours >= ?
-    ORDER BY silence_duration_seconds DESC
-    """, (min_hours,))
+    sql = """
+    SELECT g.chat_id, coalesce(c.chat_name, g.chat_id) as chat_name,
+           g.silence_start_date, g.silence_end_date, g.silence_duration_seconds,
+           g.last_sender, g.initiator, g.after_thread_id
+    FROM silence_gaps g
+    LEFT JOIN chats c ON g.chat_id = c.chat_id
+    WHERE g.silence_duration_hours >= ?
+    """
+    params: List[Any] = [min_hours]
+    if chat_id:
+        sql += " AND g.chat_id = ? "
+        params.append(chat_id)
+
+    sql += " ORDER BY g.silence_duration_seconds DESC; "
+    cur.execute(sql, params)
     rows = cur.fetchall()
 
     initiators: Dict[str, int] = {}
     gaps_list = []
     for r in rows:
-        init = r[4]
+        init = r[6]
         initiators[init] = initiators.get(init, 0) + 1
         gaps_list.append({
-            "start_date": r[0],
-            "end_date": r[1],
-            "duration_seconds": r[2],
-            "duration_formatted": format_duration(r[2]),
-            "last_sender": r[3],
-            "initiator": r[4],
-            "after_thread_id": r[5]
+            "chat_id": r[0],
+            "chat_name": r[1],
+            "start_date": r[2],
+            "end_date": r[3],
+            "duration_seconds": r[4],
+            "duration_formatted": format_duration(r[4]),
+            "last_sender": r[5],
+            "initiator": r[6],
+            "after_thread_id": r[7]
         })
 
     total_gaps = len(rows)
@@ -131,6 +269,7 @@ def get_silence_gaps(db_path: str, min_hours: float = 24.0) -> Dict[str, Any]:
 
     conn.close()
     return {
+        "filtered_chat_id": chat_id,
         "min_hours": min_hours,
         "total_gaps": total_gaps,
         "initiative_stats": init_stats,
@@ -138,17 +277,22 @@ def get_silence_gaps(db_path: str, min_hours: float = 24.0) -> Dict[str, Any]:
     }
 
 
-def get_timeline(db_path: str) -> Dict[str, Any]:
+def get_timeline(db_path: str, chat_id: Optional[str] = None) -> Dict[str, Any]:
     """Retrieve monthly message counts per participant."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    cur.execute("""
+    sql = """
     SELECT substr(date, 1, 7) as month, sender, count(*)
     FROM messages
-    GROUP BY month, sender
-    ORDER BY month ASC
-    """)
+    """
+    params = []
+    if chat_id:
+        sql += " WHERE chat_id = ? "
+        params.append(chat_id)
+
+    sql += " GROUP BY month, sender ORDER BY month ASC; "
+    cur.execute(sql, params)
     rows = cur.fetchall()
 
     timeline: Dict[str, Dict[str, int]] = {}
@@ -169,22 +313,33 @@ def get_timeline(db_path: str) -> Dict[str, Any]:
         monthly_data.append(entry)
 
     return {
+        "filtered_chat_id": chat_id,
         "senders": sorted_senders,
         "months": monthly_data
     }
 
 
-def get_burning_days(db_path: str, std_multiplier: float = 2.0, min_msgs: int = 15) -> Dict[str, Any]:
+def get_burning_days(
+    db_path: str,
+    std_multiplier: float = 2.0,
+    min_msgs: int = 15,
+    chat_id: Optional[str] = None
+) -> Dict[str, Any]:
     """Identify statistically anomalous high-activity days (mu + 2*sigma)."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    cur.execute("""
+    sql = """
     SELECT substr(date, 1, 10) as day, count(*), sum(word_count)
     FROM messages
-    GROUP BY day
-    ORDER BY day ASC
-    """)
+    """
+    params = []
+    if chat_id:
+        sql += " WHERE chat_id = ? "
+        params.append(chat_id)
+
+    sql += " GROUP BY day ORDER BY day ASC; "
+    cur.execute(sql, params)
     rows = cur.fetchall()
     if not rows:
         conn.close()
@@ -198,7 +353,6 @@ def get_burning_days(db_path: str, std_multiplier: float = 2.0, min_msgs: int = 
     threshold = max(float(min_msgs), round(mean_count + (std_multiplier * std_count), 1))
 
     candidates = [r for r in rows if r[1] >= threshold]
-    # Fallback to top days if standard deviation is tiny
     if not candidates and n > 0:
         sorted_rows = sorted(rows, key=lambda x: x[1], reverse=True)
         candidates = sorted_rows[:min(5, n)]
@@ -208,14 +362,22 @@ def get_burning_days(db_path: str, std_multiplier: float = 2.0, min_msgs: int = 
         cur.execute("""
         SELECT sender, count(*) FROM messages
         WHERE substr(date, 1, 10) = ?
-        GROUP BY sender ORDER BY count(*) DESC LIMIT 1
+        GROUP BY sender ORDER BY count(*) DESC LIMIT 1;
         """, (day,))
         top_s_row = cur.fetchone()
         top_sender = top_s_row[0] if top_s_row else "Unknown"
 
         cur.execute("""
+        SELECT DISTINCT m.chat_id, coalesce(c.chat_name, m.chat_id)
+        FROM messages m
+        LEFT JOIN chats c ON m.chat_id = c.chat_id
+        WHERE substr(m.date, 1, 10) = ?;
+        """, (day,))
+        active_chats = [r[1] for r in cur.fetchall()]
+
+        cur.execute("""
         SELECT DISTINCT thread_id FROM messages
-        WHERE substr(date, 1, 10) = ?
+        WHERE substr(date, 1, 10) = ?;
         """, (day,))
         thread_ids = [r[0] for r in cur.fetchall()]
 
@@ -224,12 +386,14 @@ def get_burning_days(db_path: str, std_multiplier: float = 2.0, min_msgs: int = 
             "messages": msg_count,
             "words": word_count or 0,
             "top_participant": top_sender,
+            "active_chats": active_chats,
             "active_threads_count": len(thread_ids),
             "thread_ids": thread_ids
         })
 
     conn.close()
     return {
+        "filtered_chat_id": chat_id,
         "total_active_days": n,
         "mean_daily_messages": round(mean_count, 1),
         "std_daily_messages": round(std_count, 1),
@@ -239,21 +403,39 @@ def get_burning_days(db_path: str, std_multiplier: float = 2.0, min_msgs: int = 
     }
 
 
-def get_intensive_threads(db_path: str, min_words: int = 50, min_messages: int = 6, limit: int = 25) -> List[Dict[str, Any]]:
+def get_intensive_threads(
+    db_path: str,
+    min_words: int = 50,
+    min_messages: int = 6,
+    limit: int = 25,
+    chat_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
     """Retrieve dialogue threads ranked by substantive conversational volume, filtering small-talk noise."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    cur.execute("""
-    SELECT t.thread_id, t.start_date, t.end_date, t.message_count, sum(m.word_count) as total_words,
+    sql = """
+    SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id) as chat_name,
+           t.start_date, t.end_date, t.message_count, sum(m.word_count) as total_words,
            t.participants, t.initiator, t.duration_seconds
     FROM threads t
     JOIN messages m ON t.thread_id = m.thread_id
+    LEFT JOIN chats c ON t.chat_id = c.chat_id
+    """
+    params: List[Any] = []
+    if chat_id:
+        sql += " WHERE t.chat_id = ? "
+        params.append(chat_id)
+
+    sql += """
     GROUP BY t.thread_id
     HAVING t.message_count >= ? AND total_words >= ?
     ORDER BY total_words DESC
-    LIMIT ?
-    """, (min_messages, min_words, limit))
+    LIMIT ?;
+    """
+    params.extend([min_messages, min_words, limit])
+
+    cur.execute(sql, params)
     rows = cur.fetchall()
     conn.close()
 
@@ -261,18 +443,25 @@ def get_intensive_threads(db_path: str, min_words: int = 50, min_messages: int =
     for r in rows:
         results.append({
             "thread_id": r[0],
-            "start_date": r[1][:16].replace("T", " "),
-            "end_date": r[2][:16].replace("T", " "),
-            "message_count": r[3],
-            "total_words": r[4] or 0,
-            "participants": r[5],
-            "initiator": r[6],
-            "duration": format_duration(r[7] or 0)
+            "chat_id": r[1],
+            "chat_name": r[2],
+            "start_date": r[3][:16].replace("T", " "),
+            "end_date": r[4][:16].replace("T", " "),
+            "message_count": r[5],
+            "total_words": r[6] or 0,
+            "participants": r[7],
+            "initiator": r[8],
+            "duration": format_duration(r[9] or 0)
         })
     return results
 
 
-def get_search_messages(db_path: str, query: str, limit: int = 15) -> List[Dict[str, Any]]:
+def get_search_messages(
+    db_path: str,
+    query: str,
+    limit: int = 15,
+    chat_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
     """Search individual messages using FTS5."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
@@ -286,38 +475,59 @@ def get_search_messages(db_path: str, query: str, limit: int = 15) -> List[Dict[
     fts_query = " AND ".join(f'"{t}"' for t in terms)
 
     try:
-        cur.execute("""
-        SELECT message_id, date, sender, thread_id, snippet(messages_fts, 4, '【', '】', '...', 15)
-        FROM messages_fts
+        sql = """
+        SELECT mf.message_id, mf.chat_id, coalesce(c.chat_name, mf.chat_id) as chat_name,
+               mf.date, mf.sender, mf.thread_id, snippet(messages_fts, 5, '【', '】', '...', 15)
+        FROM messages_fts mf
+        LEFT JOIN chats c ON mf.chat_id = c.chat_id
         WHERE messages_fts MATCH ?
-        ORDER BY rank
-        LIMIT ?;
-        """, (fts_query, limit))
+        """
+        p: List[Any] = [fts_query]
+        if chat_id:
+            sql += " AND mf.chat_id = ? "
+            p.append(chat_id)
+        sql += " ORDER BY rank LIMIT ?; "
+        p.append(limit)
+
+        cur.execute(sql, p)
         rows = cur.fetchall()
     except sqlite3.OperationalError:
-        cur.execute("""
-        SELECT id, date, sender, thread_id, text
-        FROM messages
-        WHERE text LIKE ?
-        ORDER BY date DESC
-        LIMIT ?;
-        """, (f"%{clean_q}%", limit))
+        sql = """
+        SELECT m.id, m.chat_id, coalesce(c.chat_name, m.chat_id), m.date, m.sender, m.thread_id, m.text
+        FROM messages m
+        LEFT JOIN chats c ON m.chat_id = c.chat_id
+        WHERE m.text LIKE ?
+        """
+        p = [f"%{clean_q}%"]
+        if chat_id:
+            sql += " AND m.chat_id = ? "
+            p.append(chat_id)
+        sql += " ORDER BY m.date DESC LIMIT ?; "
+        p.append(limit)
+        cur.execute(sql, p)
         rows = cur.fetchall()
 
     conn.close()
     return [
         {
             "message_id": r[0],
-            "date": r[1],
-            "sender": r[2],
-            "thread_id": r[3],
-            "text": r[4]
+            "chat_id": r[1],
+            "chat_name": r[2],
+            "date": r[3],
+            "sender": r[4],
+            "thread_id": r[5],
+            "text": r[6]
         }
         for r in rows
     ]
 
 
-def get_search_threads_fts(db_path: str, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+def get_search_threads_fts(
+    db_path: str,
+    query: str,
+    limit: int = 5,
+    chat_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
     """Search complete threads using FTS5."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
@@ -327,58 +537,84 @@ def get_search_threads_fts(db_path: str, query: str, limit: int = 5) -> List[Dic
     fts_query = " AND ".join(f'"{t}"' for t in terms)
 
     try:
-        cur.execute("""
-        SELECT thread_id, start_date, participants, dialogue_text
-        FROM threads_fts
+        sql = """
+        SELECT tf.thread_id, tf.chat_id, coalesce(c.chat_name, tf.chat_id) as chat_name,
+               tf.start_date, tf.participants, tf.dialogue_text
+        FROM threads_fts tf
+        LEFT JOIN chats c ON tf.chat_id = c.chat_id
         WHERE threads_fts MATCH ?
-        ORDER BY rank
-        LIMIT ?;
-        """, (fts_query, limit))
+        """
+        p: List[Any] = [fts_query]
+        if chat_id:
+            sql += " AND tf.chat_id = ? "
+            p.append(chat_id)
+        sql += " ORDER BY rank LIMIT ?; "
+        p.append(limit)
+        cur.execute(sql, p)
         rows = cur.fetchall()
     except Exception:
-        cur.execute("""
-        SELECT thread_id, start_date, participants, dialogue_text
-        FROM threads
-        WHERE dialogue_text LIKE ?
-        ORDER BY start_date DESC
-        LIMIT ?;
-        """, (f"%{clean_q}%", limit))
+        sql = """
+        SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id), t.start_date, t.participants, t.dialogue_text
+        FROM threads t
+        LEFT JOIN chats c ON t.chat_id = c.chat_id
+        WHERE t.dialogue_text LIKE ?
+        """
+        p = [f"%{clean_q}%"]
+        if chat_id:
+            sql += " AND t.chat_id = ? "
+            p.append(chat_id)
+        sql += " ORDER BY t.start_date DESC LIMIT ?; "
+        p.append(limit)
+        cur.execute(sql, p)
         rows = cur.fetchall()
 
     conn.close()
     return [
         {
             "thread_id": r[0],
-            "start_date": r[1],
-            "participants": r[2],
-            "dialogue_text": r[3]
+            "chat_id": r[1],
+            "chat_name": r[2],
+            "start_date": r[3],
+            "participants": r[4],
+            "dialogue_text": r[5]
         }
         for r in rows
     ]
 
 
-def get_thread(db_path: str, identifier: str) -> Optional[Dict[str, Any]]:
+def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Fetch full dialogue transcript of a thread by thread_id or message_id."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
     target_thread_id = identifier
     cur.execute("""
-    SELECT thread_id, anchor_message_id, start_date, end_date, message_count, participants, initiator, dialogue_text
-    FROM threads WHERE thread_id = ?
+    SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id), t.anchor_message_id,
+           t.start_date, t.end_date, t.message_count, t.participants, t.initiator, t.dialogue_text
+    FROM threads t
+    LEFT JOIN chats c ON t.chat_id = c.chat_id
+    WHERE t.thread_id = ?;
     """, (target_thread_id,))
     row = cur.fetchone()
 
     if not row:
         try:
             msg_id = int(identifier)
-            cur.execute("SELECT thread_id FROM messages WHERE id = ?", (msg_id,))
-            m_row = cur.fetchone()
-            if m_row:
-                target_thread_id = m_row[0]
+            sql = "SELECT thread_id, chat_id FROM messages WHERE id = ?"
+            p: List[Any] = [msg_id]
+            if chat_id:
+                sql += " AND chat_id = ?"
+                p.append(chat_id)
+            cur.execute(sql, p)
+            m_rows = cur.fetchall()
+            if m_rows:
+                target_thread_id = m_rows[0][0]
                 cur.execute("""
-                SELECT thread_id, anchor_message_id, start_date, end_date, message_count, participants, initiator, dialogue_text
-                FROM threads WHERE thread_id = ?
+                SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id), t.anchor_message_id,
+                       t.start_date, t.end_date, t.message_count, t.participants, t.initiator, t.dialogue_text
+                FROM threads t
+                LEFT JOIN chats c ON t.chat_id = c.chat_id
+                WHERE t.thread_id = ?;
                 """, (target_thread_id,))
                 row = cur.fetchone()
         except ValueError:
@@ -390,52 +626,71 @@ def get_thread(db_path: str, identifier: str) -> Optional[Dict[str, Any]]:
 
     return {
         "thread_id": row[0],
-        "anchor_message_id": row[1],
-        "start_date": row[2],
-        "end_date": row[3],
-        "message_count": row[4],
-        "participants": row[5],
-        "initiator": row[6],
-        "dialogue_text": row[7]
+        "chat_id": row[1],
+        "chat_name": row[2],
+        "anchor_message_id": row[3],
+        "start_date": row[4],
+        "end_date": row[5],
+        "message_count": row[6],
+        "participants": row[7],
+        "initiator": row[8],
+        "dialogue_text": row[9]
     }
 
 
-def get_thread_slice(db_path: str, from_msg_id: int, limit: int = 5, window_before: int = 0) -> Optional[Dict[str, Any]]:
+def get_thread_slice(
+    db_path: str,
+    from_msg_id: int,
+    limit: int = 5,
+    window_before: int = 0,
+    chat_id: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
     """Fetch a slice of a conversation thread surrounding a specific message."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    cur.execute("SELECT thread_id, date, timestamp FROM messages WHERE id = ?", (from_msg_id,))
-    target = cur.fetchone()
-    if not target:
+    sql = "SELECT chat_id, thread_id, date, timestamp FROM messages WHERE id = ?"
+    params: List[Any] = [from_msg_id]
+    if chat_id:
+        sql += " AND chat_id = ?"
+        params.append(chat_id)
+
+    cur.execute(sql, params)
+    targets = cur.fetchall()
+    if not targets:
         conn.close()
         return None
 
-    thread_id, t_date, t_ts = target
+    c_id, thread_id, t_date, t_ts = targets[0]
 
-    cur.execute("SELECT anchor_message_id, initiator, participants FROM threads WHERE thread_id = ?", (thread_id,))
+    cur.execute("""
+    SELECT t.anchor_message_id, t.initiator, t.participants, coalesce(c.chat_name, t.chat_id)
+    FROM threads t
+    LEFT JOIN chats c ON t.chat_id = c.chat_id
+    WHERE t.thread_id = ?;
+    """, (thread_id,))
     t_row = cur.fetchone()
-    anchor_id, init, parts = t_row if t_row else (None, "Unknown", "")
+    anchor_id, init, parts, chat_name = t_row if t_row else (None, "Unknown", "", c_id)
 
     before_msgs = []
     if window_before > 0:
         cur.execute("""
         SELECT id, date, sender, reply_to_id, parent_id, link_type, text, timestamp
         FROM messages
-        WHERE thread_id = ? AND timestamp < ?
+        WHERE chat_id = ? AND thread_id = ? AND timestamp < ?
         ORDER BY timestamp DESC
-        LIMIT ?
-        """, (thread_id, t_ts, window_before))
+        LIMIT ?;
+        """, (c_id, thread_id, t_ts, window_before))
         before_msgs = cur.fetchall()
         before_msgs.reverse()
 
     cur.execute("""
     SELECT id, date, sender, reply_to_id, parent_id, link_type, text, timestamp
     FROM messages
-    WHERE thread_id = ? AND timestamp >= ?
+    WHERE chat_id = ? AND thread_id = ? AND timestamp >= ?
     ORDER BY timestamp ASC
-    LIMIT ?
-    """, (thread_id, t_ts, limit))
+    LIMIT ?;
+    """, (c_id, thread_id, t_ts, limit))
     forward_msgs = cur.fetchall()
 
     all_raw = before_msgs + forward_msgs
@@ -443,6 +698,8 @@ def get_thread_slice(db_path: str, from_msg_id: int, limit: int = 5, window_befo
 
     return {
         "thread_id": thread_id,
+        "chat_id": c_id,
+        "chat_name": chat_name,
         "anchor_message_id": anchor_id,
         "target_message_id": from_msg_id,
         "participants": parts,
@@ -462,25 +719,44 @@ def get_thread_slice(db_path: str, from_msg_id: int, limit: int = 5, window_befo
     }
 
 
-def get_quote_chain(db_path: str, msg_id: int) -> Optional[Dict[str, Any]]:
-    """Trace and extract the exact causal quote chain for a message."""
+def get_quote_chain(db_path: str, msg_id: int, chat_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Trace and extract the exact causal quote chain for a message within its chat stream."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    cur.execute("SELECT id, date, sender, reply_to_id, parent_id, link_type, text FROM messages WHERE id = ?", (msg_id,))
-    target = cur.fetchone()
-    if not target:
+    sql = """
+    SELECT m.id, m.chat_id, coalesce(c.chat_name, m.chat_id), m.date, m.sender,
+           m.reply_to_id, m.parent_id, m.link_type, m.text
+    FROM messages m
+    LEFT JOIN chats c ON m.chat_id = c.chat_id
+    WHERE m.id = ?
+    """
+    p: List[Any] = [msg_id]
+    if chat_id:
+        sql += " AND m.chat_id = ? "
+        p.append(chat_id)
+
+    cur.execute(sql, p)
+    rows = cur.fetchall()
+    if not rows:
         conn.close()
         return None
 
-    # Upstream ancestors
+    target = rows[0]
+    c_id = target[1]
+    chat_name = target[2]
+
+    # Upstream ancestors in the same chat
     ancestors = []
-    curr_parent = target[4] or target[3]
+    curr_parent = target[6] or target[5]
     visited = {msg_id}
 
     while curr_parent and curr_parent not in visited:
         visited.add(curr_parent)
-        cur.execute("SELECT id, date, sender, reply_to_id, parent_id, link_type, text FROM messages WHERE id = ?", (curr_parent,))
+        cur.execute("""
+        SELECT id, date, sender, reply_to_id, parent_id, link_type, text
+        FROM messages WHERE chat_id = ? AND id = ?;
+        """, (c_id, curr_parent))
         p_row = cur.fetchone()
         if not p_row:
             break
@@ -489,26 +765,28 @@ def get_quote_chain(db_path: str, msg_id: int) -> Optional[Dict[str, Any]]:
 
     ancestors.reverse()
 
-    # Downstream direct replies
+    # Downstream direct replies in the same chat
     cur.execute("""
     SELECT id, date, sender, reply_to_id, parent_id, link_type, text 
     FROM messages 
-    WHERE parent_id = ? OR reply_to_id = ?
+    WHERE chat_id = ? AND (parent_id = ? OR reply_to_id = ?)
     ORDER BY date ASC
-    LIMIT 10
-    """, (msg_id, msg_id))
+    LIMIT 10;
+    """, (c_id, msg_id, msg_id))
     children = cur.fetchall()
     conn.close()
 
     return {
+        "chat_id": c_id,
+        "chat_name": chat_name,
         "target_message": {
             "id": target[0],
-            "date": target[1],
-            "sender": target[2],
-            "reply_to_id": target[3],
-            "parent_id": target[4],
-            "link_type": target[5],
-            "text": target[6]
+            "date": target[3],
+            "sender": target[4],
+            "reply_to_id": target[5],
+            "parent_id": target[6],
+            "link_type": target[7],
+            "text": target[8]
         },
         "ancestors": [
             {
@@ -527,12 +805,17 @@ def get_quote_chain(db_path: str, msg_id: int) -> Optional[Dict[str, Any]]:
     }
 
 
-def get_semantic_batch_results(db_path: str, concepts: List[str], top_k: int = 5) -> Dict[str, List[Dict[str, Any]]]:
+def get_semantic_batch_results(
+    db_path: str,
+    concepts: List[str],
+    top_k: int = 5,
+    chat_id: Optional[str] = None
+) -> Dict[str, List[Dict[str, Any]]]:
     """Execute batch semantic search over multiple psychological concepts."""
     if search_semantic_batch is not None:
-        return search_semantic_batch(db_path, concepts, top_k=top_k)
+        return search_semantic_batch(db_path, concepts, top_k=top_k, chat_filter=chat_id)
     elif search_semantic is not None:
-        return {c: search_semantic(db_path, c, top_k=top_k) for c in concepts}
+        return {c: search_semantic(db_path, c, top_k=top_k, chat_filter=chat_id) for c in concepts}
     else:
         print("[!] vector_indexer module not available for semantic queries.")
         return {c: [] for c in concepts}
@@ -542,26 +825,54 @@ def get_semantic_batch_results(db_path: str, concepts: List[str], top_k: int = 5
 # PRESENTATION FUNCTIONS (CLI ASCII FORMATTING)
 # ==============================================================================
 
+def print_chats_catalog(chats: List[Dict[str, Any]]):
+    print("\n" + "=" * 80)
+    print("📁 INDEXED CHATS CATALOG")
+    print("=" * 80)
+    if not chats:
+        print("No chats found in database.")
+        return
+
+    print(f"{'Chat ID':<16} {'Chat Name':<24} {'Messages':<10} {'Threads':<10} {'Date Range':<22}")
+    print("-" * 84)
+    for c in chats:
+        c_id = c["chat_id"][:14]
+        c_name = c["chat_name"][:22]
+        d_range = f"{c['start_date'] or ''} to {c['end_date'] or ''}"
+        print(f"{c_id:<16} {c_name:<24} {c['total_messages']:<10,} {c['total_threads']:<10,} {d_range:<22}")
+    print("=" * 80)
+
+
 def print_stats(stats: Dict[str, Any]):
-    print("\n" + "=" * 60)
-    print("📊 QUANTITATIVE OVERVIEW (PHASE 1)")
-    print("=" * 60)
+    filter_label = f" [Chat: {stats['filtered_chat_id']}]" if stats.get("filtered_chat_id") else " [All Chats Combined]"
+    print("\n" + "=" * 65)
+    print(f"📊 QUANTITATIVE OVERVIEW (PHASE 1){filter_label}")
+    print("=" * 65)
+    print(f"Total Indexed Chats:  {stats['total_chats']}")
     print(f"Total Messages:       {stats['total_messages']:,}")
     print(f"Total Threads:        {stats['total_threads']:,}")
     print(f"Long Silences (>24h): {stats['long_silences_over_24h']:,}")
     print(f"Date Range:           {stats['date_range']['start']} to {stats['date_range']['end']}")
 
+    if stats.get("chats") and len(stats["chats"]) > 1:
+        print("\n💬 CHAT BREAKDOWN:")
+        print(f"{'Chat ID':<16} {'Chat Name':<22} {'Messages':<10} {'Threads':<10} {'Date Range'}")
+        print("-" * 75)
+        for c in stats["chats"]:
+            print(f"{c['chat_id']:<16} {c['chat_name']:<22} {c['messages']:<10,} {c['threads']:<10,} {c['date_range']}")
+
     print("\n👥 PARTICIPANT METRICS:")
     print(f"{'Sender':<20} {'Messages':<10} {'Share %':<10} {'Avg Words/Msg':<15} {'Total Words':<12}")
-    print("-" * 67)
+    print("-" * 69)
     for p in stats["participants"]:
         print(f"{p['sender']:<20} {p['messages']:<10,} {p['share_percentage']:<9.1f}% {p['avg_words_per_msg']:<15} {p['total_words']:<12,}")
 
 
 def print_silence_gaps(data: Dict[str, Any]):
-    print("\n" + "=" * 75)
-    print(f"⏳ CONVERSATION GAPS & RECONNECTION INITIATIVE (>= {data['min_hours']}h)")
-    print("=" * 75)
+    filter_label = f" [Chat: {data['filtered_chat_id']}]" if data.get("filtered_chat_id") else ""
+    print("\n" + "=" * 85)
+    print(f"⏳ CONVERSATION GAPS & RECONNECTION INITIATIVE (>= {data['min_hours']}h){filter_label}")
+    print("=" * 85)
 
     if not data["longest_gaps"]:
         print(f"No silences found exceeding {data['min_hours']} hours.")
@@ -572,21 +883,23 @@ def print_silence_gaps(data: Dict[str, Any]):
         print(f"  - {s['sender']:<18}: {s['count']} times ({s['percentage']}%)")
 
     print(f"\nTop Longest Silences:")
-    print(f"{'Silence Period':<35} {'Duration':<12} {'Last Spoke':<14} {'Broke Silence':<14}")
-    print("-" * 75)
+    print(f"{'Chat':<14} {'Silence Period':<35} {'Duration':<12} {'Last Spoke':<12} {'Broke Silence':<12}")
+    print("-" * 88)
     for g in data["longest_gaps"]:
+        c_label = g.get("chat_name", g.get("chat_id", ""))[:12]
         start_d = g["start_date"][:16].replace("T", " ")
         end_d = g["end_date"][:16].replace("T", " ")
         dur_str = g["duration_formatted"]
-        last_s = g["last_sender"][:13]
-        init_s = g["initiator"][:13]
-        print(f"{start_d} -> {end_d:<16} {dur_str:<12} {last_s:<14} {init_s:<14}")
+        last_s = g["last_sender"][:11]
+        init_s = g["initiator"][:11]
+        print(f"{c_label:<14} {start_d} -> {end_d:<16} {dur_str:<12} {last_s:<12} {init_s:<12}")
 
 
 def print_timeline(data: Dict[str, Any]):
-    print("\n" + "=" * 60)
-    print("📅 MONTHLY TIMELINE DISTRIBUTION")
-    print("=" * 60)
+    filter_label = f" [Chat: {data['filtered_chat_id']}]" if data.get("filtered_chat_id") else ""
+    print("\n" + "=" * 65)
+    print(f"📅 MONTHLY TIMELINE DISTRIBUTION{filter_label}")
+    print("=" * 65)
     senders = data["senders"]
     header = f"{'Month':<10} " + " ".join([f"{s[:12]:<12}" for s in senders]) + " Total"
     print(header)
@@ -597,146 +910,158 @@ def print_timeline(data: Dict[str, Any]):
         print(f"{m['month']:<10} {counts_str} {m['total']}")
 
 
-def print_search_messages(query: str, rows: List[Dict[str, Any]]):
-    print(f"\n🔍 Search Results for: '{query}' (Found {len(rows)} matches)")
-    print("=" * 70)
-    for r in rows:
-        d_clean = r["date"][:16].replace("T", " ")
-        print(f"[#{r['message_id']} | {d_clean} | Thread: {r['thread_id']}] {r['sender']}:")
-        print(f"  {r['text']}\n")
+def print_burning_days(data: Dict[str, Any]):
+    filter_label = f" [Chat: {data['filtered_chat_id']}]" if data.get("filtered_chat_id") else ""
+    print("\n" + "=" * 75)
+    print(f"🔥 STATISTICALLY ANOMALOUS CONVERSATION DAYS (BURNING DAYS){filter_label}")
+    print("=" * 75)
+    print(f"Active Days Analyzed:   {data['total_active_days']}")
+    print(f"Daily Message Baseline: {data['mean_daily_messages']} msgs/day (std: {data['std_daily_messages']})")
+    print(f"Outlier Cutoff (μ+2σ):  {data['anomaly_threshold_messages']} msgs/day")
+    print(f"Detected Burning Days:  {data['burning_days_count']}")
 
-
-def print_search_threads(query: str, rows: List[Dict[str, Any]]):
-    print(f"\n💬 Complete Threads Matching: '{query}' (Found {len(rows)})")
-    print("=" * 70)
-    for r in rows:
-        d_clean = r["start_date"][:16].replace("T", " ")
-        print(f"--- Thread: {r['thread_id']} | Started: {d_clean} | Participants: {r['participants']} ---")
-        print(r["dialogue_text"])
-        print("-" * 70)
-
-
-def print_thread(t: Optional[Dict[str, Any]], identifier: str):
-    if not t:
-        print(f"[!] Thread or Message '{identifier}' not found in database.")
+    if not data["burning_days"]:
+        print("No burning days detected exceeding the statistical threshold.")
         return
 
+    print("\nTop Intensity Days:")
+    print(f"{'Date':<12} {'Messages':<10} {'Words':<10} {'Top Speaker':<16} {'Active Chats / Topics'}")
+    print("-" * 75)
+    for b in data["burning_days"][:15]:
+        chats_str = ", ".join(b.get("active_chats", []))[:20]
+        print(f"{b['date']:<12} {b['messages']:<10,} {b['words']:<10,} {b['top_participant'][:15]:<16} {chats_str} ({b['active_threads_count']} threads)")
+
+
+def print_intensive_threads(threads: List[Dict[str, Any]]):
+    print("\n" + "=" * 80)
+    print(f"💬 SUBSTANTIVE DIALOGUE THREADS (RANKED BY CONVERSATIONAL VOLUME)")
+    print("=" * 80)
+    if not threads:
+        print("No intensive dialogue threads found meeting criteria.")
+        return
+
+    print(f"{'Thread ID':<22} {'Chat':<14} {'Date':<17} {'Msgs':<6} {'Words':<8} {'Participants'}")
+    print("-" * 80)
+    for t in threads:
+        c_label = t.get("chat_name", t.get("chat_id", ""))[:12]
+        print(f"{t['thread_id']:<22} {c_label:<14} {t['start_date']:<17} {t['message_count']:<6} {t['total_words']:<8,} {t['participants']}")
+
+
+def print_search_messages(query: str, rows: List[Dict[str, Any]]):
     print("\n" + "=" * 70)
-    print(f"Thread:       {t['thread_id']}")
-    print(f"Anchor Msg:   #{t['anchor_message_id'] if t['anchor_message_id'] else 'None'}")
-    start_d = t["start_date"][:16].replace("T", " ")
-    end_d = t["end_date"][:16].replace("T", " ")
-    print(f"Time Range:   {start_d} to {end_d}")
-    print(f"Initiator:    {t['initiator']} | Total Messages: {t['message_count']}")
-    print(f"Participants: {t['participants']}")
+    print(f"🔍 MESSAGE SEARCH: '{query}' ({len(rows)} matches)")
+    print("=" * 70)
+    if not rows:
+        print("No matching messages found.")
+        return
+
+    for r in rows:
+        c_label = f" | Chat: {r.get('chat_name', r.get('chat_id'))}" if r.get("chat_name") else ""
+        print(f"\n[#{r['message_id']} | {r['date'][:16].replace('T', ' ')}{c_label}] {r['sender']} (Thread: {r['thread_id']}):")
+        print(f"   {r['text']}")
+
+
+def print_search_threads_fts(query: str, rows: List[Dict[str, Any]]):
+    print("\n" + "=" * 70)
+    print(f"🔍 THREAD SEARCH (FTS5): '{query}' ({len(rows)} matches)")
+    print("=" * 70)
+    if not rows:
+        print("No matching threads found.")
+        return
+
+    for i, r in enumerate(rows, 1):
+        c_label = f" | Chat: {r.get('chat_name', r.get('chat_id'))}" if r.get("chat_name") else ""
+        print(f"\n[{i}] Thread: {r['thread_id']}{c_label} | Date: {r['start_date'][:10]} | Parts: {r['participants']}")
+        lines = r["dialogue_text"].split("\n")
+        preview = "\n".join(lines[:6])
+        if len(lines) > 6:
+            preview += f"\n   ... ({len(lines) - 6} more messages in thread)"
+        print(preview)
+        print("-" * 50)
+
+
+def print_thread(t: Dict[str, Any]):
+    print("\n" + "=" * 70)
+    c_label = f" [Chat: {t.get('chat_name', t.get('chat_id'))}]" if t.get("chat_name") else ""
+    print(f"📜 CONVERSATION THREAD: {t['thread_id']}{c_label}")
+    print(f"Timeframe:    {t['start_date'][:16].replace('T', ' ')} to {t['end_date'][:16].replace('T', ' ')}")
+    print(f"Messages:     {t['message_count']}")
+    print(f"Participants: {t['participants']} (Initiator: {t['initiator']})")
     print("=" * 70)
     print(t["dialogue_text"])
-    print("=" * 70 + "\n")
+    print("=" * 70)
 
 
-def print_thread_slice(s: Optional[Dict[str, Any]], from_msg_id: int):
-    if not s:
-        print(f"[!] Message #{from_msg_id} not found in database.")
-        return
-
+def print_thread_slice(s: Dict[str, Any]):
     print("\n" + "=" * 70)
-    print(f"Thread:       {s['thread_id']}")
-    print(f"Anchor Msg:   #{s['anchor_message_id'] if s['anchor_message_id'] else 'None'}")
-    print(f"Slice View:   Starting at #{from_msg_id} (Showing {len(s['messages'])} messages)")
+    c_label = f" [Chat: {s.get('chat_name', s.get('chat_id'))}]" if s.get("chat_name") else ""
+    print(f"🔎 THREAD SLICE (Target #{s['target_message_id']} in {s['thread_id']}){c_label}")
     print(f"Participants: {s['participants']}")
     print("=" * 70)
-
     for m in s["messages"]:
-        is_target = "⭐ [START] " if m["is_target"] else "  "
-        prefix = ""
-        if m["link_type"] == "explicit_reply":
-            prefix = f"[Reply to #{m['parent_id']}] "
-        elif m["link_type"] == "burst_continuation":
-            prefix = "[+] "
-        m_date = m["date"][:16].replace("T", " ")
-        print(f"{is_target}[#{m['id']} | {m_date}] {m['sender']}: {prefix}{m['text']}")
-
-    print("=" * 70 + "\n")
+        marker = "==> " if m["is_target"] else "    "
+        prefix = f"[Reply #{m['reply_to_id']}] " if m["reply_to_id"] else ""
+        print(f"{marker}[#{m['id']} | {m['date'][:16].replace('T', ' ')}] {m['sender']}: {prefix}{m['text']}")
+    print("=" * 70)
 
 
-def print_quote_chain(c: Optional[Dict[str, Any]], msg_id: int):
-    if not c:
-        print(f"[!] Message #{msg_id} not found in database.")
-        return
+def print_quote_chain(c: Dict[str, Any]):
+    print("\n" + "=" * 70)
+    c_label = f" [Chat: {c.get('chat_name', c.get('chat_id'))}]" if c.get("chat_name") else ""
+    print(f"🔗 CAUSAL QUOTE CHAIN FOR MESSAGE #{c['target_message']['id']}{c_label}")
+    print("=" * 70)
 
-    print("\n" + "=" * 75)
-    print(f"🔗 CAUSAL QUOTE CHAIN FOR MESSAGE #{msg_id}")
-    print("=" * 75)
-
-    indent = 0
     if c["ancestors"]:
-        print("Ancestors (What led up to this message):")
-        for anc in c["ancestors"]:
-            prefix = "  " * indent + "↳ " if indent > 0 else "• "
-            anc_date = anc["date"][:16].replace("T", " ")
-            print(f"{prefix}[#{anc['id']} | {anc_date}] {anc['sender']}: {anc['text']}")
-            indent += 1
+        print("⬆️  UPSTREAM CONTEXT (What triggered this):")
+        for a in c["ancestors"]:
+            print(f"   [#{a['id']} | {a['date'][:16].replace('T', ' ')}] {a['sender']}: {a['text']}")
+        print("   " + "-" * 50)
 
-    tgt = c["target_message"]
-    target_prefix = "  " * indent + "⭐ [TARGET] " if indent > 0 else "⭐ [TARGET] "
-    t_date = tgt["date"][:16].replace("T", " ")
-    print(f"\n{target_prefix}[#{tgt['id']} | {t_date}] {tgt['sender']}: {tgt['text']}\n")
+    t = c["target_message"]
+    print(f"🎯 TARGET MESSAGE [#{t['id']} | {t['date'][:16].replace('T', ' ')}] {t['sender']}:")
+    print(f"   {t['text']}")
 
     if c["replies"]:
-        print("Direct Replies & Follow-ups to this message:")
-        for ch in c["replies"]:
-            ch_date = ch["date"][:16].replace("T", " ")
-            l_info = "Reply" if ch["reply_to_id"] == msg_id else "Burst continuation"
-            print(f"  ↳ [#{ch['id']} | {ch_date} | {l_info}] {ch['sender']}: {ch['text']}")
-
-    print("=" * 75 + "\n")
-
-
-def print_burning_days(data: Dict[str, Any]):
-    print("\n" + "=" * 70)
-    print("🔥 BURNING DAYS (STATISTICAL CONVERSATION ANOMALIES)")
+        print("   " + "-" * 50)
+        print("⬇️  DOWNSTREAM REACTIONS (Direct answers to target):")
+        for r in c["replies"]:
+            print(f"   [#{r['id']} | {r['date'][:16].replace('T', ' ')}] {r['sender']}: {r['text']}")
     print("=" * 70)
-    print(f"Total Active Days: {data['total_active_days']} | Mean: {data['mean_daily_messages']} msgs/day | StdDev: {data['std_daily_messages']}")
-    print(f"Anomaly Threshold (μ + 2σ): {data['anomaly_threshold_messages']} messages | Found: {data['burning_days_count']} days")
-    print("-" * 70)
-    print(f"{'Date':<12} {'Messages':<10} {'Words':<10} {'Top Participant':<18} {'Active Threads'}")
-    print("-" * 70)
-    for b in data["burning_days"]:
-        t_ids = ", ".join(b["thread_ids"][:4])
-        if len(b["thread_ids"]) > 4:
-            t_ids += f" (+{len(b['thread_ids']) - 4} more)"
-        print(f"{b['date']:<12} {b['messages']:<10} {b['words']:<10} {b['top_participant'][:16]:<18} {t_ids}")
-
-
-def print_intensive_threads(rows: List[Dict[str, Any]]):
-    print("\n" + "=" * 75)
-    print("💬 SUBSTANTIVE DIALOGUE THREADS (RANKED BY VOLUME)")
-    print("=" * 75)
-    print(f"{'Thread ID':<15} {'Start Date':<17} {'Msgs':<6} {'Words':<8} {'Duration':<10} {'Initiator'}")
-    print("-" * 75)
-    for r in rows:
-        print(f"{r['thread_id']:<15} {r['start_date']:<17} {r['message_count']:<6} {r['total_words']:<8} {r['duration']:<10} {r['initiator']}")
 
 
 def print_semantic_results(concept: str, results: List[Dict[str, Any]]):
-    print(f"\n🧠 Semantic Psychological Search for: '{concept}'")
+    print("\n" + "=" * 70)
+    print(f"🧠 SEMANTIC CONCEPT MATCHES: '{concept}'")
     print("=" * 70)
+    if not results:
+        print("No semantic matches found.")
+        return
+
     for i, res in enumerate(results, 1):
-        print(f"\n[{i}] Thread: {res['thread_id']} | Date: {res['start_date'][:10]} | Relevance Score: {res['score']}")
+        c_label = f" | Chat: {res.get('chat_name', res.get('chat_id'))}" if res.get("chat_name") else ""
+        print(f"\n[{i}] Thread: {res['thread_id']}{c_label} | Date: {res['start_date'][:10]} | Relevance Score: {res['score']}")
         print(f"Participants: {res['participants']}")
-        print(res["dialogue_text"])
-        print("-" * 70)
+        lines = res["dialogue_text"].split("\n")
+        preview = "\n".join(lines[:6])
+        if len(lines) > 6:
+            preview += f"\n   ... ({len(lines) - 6} more messages in thread)"
+        print(preview)
+        print("-" * 50)
 
 
 # ==============================================================================
-# MAIN CONTROLLER & BATCH DISPATCHER
+# MAIN CLI DISPATCHER
 # ==============================================================================
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Query CLI for Telegram analytical chat database (supports multi-query and batch modes)."
+        description="Query Telegram analytical SQLite and vector database (multi-chat support)."
     )
-    parser.add_argument("--db", default="chat_index.db", help="Path to SQLite database")
+    parser.add_argument("--db", default="chat.db", help="Path to analytical SQLite database (default: chat.db)")
+    parser.add_argument("--chat", "-C", type=str, help="Filter query to a specific chat by chat_id or chat_name")
+    parser.add_argument("--list-chats", action="store_true", help="Display catalog of all indexed chats in the database")
+
+    # Analytical flags
     parser.add_argument("--stats", action="store_true", help="Display Phase 1 quantitative metrics")
     parser.add_argument("--gaps", action="store_true", help="Display silence and reconnection initiative analysis")
     parser.add_argument("--min-hours", type=float, default=24.0, help="Minimum silence duration in hours (default: 24)")
@@ -774,6 +1099,24 @@ def main():
             except Exception as e:
                 print(f"[!] Error parsing --batch-json: {e}")
                 sys.exit(1)
+
+    if not os.path.exists(args.db):
+        print(f"[!] Database file '{args.db}' not found.")
+        print("    Build it first using: python3 project/scripts/db_builder.py rozmowy/*.json -o chat.db")
+        sys.exit(1)
+
+    # Catalog command
+    if args.list_chats or batch_config.get("list_chats", False):
+        catalog = get_chats_catalog(args.db)
+        if args.json:
+            print(json.dumps({"chats": catalog}, indent=2, ensure_ascii=False))
+        else:
+            print_chats_catalog(catalog)
+        return
+
+    # Resolve chat filter
+    filter_chat_arg = args.chat or batch_config.get("chat")
+    resolved_chat_id, resolved_chat_name = resolve_chat(args.db, filter_chat_arg)
 
     # Merge CLI flags with batch config
     run_stats = args.stats or batch_config.get("stats", False)
@@ -813,17 +1156,13 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    if not os.path.exists(args.db):
-        print(f"[!] Database file '{args.db}' not found.")
-        print("    Build it first using: python3 project/scripts/db_builder.py <path_to_export.json> -o chat_index.db")
-        sys.exit(1)
-
-    # Dictionary to aggregate all results for structured JSON mode
     aggregated: Dict[str, Any] = {}
+    if resolved_chat_id:
+        aggregated["filter_chat"] = {"chat_id": resolved_chat_id, "chat_name": resolved_chat_name}
 
     # 1. Quantitative Stats
     if run_stats:
-        stats_data = get_stats(args.db)
+        stats_data = get_stats(args.db, chat_id=resolved_chat_id)
         if args.json:
             aggregated["stats"] = stats_data
         else:
@@ -831,7 +1170,7 @@ def main():
 
     # 2. Silence Gaps
     if run_gaps:
-        gaps_data = get_silence_gaps(args.db, min_hours)
+        gaps_data = get_silence_gaps(args.db, min_hours=min_hours, chat_id=resolved_chat_id)
         if args.json:
             aggregated["silence_gaps"] = gaps_data
         else:
@@ -839,93 +1178,118 @@ def main():
 
     # 3. Monthly Timeline
     if run_timeline:
-        timeline_data = get_timeline(args.db)
+        timeline_data = get_timeline(args.db, chat_id=resolved_chat_id)
         if args.json:
             aggregated["timeline"] = timeline_data
         else:
             print_timeline(timeline_data)
 
-    # 3.5. Burning Days (Statistical Conversation Outliers)
+    # 4. Burning Days
     if run_burning:
-        burning_data = get_burning_days(args.db)
+        burning_data = get_burning_days(args.db, chat_id=resolved_chat_id)
         if args.json:
             aggregated["burning_days"] = burning_data
         else:
             print_burning_days(burning_data)
 
-    # 3.6. Substantive Dialogue Threads (Ranked by Volume)
+    # 5. Intensive Substantive Threads
     if run_intensive:
-        intensive_data = get_intensive_threads(args.db, min_words=min_words, min_messages=min_messages, limit=limit)
+        intensive_data = get_intensive_threads(
+            args.db, min_words=min_words, min_messages=min_messages, limit=limit, chat_id=resolved_chat_id
+        )
         if args.json:
             aggregated["intensive_threads"] = intensive_data
         else:
             print_intensive_threads(intensive_data)
 
-    # 4. Message Keyword Searches
+    # 6. Keyword Search (Individual Messages)
     if search_queries:
-        search_res = {}
+        search_results: Dict[str, Any] = {}
         for q in search_queries:
-            res = get_search_messages(args.db, q, limit)
-            search_res[q] = res
-            if not args.json:
-                print_search_messages(q, res)
+            msgs = get_search_messages(args.db, q, limit=limit, chat_id=resolved_chat_id)
+            if args.json:
+                search_results[q] = msgs
+            else:
+                print_search_messages(q, msgs)
         if args.json:
-            aggregated["search_messages"] = search_res
+            aggregated["search_messages"] = search_results
 
-    # 5. Thread Keyword Searches
+    # 7. Keyword Search (Full Threads)
     if search_thread_queries:
-        st_res = {}
+        st_results: Dict[str, Any] = {}
         for q in search_thread_queries:
-            res = get_search_threads_fts(args.db, q, limit)
-            st_res[q] = res
-            if not args.json:
-                print_search_threads(q, res)
+            threads = get_search_threads_fts(args.db, q, limit=limit, chat_id=resolved_chat_id)
+            if args.json:
+                st_results[q] = threads
+            else:
+                print_search_threads_fts(q, threads)
         if args.json:
-            aggregated["search_threads"] = st_res
+            aggregated["search_threads"] = st_results
 
-    # 6. Full Thread Transcripts
+    # 8. Retrieve Full Threads
     if thread_ids:
-        t_res = {}
-        for tid in thread_ids:
-            res = get_thread(args.db, tid)
-            t_res[tid] = res
-            if not args.json:
-                print_thread(res, tid)
+        thread_results: Dict[str, Any] = {}
+        for t_id in thread_ids:
+            t_obj = get_thread(args.db, t_id, chat_id=resolved_chat_id)
+            if t_obj:
+                if args.json:
+                    thread_results[t_id] = t_obj
+                else:
+                    print_thread(t_obj)
+            else:
+                if args.json:
+                    thread_results[t_id] = None
+                else:
+                    print(f"\n[!] Thread/Message '{t_id}' not found.")
         if args.json:
-            aggregated["threads"] = t_res
+            aggregated["threads"] = thread_results
 
-    # 7. Thread Slices
+    # 9. Retrieve Thread Slices
     if from_msgs:
-        slice_res = {}
-        for fmsg in from_msgs:
-            res = get_thread_slice(args.db, fmsg, limit=limit, window_before=window)
-            slice_res[str(fmsg)] = res
-            if not args.json:
-                print_thread_slice(res, fmsg)
+        slice_results: Dict[str, Any] = {}
+        for m_id in from_msgs:
+            s_obj = get_thread_slice(args.db, m_id, limit=limit, window_before=window, chat_id=resolved_chat_id)
+            if s_obj:
+                if args.json:
+                    slice_results[str(m_id)] = s_obj
+                else:
+                    print_thread_slice(s_obj)
+            else:
+                if args.json:
+                    slice_results[str(m_id)] = None
+                else:
+                    print(f"\n[!] Message #{m_id} not found.")
         if args.json:
-            aggregated["thread_slices"] = slice_res
+            aggregated["thread_slices"] = slice_results
 
-    # 8. Causal Quote Chains
+    # 10. Trace Causal Quote Chains
     if chains:
-        chain_res = {}
-        for cid in chains:
-            res = get_quote_chain(args.db, cid)
-            chain_res[str(cid)] = res
-            if not args.json:
-                print_quote_chain(res, cid)
+        chain_results: Dict[str, Any] = {}
+        for c_id in chains:
+            chain_obj = get_quote_chain(args.db, c_id, chat_id=resolved_chat_id)
+            if chain_obj:
+                if args.json:
+                    chain_results[str(c_id)] = chain_obj
+                else:
+                    print_quote_chain(chain_obj)
+            else:
+                if args.json:
+                    chain_results[str(c_id)] = None
+                else:
+                    print(f"\n[!] Message #{c_id} not found.")
         if args.json:
-            aggregated["quote_chains"] = chain_res
+            aggregated["quote_chains"] = chain_results
 
-    # 9. Semantic Psychological Search (Executed in single batch)
+    # 11. Batch Semantic Search
     if semantic_queries:
-        sem_res = get_semantic_batch_results(args.db, semantic_queries, top_k=limit)
+        sem_res = get_semantic_batch_results(args.db, semantic_queries, top_k=limit, chat_id=resolved_chat_id)
         if args.json:
             aggregated["semantic_search"] = sem_res
         else:
             for q, results in sem_res.items():
                 print_semantic_results(q, results)
 
-    # Output JSON if requested
+    # Output structured JSON if requested
     if args.json:
         print(json.dumps(aggregated, indent=2, ensure_ascii=False))
 
