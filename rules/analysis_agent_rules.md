@@ -125,9 +125,10 @@ Before reading individual quotes or forming premature psychological conclusions:
    - **E:** Romantic attachment & deactivating strategies.
    - **F:** Passions, aesthetic sensibilities & solitude.
 
-### Stage 4: Forensic Dimensions & Behavioral MBTI
+### Stage 4: Forensic Dimensions, Behavioral MBTI & Big Five (OCEAN)
 1. **Behavioral MBTI:** Classify strictly based on communicative habits (bursts/live thinking vs. delayed synthesis; concrete details vs. abstract modeling; logic vs. relational harmony; closure vs. flexibility).
-2. **Forensic Probing:** Check for conspicuous absences, linguistic code-switching, temporal evolution, declared vs. actual fractures, accountability (genuine apologies vs. non-apologies), boundary testing, and late-night prefrontal fatigue ("Nighttime Truth" 23:00–04:00).
+2. **Big Five Personality Model (OCEAN):** Systematically estimate trait levels across all 5 dimensions (Openness to Experience, Conscientiousness, Extraversion, Agreeableness, Neuroticism/Emotional Stability) with spectrum ratings (Low, Moderate, High), concrete conversational markers, and developmental roots.
+3. **Forensic Probing:** Check for conspicuous absences, linguistic code-switching, temporal evolution, declared vs. actual fractures, accountability (genuine apologies vs. non-apologies), boundary testing, and late-night prefrontal fatigue ("Nighttime Truth" 23:00–04:00).
 
 ---
 
@@ -170,8 +171,9 @@ Before reading individual quotes or forming premature psychological conclusions:
   - Mandatory Cast of Characters table and commentary.
   - Mandatory Attachment Style classification (Secure, Anxious-Preoccupied, Dismissive-Avoidant, Fearful-Avoidant).
   - Mandatory Behavioral MBTI classification.
+  - Mandatory Big Five (OCEAN) profile estimation (Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism/Emotional Stability).
   - Mandatory **Operational User Manual** (Blind spots, triggers, unspoken need, communication protocols, statement reliability).
-  - Conclude with the standard **Summary Matrix** table.
+  - Conclude with the standard **Summary Matrix** table (including MBTI, Big Five, and Attachment Style).
 - Benchmark quality against reference profiles in `przykłądoweAnalizy/`.
 
 ---
