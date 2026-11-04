@@ -74,20 +74,19 @@ python3 project/scripts/setup_config.py
 - **If exit code indicates error (3, 4, 5, 6):** HARD STOP. Notify the user of the exact diagnostic error (invalid key, insufficient credits, wrong model, or network failure) and pause.
 - **If exit code is 0 (`SUCCESS`):** Configuration and connectivity verified. Proceed to Step 1.
 
-### Step 1: Build the Analytical Database (Single or Multi-Chat)
-Execute the database builder in bash with one or more export files:
+### Step 1: Build the Analytical Database & Clean Slate Protocol
+When starting an analysis for a new subject, **always clean previous database state** or create a dedicated database file to prevent cross-subject contamination and statistical noise:
 ```bash
-# Ingest all chat exports at once (e.g. from multiple contacts):
-python3 project/scripts/db_builder.py rozmowy/*.json -o chat.db
+# Clean slate build for a new subject (RECOMMENDED default to avoid noise):
+python3 project/scripts/db_builder.py rozmowy/nowa_osoba.json -o chat.db --clean
 
-# Or ingest files incrementally without wiping existing database chats:
-python3 project/scripts/db_builder.py rozmowy/partner.json -o chat.db
-python3 project/scripts/db_builder.py rozmowy/mama.json -o chat.db
+# Or isolated database per subject (preserving historical databases):
+python3 project/scripts/db_builder.py rozmowy/nowa_osoba.json -o chat_nowa_osoba.db
 
-# Or force rebuild from scratch:
-python3 project/scripts/db_builder.py rozmowy/*.json -o chat.db --clean
+# Multi-file export for the same person:
+python3 project/scripts/db_builder.py rozmowy/osoba_part1.json rozmowy/osoba_part2.json -o chat.db --clean
 ```
-*Creates `chat.db` with isolated chats, indexed messages, collision-free threads, independent per-chat silence gaps, and FTS5 search.*
+*The `--clean` flag purges existing messages, threads, silence gaps, and embeddings, ensuring statistical baselines (`--stats`, `--timeline`, `--gaps`) remain 100% pure.*
 
 ### Step 2: Index Semantic Vectors (MANDATORY PREREQUISITE)
 Vector indexing is a **mandatory prerequisite** for qualitative psychological analysis. The agent must **NEVER** skip this step or silently downgrade to lexical FTS5 search without explicit user consent:

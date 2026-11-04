@@ -37,7 +37,7 @@ Rather than operating as a passive summarizer or a checklist-bound automaton, th
 > **Mandatory Ingestion & Indexing Prerequisite:**
 > Before initiating Phase 1 or Phase 2, the agent must ensure that:
 > 1. Pre-flight verification (`project/scripts/setup_config.py`) succeeded with Exit Code 0.
-> 2. Analytical database was built (`project/scripts/db_builder.py`).
+> 2. Analytical database was built cleanly without cross-subject contamination (`project/scripts/db_builder.py <file> -o chat.db --clean` or via a dedicated subject database `-o chat_<subject>.db`).
 > 3. Semantic vector embeddings were generated (`project/scripts/vector_indexer.py --db chat.db --index`).
 > Deep psychological exploration and semantic search (`--semantic`) strictly depend on indexed vector embeddings; never skip indexing or silently downgrade to keyword matching.
 

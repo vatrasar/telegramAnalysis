@@ -43,12 +43,26 @@ If `setup_config.py` returns **ANY exit code other than 0** (e.g., Code 2, 3, 4,
 - **NEVER load raw chat logs (>1,000 messages) directly into the model context.**
 - The ingestion and indexing pipeline follows a strict 3-step sequence that must be completed before any analysis starts:
 
-### Step 3.1: Database Ingestion (SQLite + FTS5)
-Ingest all conversation files into the unified analytical database:
-```bash
-python3 project/scripts/db_builder.py rozmowy/*.json -o chat.db
-```
-*(Supports multiple files from different contacts, multi-part chat splits, and incremental additions without wiping previous data).*
+### Step 3.1: Database Ingestion (SQLite + FTS5) & Clean Slate Protocol
+- **Zero Cross-Subject Contamination (Clean Slate Rule):**
+  When starting an analysis for a new or different person, previous database records must **NEVER** contaminate the new analysis. The agent must:
+  - **Rebuild with `--clean` (Default clean slate):**
+    ```bash
+    python3 project/scripts/db_builder.py rozmowy/<person>.json -o chat.db --clean
+    ```
+    This completely purges existing messages, threads, silence gaps, and vector embeddings, guaranteeing zero noise or historical bleed from previous subjects.
+  - **OR create an isolated database per person (Preservation mode):**
+    ```bash
+    python3 project/scripts/db_builder.py rozmowy/<person>.json -o chat_<person>.db
+    python3 project/scripts/vector_indexer.py --db chat_<person>.db --index
+    ```
+    And subsequently pass `--db chat_<person>.db` to all queries.
+  - **Multi-File Ingestion for the Same Subject:**
+    If the subject has multiple split export files (e.g., `part1.json`, `part2.json`), ingest them together in one command:
+    ```bash
+    python3 project/scripts/db_builder.py rozmowy/person_part1.json rozmowy/person_part2.json -o chat.db --clean
+    ```
+  - **STRICT PROHIBITION:** Never run single-subject psychological profiling against an uncleaned `chat.db` containing data from a different person without `--clean` or isolated database naming. Uncleaned databases pollute statistical baselines (`--stats`, `--timeline`, `--gaps`) and inject false semantic matches.
 
 ### Step 3.2: Semantic Vector Indexing (MANDATORY PREREQUISITE)
 Immediately after building the database, generate vector embeddings for all conversation threads:
