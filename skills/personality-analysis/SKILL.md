@@ -3,17 +3,17 @@ name: personality-analysis
 description: >-
   Conducts deep, thesis-driven psychological and personality profiling from longitudinal chat logs
   and transcripts. Uses an investigative detective/profiler mindset to reconstruct biographical
-  dossiers, diagnose behavioral MBTI and attachment styles, audit all intensive discussions, map
-  the cast of characters, analyze life spheres (friends, work, worldview), detect internal contradictions
-  and unconscious blind spots, and generate actionable operational manuals. Formatted in a modular
-  Thesis-First architecture.
+  dossiers, diagnose behavioral MBTI, Big Five (OCEAN) traits, and attachment styles, audit all intensive
+  discussions, map the cast of characters, analyze life spheres (friends, work, worldview), detect
+  internal contradictions and unconscious blind spots, and generate actionable operational manuals.
+  Formatted in a modular Thesis-First architecture.
 ---
 
 # Personality Profiling & Behavioral Intelligence Skill
 
 This skill defines the methodology, investigative mindset, and modular document architecture for generating forensic-grade psychological portraits from longitudinal chat archives (often spanning tens of thousands of messages across multiple years).
 
-It transforms raw message logs into an exhaustive psychological dossier that deciphers **who the person actually is**, traces their **formative roots**, exposes their **unconscious defense mechanisms**, classifies their **Behavioral MBTI** and **Attachment Style**, maps their **Relational Constellation**, and compiles an **Actionable Operational User Manual** for interacting with them.
+It transforms raw message logs into an exhaustive psychological dossier that deciphers **who the person actually is**, traces their **formative roots**, exposes their **unconscious defense mechanisms**, classifies their **Behavioral MBTI**, **Big Five (OCEAN) Profile**, and **Attachment Style**, maps their **Relational Constellation**, and compiles an **Actionable Operational User Manual** for interacting with them.
 
 ---
 
