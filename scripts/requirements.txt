@@ -1,0 +1,3 @@
+# Optional ML dependencies for dense vector embeddings
+# Note: Basic full-text search (FTS5) and quantitative profiling work out of the box with zero external packages.
+sentence-transformers>=2.2.2
