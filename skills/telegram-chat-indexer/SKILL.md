@@ -36,8 +36,9 @@ This system applies **Reply-Anchored Threading with Forward Burst Propagation (R
 ### The Disentanglement Rules:
 1. **Explicit Reply (`reply_to_id`):** When a message explicitly quotes an anchor message, it attaches directly to that discussion tree.
 2. **Forward Burst Continuation:** If the same sender posts subsequent messages within $\le 180$ seconds without quotes, those messages automatically inherit the thread and parent of the active thought.
-3. **Anchor Resolution:** The originating message quoted at the beginning of a thread is included as the header anchor in the transcript, ensuring full contextual readability.
-4. **Silence Segmentation:** Inactivity gaps $> 2$ hours automatically partition sessions, while gaps $> 24$ hours populate the relational `silence_gaps` table.
+3. **Inferred Response:** When the conversational partner responds within $\le 60$ minutes (3600 seconds) without explicit quote, the message automatically links to the active exchange as an inferred turn-taking response.
+4. **Anchor Resolution:** The originating message quoted at the beginning of a thread is included as the header anchor in the transcript, ensuring full contextual readability.
+5. **Silence Segmentation:** Inactivity gaps $> 2$ hours automatically partition sessions, while gaps $> 24$ hours populate the relational `silence_gaps` table.
 
 ---
 

@@ -21,9 +21,10 @@ import argparse
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple, Set
 
-BURST_THRESHOLD_SECONDS = 180  # 3 minutes: burst continuation threshold
-SESSION_GAP_SECONDS = 7200     # 2 hours: silence threshold for new conversation session
-LONG_SILENCE_SECONDS = 86400   # 24 hours: threshold for relationship silence analysis
+BURST_THRESHOLD_SECONDS = 180       # 3 minutes: burst continuation threshold
+INFERRED_RESPONSE_SECONDS = 3600    # 60 minutes: inferred response without explicit quote
+SESSION_GAP_SECONDS = 7200          # 2 hours: silence threshold for new conversation session
+LONG_SILENCE_SECONDS = 86400        # 24 hours: threshold for relationship silence analysis
 
 
 def extract_text(raw_text: Any) -> str:
@@ -187,7 +188,13 @@ def create_schema(conn: sqlite3.Connection):
     conn.commit()
 
 
-def disentangle_threads(messages: List[Dict[str, Any]], chat_id: str) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+def disentangle_threads(
+    messages: List[Dict[str, Any]],
+    chat_id: str,
+    burst_threshold: int = BURST_THRESHOLD_SECONDS,
+    inferred_gap: int = INFERRED_RESPONSE_SECONDS,
+    session_gap: int = SESSION_GAP_SECONDS
+) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     """
     Apply Reply-Anchored Threading with Forward Burst Propagation (RAT-FBP)
     scoped to a single chat stream.
@@ -253,19 +260,20 @@ def disentangle_threads(messages: List[Dict[str, Any]], chat_id: str) -> Tuple[L
         if reply_to and reply_to in msg_dict:
             parent_id = reply_to
             link_type = "explicit_reply"
-        elif last_msg_overall and last_msg_overall["sender"] == sender and (ts - last_msg_overall["timestamp"] <= BURST_THRESHOLD_SECONDS):
+        elif last_msg_overall and last_msg_overall["sender"] == sender and (ts - last_msg_overall["timestamp"] <= burst_threshold):
             parent_id = last_msg_overall["id"]
             link_type = "burst_continuation"
-        elif sender in last_msg_per_sender:
-            prev_id = last_msg_per_sender[sender]
-            if ts - msg_dict[prev_id]["timestamp"] <= BURST_THRESHOLD_SECONDS:
-                parent_id = prev_id
-                link_type = "burst_continuation"
-        elif last_msg_overall and gap_before <= 300:
+        elif (
+            sender in last_msg_per_sender
+            and (ts - msg_dict[last_msg_per_sender[sender]]["timestamp"] <= burst_threshold)
+        ):
+            parent_id = last_msg_per_sender[sender]
+            link_type = "burst_continuation"
+        elif last_msg_overall and gap_before <= inferred_gap:
             parent_id = last_msg_overall["id"]
             link_type = "inferred_response"
         else:
-            link_type = "session_root" if gap_before >= SESSION_GAP_SECONDS else "topic_root"
+            link_type = "session_root" if gap_before >= session_gap else "topic_root"
             parent_id = None
 
         m["parent_id"] = parent_id
@@ -291,14 +299,13 @@ def disentangle_threads(messages: List[Dict[str, Any]], chat_id: str) -> Tuple[L
             else:
                 t_id = f"{thread_prefix}{p_id}"
                 anchor_map[t_id] = p_id
-            thread_map[m_id] = t_id
         elif p_id and p_id in thread_map:
             t_id = thread_map[p_id]
         else:
             t_id = f"{session_prefix}{m_id}"
-            thread_map[m_id] = t_id
             anchor_map[t_id] = None
 
+        thread_map[m_id] = t_id
         m["thread_id"] = t_id
 
     threads_data: Dict[str, Dict[str, Any]] = {}
@@ -321,10 +328,19 @@ def insert_chat_data(
     chat_name: str,
     chat_type: str,
     source_files: List[str],
-    raw_messages: List[Dict[str, Any]]
+    raw_messages: List[Dict[str, Any]],
+    burst_threshold: int = BURST_THRESHOLD_SECONDS,
+    inferred_gap: int = INFERRED_RESPONSE_SECONDS,
+    session_gap: int = SESSION_GAP_SECONDS
 ) -> Tuple[int, int, int]:
     """Process and insert a single chat's messages, threads, and silence gaps."""
-    processed_msgs, threads_data = disentangle_threads(raw_messages, chat_id)
+    processed_msgs, threads_data = disentangle_threads(
+        raw_messages,
+        chat_id,
+        burst_threshold=burst_threshold,
+        inferred_gap=inferred_gap,
+        session_gap=session_gap
+    )
     if not processed_msgs:
         print(f"[!] Warning: No valid messages found for chat '{chat_name}' ({chat_id}). Skipping.")
         return 0, 0, 0
@@ -476,7 +492,10 @@ def build_databases(
     input_patterns: List[str],
     db_path: str,
     clean: bool = False,
-    chat_id_override: Optional[str] = None
+    chat_id_override: Optional[str] = None,
+    burst_threshold: int = BURST_THRESHOLD_SECONDS,
+    inferred_gap: int = INFERRED_RESPONSE_SECONDS,
+    session_gap: int = SESSION_GAP_SECONDS
 ):
     """
     Parse one or more JSON export files and build/update the SQLite multi-chat analytical database.
@@ -576,7 +595,10 @@ def build_databases(
             chat_name=chat_info["chat_name"],
             chat_type=chat_info["chat_type"],
             source_files=chat_info["source_files"],
-            raw_messages=deduped_msgs
+            raw_messages=deduped_msgs,
+            burst_threshold=burst_threshold,
+            inferred_gap=inferred_gap,
+            session_gap=session_gap
         )
 
         total_all_msgs += n_msgs
@@ -635,11 +657,32 @@ if __name__ == "__main__":
         type=str,
         help="Explicitly specify or override chat_id for imported file (single chat only)"
     )
+    parser.add_argument(
+        "--burst-threshold",
+        type=int,
+        default=BURST_THRESHOLD_SECONDS,
+        help=f"Max gap in seconds for burst continuation by same sender (default: {BURST_THRESHOLD_SECONDS})"
+    )
+    parser.add_argument(
+        "--inferred-gap",
+        type=int,
+        default=INFERRED_RESPONSE_SECONDS,
+        help=f"Max gap in seconds for inferred reply between conversation turns (default: {INFERRED_RESPONSE_SECONDS})"
+    )
+    parser.add_argument(
+        "--session-gap",
+        type=int,
+        default=SESSION_GAP_SECONDS,
+        help=f"Min gap in seconds to partition into a new conversation session (default: {SESSION_GAP_SECONDS})"
+    )
     args = parser.parse_args()
 
     build_databases(
         input_patterns=args.json_files,
         db_path=args.output,
         clean=args.clean,
-        chat_id_override=args.chat_id
+        chat_id_override=args.chat_id,
+        burst_threshold=args.burst_threshold,
+        inferred_gap=args.inferred_gap,
+        session_gap=args.session_gap
     )
