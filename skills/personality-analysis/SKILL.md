@@ -28,6 +28,10 @@ Rather than operating as a passive summarizer or a checklist-bound automaton, th
    - Synthesize disparate fragments: Connect a childhood discipline memory $\to$ to a career choice $\to$ to an ideological debate stance $\to$ to an adult relational defense.
 3. **Heuristic Flexibility (Anti-Token Burning):**
    - Do not waste API tokens investigating every trivial silence or small-talk greeting. Focus analytical attention where emotional stakes, cognitive density, or behavioral friction are highest.
+4. **Bidirectional Context & Epistemic Traceback (Next-Turn Proof Procedure):**
+   - **Look Back (Origin Check):** When a strong factual claim is made about a third party, trace back through the archive. Is it grounded in prior factual disclosures, or is it a spontaneous inference, hyperbole, or conversational provocation?
+   - **Look Ahead (Next-Turn Proof):** Always examine turns $N+1$ to $N+5$. If the interlocutor immediately refutes, corrects, or jokes away the statement, never record that claim as established fact.
+   - **Epistemic Authority vs. False Symmetry:** Give primary evidentiary weight to the participant who directly witnessed external interactions. Do not create false symmetry ("Person A says X, Person B says Y") when an external observer's guess is falsified by the primary witness with direct evidence.
 
 ---
 
@@ -170,6 +174,7 @@ Examine the subject's conduct across the 6 foundational spheres of life:
   - *Dismissive-Avoidant:* High defensive self-reliance, deactivating strategies (finding flaws, emotional shutdown).
   - *Fearful-Avoidant (Disorganized):* Desires closeness but fears engulfment; push-pull dynamics; guarded exterior until bonded, then intense anxiety.
 - **Deactivating Strategies:** Checklist perfectionism, sabotage when intimacy deepens.
+  - *Real Commitment vs. Impossible Preconditions:* Distinguish between direct flight from actual commitment (partner ready $\to$ subject panics) and the subtle "alibi/double-bind" defense where the subject imposes impossible ultimatums (e.g. 1-month life/religious overhaul) to engineer partner failure and secure a blameless exit.
 
 #### F. Passions, Aesthetics & Solitude
 - **Authentic Obsessions:** What topics make their eyes light up once social and professional masks are discarded?

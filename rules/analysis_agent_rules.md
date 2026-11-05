@@ -134,6 +134,20 @@ Before reading individual quotes or forming premature psychological conclusions:
 ## 5. Disentanglement & Contextual Integrity
 - Always respect the **thread anchor**: When analyzing a quote, check whether it was an answer to an explicit question or an unquoted continuation of a thought burst.
 - **Never cite an isolated message in a vacuum:** Always inspect surrounding context using `query_chat.py --thread <thread_id>` or `--from-msg <id> -w 5`. Verify the stimulus, the reaction, and the aftermath.
+- **Bidirectional Verification & Next-Turn Proof Procedure:**
+  - **Never evaluate a message in isolation or unidirectionally.** For any pivotal claim, statement, or conflict in message $N$, the agent must execute a two-way context audit:
+    1. **Antecedent Traceback (Look Back):** Query prior messages to verify whether the assertion is grounded in previously established facts, or if it is an ungrounded inference, speculation, rhetorical exaggeration, or fresh provocation.
+    2. **Next-Turn Proof Procedure (Look Ahead):** Inspect subsequent turns ($N+1$ to $N+5$) to determine how the dialogue partner actually received and treated the statement. Did they confirm, accept, laugh it off, or explicitly refute it?
+    3. **Immediate Rebuttal Invalidation:** If a proposition in message $N$ is immediately contradicted, corrected, or rejected by the interlocutor in turns $N+1 \dots N+5$ (e.g., *"No"*, *"Who said that"*, *"Nope, not ready"*), the agent is **strictly forbidden** from adopting the proposition in message $N$ as an established objective fact.
+- **Epistemic Authority & Anti-Bothsidesism (Primary Witness vs. External Observer):**
+  - **Direct Participant vs. External Spectator:** For external events occurring outside the chat (e.g., romantic encounters, third-party conflicts, family arguments), the participant who was physically present or directly involved holds primary epistemic authority over what transpired, unless contradicted by their own prior direct statements.
+  - **Interlocutor as Catalyst / Stimulus:** Statements made by an external observer/interlocutor (who did not witness the event) are conversational stimuli, hypotheses, or external impressions—not empirical evidence of third-party behavior.
+  - **No False Symmetry (Anti-Bothsidesism):** When an external observer posits a speculative claim about a third party and the direct participant refutes it with specific details or verbatim dialogue from that third party, do **NOT** present this as an unresolved dispute (*"Szymon believes X, but Ismi claims Y"*). Formally identify the observer's claim as an unverified speculation/stimulus that was falsified by the primary witness.
+- **Defense Mechanism Precision (Commitment vs. Impossible Preconditions):**
+  - When diagnosing relational sabotage or avoidant deactivating strategies, do not project false partner readiness onto a dynamic to fit a textbook avoidance pattern (e.g., asserting *"when partner wanted marriage, she fled"* when the partner actually refused the terms).
+  - Explicitly differentiate between:
+    a) **Flight from Actual Commitment:** The partner unconditionally agrees to terms/marriage and the subject panics and retreats.
+    b) **Manufacturing Impossible Preconditions (The Alibi / Double-Bind Strategy):** The subject sets an impossible, unmeetable ultimatum (e.g., demanding complete religious conversion or life overhaul within 30 days) knowing the partner will reject it, thereby creating a self-righteous external justification ("alibi") to terminate the bond while evading personal accountability.
 - **Entity Disambiguation Protocol (Anti-Conflation Rule):**
   - **Shared Attribute Trap:** Never conflate two distinct people simply because they share descriptive traits (e.g. same nationality, city, app, ethnicity, or generic role like "friend" / "ex").
   - Maintain clear entity profiles: `Name/Alias` + `Active Date Range` + `Context/Platform` + `True Nature of Bond` (platonic online friend vs. romantic partner).
