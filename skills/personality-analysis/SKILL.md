@@ -3,7 +3,7 @@ name: personality-analysis
 description: >-
   Conducts deep, thesis-driven psychological and personality profiling from longitudinal chat logs
   and transcripts. Uses an investigative detective/profiler mindset to reconstruct biographical
-  dossiers, diagnose behavioral MBTI, Big Five (OCEAN) traits, and attachment styles, audit all intensive
+  dossiers, diagnose Big Five (OCEAN) traits and attachment styles, audit all intensive
   discussions, map the cast of characters, analyze life spheres (friends, work, worldview), detect
   internal contradictions and unconscious blind spots, and generate actionable operational manuals.
   Formatted in a modular Thesis-First architecture.
@@ -13,7 +13,7 @@ description: >-
 
 This skill defines the methodology, investigative mindset, and modular document architecture for generating forensic-grade psychological portraits from longitudinal chat archives (often spanning tens of thousands of messages across multiple years).
 
-It transforms raw message logs into an exhaustive psychological dossier that deciphers **who the person actually is**, traces their **formative roots**, exposes their **unconscious defense mechanisms**, classifies their **Behavioral MBTI**, **Big Five (OCEAN) Profile**, and **Attachment Style**, maps their **Relational Constellation**, and compiles an **Actionable Operational User Manual** for interacting with them.
+It transforms raw message logs into an exhaustive psychological dossier that deciphers **who the person actually is**, traces their **formative roots**, exposes their **unconscious defense mechanisms**, classifies their **Big Five (OCEAN) Profile** and **Attachment Style**, maps their **Relational Constellation**, and compiles an **Actionable Operational User Manual** for interacting with them.
 
 ---
 
@@ -49,7 +49,7 @@ Rather than operating as a passive summarizer or a checklist-bound automaton, th
 [Phase 3: All Intensive Discussions & Ideology]
    └── 3-Point Thread Inspection (Trigger → Core Debate → Resolution)
 [Phase 4: Full Spectrum Life Spheres & Forensic Dimensions]
-   └── Spheres A–F + Behavioral MBTI + 11 Forensic Psychological Layers
+   └── Spheres A–F + 11 Forensic Psychological Layers (Big Five OCEAN)
 [Phase 5: Modular Drafting & Automated Assembly]
    └── Draft sections in modular files → Assemble with assemble_report.py
 ```
@@ -202,11 +202,12 @@ Conduct targeted forensic investigations across these 11 specialized layers:
    - What happens when a dialogue partner sets a hard boundary (*"Nie"* / refusing a request)? Mature acceptance vs. guilt-tripping, wheedling, or passive-aggressive punishment.
 9. **'Nighttime Truth' vs. Daytime Armor (Prefrontal Fatigue Window):**
    - Contrast messages sent during peak daytime composure with late-night messages (23:00–04:00). Catch the moments where self-monitoring fails.
-10. **Behavioral MBTI (Strictly Observational):**
-    - **E vs. I:** Burst-based live thinking (rapid unprompted message trains) vs. delayed, consolidated paragraph synthesis after prolonged processing.
-    - **S vs. N:** Chronological facts, physical specs, concrete details vs. conceptual frameworks, patterns, future projections, metaphors.
-    - **T vs. F:** Primacy of impersonal truth and logical consistency vs. relational impact, empathy, and emotional resonance.
-    - **J vs. P:** Need for structural closure, schedules, and definitive verdicts vs. keeping options fluid, delaying finality.
+10. **Cognitive Processing & Information Habits:**
+    - Synthesis vs. Live Bursts: Deliberate, delayed paragraph synthesis after prolonged processing vs. rapid unprompted message trains / thinking out loud.
+    - Conceptual vs. Concrete: Systematic frameworks, metaphorical models, and abstract patterns vs. immediate concrete facts and physical specs.
+    - Epistemic vs. Relational Orientation: Primacy of empirical truth and logical consistency vs. relational harmony and emotional soothing.
+    - Deliberation vs. Closure: Fluid delay of finality and exploring alternatives vs. high need for immediate structured closure and verdicts.
+    *(Note: Do not classify or assign 4-letter MBTI types. Focus on empirical cognitive habits and behavioral traits.)*
 11. **Big Five Personality Dimensions (OCEAN - Observational Profiling):**
     Systematically evaluate and estimate the subject's spectrum across all 5 dimensions (Very Low / Low / Moderate / High / Very High or spectrum tendencies), anchored in longitudinal conversational evidence:
     - **O — Openness to Experience (Otwartość na doświadczenie):**
@@ -224,7 +225,7 @@ Conduct targeted forensic investigations across these 11 specialized layers:
     - **N — Neuroticism / Emotional Stability (Neurotyczność / Stabilność emocjonalna):**
       - *High Neuroticism (Low Stability):* Heightened emotional volatility, rumination, acute sensitivity to perceived slights, vulnerability decompensation during late-night fatigue ("Nighttime Truth"), catastrophizing, chronic anxiety spikes on anomalous peak days (`--burning-days`).
       - *Low Neuroticism (High Stability):* Emotional poise under pressure, stoic baseline affect, resilient recovery from conflict, resistance to spiral thinking, even-tempered interaction style.
-    - *Triangulation & Synergies:* Cross-examine how Big Five traits interact with Behavioral MBTI and Attachment Style (e.g. Introversion + Low Agreeableness + High Openness aligning with an INTJ detached critic archetype; High Neuroticism fueling Anxious/Disorganized Attachment deactivating spirals).
+    - *Triangulation & Synergies:* Cross-examine how Big Five traits interact with Attachment Style and relational defenses (e.g. Introversion + Low Agreeableness + High Openness fueling an intellectualized detached critic stance; High Neuroticism fueling Anxious/Disorganized Attachment deactivating spirals).
 12. **Operational User Manual & Actionable Playbook:**
     - Synthesize pragmatic rules for interacting with this individual (see below).
 
@@ -238,7 +239,7 @@ To prevent context truncation, preserve precision, and allow targeted editing, t
 The agent writes individual section files into a temporary working folder (e.g., `reports/<subject>_sections/` outside `project/`):
 - `00_dossier_and_timeline.md`: Motto, Case Header, Identity Dossier, Chronological Life Timeline.
 - `01_cast_of_characters.md`: Full relational constellation with roles, topics, and emotional stances.
-- `02_cognitive_mbti_and_big_five.md`: Behavioral MBTI analysis, Big Five (OCEAN) profile estimation, and intellectual debate style.
+- `02_cognitive_architecture_and_big_five.md`: Cognitive architecture, Big Five (OCEAN) profile estimation, and intellectual debate style.
 - `03_social_and_worldview.md`: Spheres audit (Friends, Work/Authorities, Politics/Philosophy, Passions).
 - `04_relational_and_attachment.md`: Attachment style classification, dating history, and silence dynamics.
 - `05_shadow_and_boundaries.md`: Contradictions, accountability, boundary testing, night vs. day.
@@ -282,11 +283,11 @@ Format quotes in markdown blockquotes.]
 A complete personality profile must contain:
 
 1. **Opening Motto:** Verbatim quote encapsulating their core philosophy or existential longing.
-2. **Case File Header:** Name/alias, observed Behavioral MBTI, diagnosed Attachment Style, Big Five (OCEAN) summary profile (e.g., O: High, C: High, E: Low, A: Low-Moderate, N: High), date range analyzed, total volume.
+2. **Case File Header:** Name/alias, diagnosed Attachment Style, Big Five (OCEAN) summary profile (e.g., O: High, C: High, E: Low, A: Low-Moderate, N: High), date range analyzed, total volume.
 3. **Biographical Dossier & Life Timeline:** Reconstructed origin story, formative milestones, turning points.
 4. **Cast of Characters:** Comprehensive table and profile of recurring third parties and the subject's stance toward them.
 5. **Core Thematic Chapters (Thesis-First):**
-   - Behavioral MBTI & Big Five (OCEAN) Cognitive Architecture.
+   - Big Five (OCEAN) Cognitive Architecture & Processing Habits.
    - Socio-Political Philosophy & Intellectual Debate Style.
    - Social Circle & Friendship Dynamics (Door-slams, loyalty, envy).
    - Work, Ambition & Authority Relations.
@@ -307,7 +308,6 @@ A complete personality profile must contain:
 
 | Psychological Dimension | Observable Behavior | Formative Root & Inner Meaning |
 | :--- | :--- | :--- |
-| **Behavioral MBTI** | [e.g., INTJ (Delayed synthesis, abstract modeling, logical priority, high closure)] | [e.g., Early isolation; reliance on intellectual frameworks for safety] |
 | **Big Five (OCEAN)** | [e.g., O: High, C: High, E: Low, A: Low-Moderate, N: High (Volatile)] | [e.g., Intellectualization and perfectionism as armor against emotional chaos] |
 | **Attachment Style** | [e.g., Fearful-Avoidant (Deactivating armor until deeply bonded)] | [e.g., Witnessing mother's trapped marriage; public disciplinary humiliation] |
 | **Social Stance** | [e.g., Selective inner circle; swift door-slamming upon perceived slight] | [e.g., Defense against betrayal; refusing vulnerability with low-stakes contacts] |
