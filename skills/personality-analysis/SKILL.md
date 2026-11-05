@@ -174,7 +174,6 @@ Examine the subject's conduct across the 6 foundational spheres of life:
   - *Dismissive-Avoidant:* High defensive self-reliance, deactivating strategies (finding flaws, emotional shutdown).
   - *Fearful-Avoidant (Disorganized):* Desires closeness but fears engulfment; push-pull dynamics; guarded exterior until bonded, then intense anxiety.
 - **Deactivating Strategies:** Checklist perfectionism, sabotage when intimacy deepens.
-  - *Real Commitment vs. Impossible Preconditions:* Distinguish between direct flight from actual commitment (partner ready $\to$ subject panics) and the subtle "alibi/double-bind" defense where the subject imposes impossible ultimatums (e.g. 1-month life/religious overhaul) to engineer partner failure and secure a blameless exit.
 
 #### F. Passions, Aesthetics & Solitude
 - **Authentic Obsessions:** What topics make their eyes light up once social and professional masks are discarded?
