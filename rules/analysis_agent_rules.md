@@ -90,7 +90,15 @@ python3 project/scripts/triage_threads.py --db chat.db
   2. **Radar 2 (Acute Emotional Peaks & Dyadic Gravity):** Flags moments of maximal affective amplitude (`emotional_peak`: `profound_sadness`, `euphoric_joy`, `intense_rage`), capturing both direct speaker affect and subtle flat-affect disclosures revealed through interlocutor grief, deep consoling, or condolences.
   3. **Radar 3 (Confessions & Advice Seeking):** Isolates moments where the subject suspends defenses to seek advice on life/moral dilemmas or declare intimate confessions (`is_advice_seeking`).
 
-### Step 3.4: Data Exploration & Analysis via CLI
+### Step 3.4: Research Scratchpad & Evidence Ledger Initialization (MANDATORY PREREQUISITE)
+Immediately following System-1 triage, initialize the file-based research scratchpad:
+```bash
+python3 project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_scratchpad/
+```
+- **DO NOT SKIP THIS STEP.** This exports all triaged threads (Radars 1–3, high-salience events) and top substantive/intensive discussions into a structured, persistent Markdown ledger (`evidence_ledger.md`) and a cross-cutting thematic synthesis board (`hypothesis_matrix.md`).
+- **Context Protection Principle:** Processing hundreds of anomalies, emotional peaks, and dense discussions directly in the LLM context window causes context saturation, attention degradation ("lost in the middle"), and amnesia of early findings. The scratchpad acts as persistent, externalized working memory.
+
+### Step 3.5: Data Exploration & Analysis via CLI
 All data exploration, cross-relational mining, and quote retrieval must be performed through `project/scripts/query_chat.py` (with optional `--chat <id_or_name>` filtering) or direct SQL queries against `chat.db`.
 
 ---
@@ -117,7 +125,22 @@ Before reading individual quotes or forming premature psychological conclusions:
 > - **NEVER** evaluate an interlocutor's attachment or conversational initiative using raw global corpus shares (`Global %` or flat corpus percentages), which suffer from Simpson's paradox (an interlocutor present in only 1 of 5 chats mathematically appears to have only ~10-20% global share despite 50/50 balance in their relationship).
 > - **Always audit metrics per individual chat** via the `Per-Chat Relational Breakdown` in `--gaps`, `In-Chat %` in `--stats`, or filtered queries (`query_chat.py -C <chat_id> --gaps`). Relational conclusions must reflect the specific dyad.
 
-### Stage 2: Biographical Dossier & Cast of Characters
+### Stage 1.5: Forensic Scratchpad Ingestion & Hypothesis Synthesis (The Working Ledger)
+Before drafting narrative chapters or biographical dossiers, the agent audits high-salience threads and populates `reports/<subject>_scratchpad/evidence_ledger.md`:
+1. **Partitioned Batch Investigation (Zero Context Saturation Rule):**
+   - The agent inspects threads in small, partitioned batches (e.g. 10–15 threads at a time), either reviewing them directly in `evidence_ledger.md` or via `query_chat.py --thread <id>`.
+   - For each audited thread, the agent fills out the **Profiler Working Notes** template directly in `evidence_ledger.md`:
+     - `Trigger & Context:` What provoked the exchange? (look back $N-5$).
+     - `Verbatim Anchors:` Record exact high-value quotes with message IDs `[#ID | YYYY-MM-DD]`.
+     - `Psychological Dynamics & Defenses:` Document underlying psychological drivers, ego defenses, unconscious fears, and relational stances.
+     - `Thematic Tags:` Assign categorical tags (e.g., `#work`, `#attachment`, `#defense_mechanism`, `#family`, `#money`, `#unspoken_need`).
+     - `Working Hypotheses:` Formulate preliminary hypotheses connecting this interaction to other life patterns.
+   - **Context Reset Hygiene:** Because all findings, quotes, and hypotheses are permanently recorded in `evidence_ledger.md` on disk, the agent does NOT need to hold all threads in memory. Context can be refreshed safely without losing a single insight.
+2. **Hypothesis Matrix Consolidation:**
+   - Summarize cross-cutting findings into `reports/<subject>_scratchpad/hypothesis_matrix.md`, mapping emerging patterns to specific report chapters (Spheres A–F, OCEAN, Operational Manual).
+3. **Scratchpad-Driven Chapter Synthesis Rule:**
+   - When drafting subsequent chapters (Stages 2–4), the agent **must first consult the completed `evidence_ledger.md` and `hypothesis_matrix.md`**, filtering by corresponding thematic tags.
+   - Core chapter theses (`### 📌 The Core Thesis`) and case study evidence must be derived directly from the pre-audited scratchpad entries, guaranteeing that every significant anomaly, emotional peak, and intensive exchange feeds into the final portrait.
 1. **Origin Story Reconstruction:** Search for autobiographical fragments across school, university, past relationships, career pivots, and formative crucibles.
 2. **Negative Anchor Audit & Baseline Check (Falsification Gate):**
    - **Primary Subject:** Explicitly query for milestone boundaries and absolute declarations (e.g. *"first boyfriend/girlfriend"*, *"never dated before"*, *"didn't have [...] until"*, *"first job"*). A single negative anchor (e.g. *"I didn't have a boyfriend until 2023"*) acts as an iron-clad falsification filter that invalidates any prior dating hypotheses.

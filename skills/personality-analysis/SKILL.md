@@ -52,13 +52,16 @@ Rather than operating as a passive summarizer or a checklist-bound automaton, th
 > 2. Analytical database was built cleanly without cross-subject contamination (`project/scripts/db_builder.py <file> -o chat.db --clean` or via a dedicated subject database `-o chat_<subject>.db`).
 > 3. Semantic vector embeddings were generated (`project/scripts/vector_indexer.py --db chat.db --index`).
 > 4. System-1 dialogue thread triage was executed (`project/scripts/triage_threads.py --db chat.db`).
-> Deep psychological exploration, semantic search (`--semantic`), and quiet disclosure retrieval strictly depend on indexed vector embeddings and System-1 triage; never skip indexing or triage.
+> 5. File-based research scratchpad was initialized (`project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_scratchpad/`).
+> Deep psychological exploration, semantic search (`--semantic`), and quiet disclosure retrieval strictly depend on indexed vector embeddings, System-1 triage, and the evidence ledger; never skip indexing, triage, or scratchpad initialization.
 
 ```
-[Phase 1: Macro-Recon & Triage Anomalies] 
+[Phase 1: Macro-Recon & Quantitative Landscape] 
    └── --stats, --timeline, --gaps, --burning-days, --anomalies-only, --triaged-threads
+[Phase 1.5: Forensic Scratchpad Ingestion & Hypothesis Mapping]
+   └── Audit evidence_ledger.md in batches → Tag quotes & hypotheses in hypothesis_matrix.md
 [Phase 2: Biographical Dossier & Cast of Characters]
-   └── Chronological Timeline + Relational Constellation Mapping
+   └── Chronological Timeline + Relational Constellation Mapping (synthesized from ledger)
 [Phase 3: All Intensive Discussions & Ideology]
    └── 3-Point Thread Inspection (Trigger → Core Debate → Resolution)
 [Phase 4: Full Spectrum Life Spheres & Forensic Dimensions]
@@ -87,6 +90,34 @@ Before reading raw text or forming early impressions, establish the quantitative
    - **Radar 2: Acute Emotional Peaks & Dyadic Gravity (`--emotional-peaks`, `--peak-type`):** Audits affective extremes (`profound_sadness`, `euphoric_joy`, `intense_rage`), capturing both direct speaker emotionality and subtle flat-affect disclosures mirrored by intense partner consoling or condolences.
    - **Radar 3: Confessions & Advice Seeking (`--advice-seeking`):** Pinpoints active decision impasses, moral dilemmas, and moments where psychological defenses drop to seek guidance or make intimate disclosures.
    - **Filtered Dialogue Pool (`--triaged-threads`):** Rescues low-volume quiet disclosures (e.g. 1-2 message admissions of trauma, grief, or relational fractures) that pure word-count heuristics discard, while pruning ~45-80% of routine logistical noise.
+
+---
+
+### Phase 1.5: Forensic Scratchpad Ingestion & Hypothesis Synthesis (The Working Ledger)
+
+Before writing final chapters, the agent populates the persistent research scratchpad at `reports/<subject>_scratchpad/`:
+
+1. **Initialize Scratchpad via CLI:**
+   ```bash
+   python3 project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_scratchpad/
+   ```
+   This generates:
+   - `evidence_ledger.md`: Pre-sorted catalogue of all high-salience threads (Radars 1–3, emotional peaks, advice dilemmas, and top intensive discussions) with dialogue previews and empty profiler working blocks.
+   - `hypothesis_matrix.md`: Thematic synthesis board mapping emergent insights across life spheres and diagnostic dimensions.
+
+2. **Partitioned Batch Auditing (Zero Context Saturation Rule):**
+   - The agent audits threads in small batches (10–15 threads per turn).
+   - In `evidence_ledger.md`, the agent completes the **Profiler Working Notes** for key threads:
+     - **Trigger & Context:** What initiated the exchange? Look back $N-5 \dots N$.
+     - **Verbatim Anchors:** Direct quotes with message IDs `[#ID | YYYY-MM-DD]`.
+     - **Psychological Dynamics & Defenses:** Underlying emotional drivers, defense mechanisms, and cognitive patterns.
+     - **Thematic Tags:** Categorical tags (`#work`, `#attachment`, `#defense_mechanism`, `#family`, `#money`, `#unspoken_need`).
+     - **Working Hypotheses:** Emergent theories to test or integrate into report chapters.
+   - **Persistent Memory Benefit:** Once written to disk, context can be safely cleared. The agent never suffers from context exhaustion or forgotten evidence.
+
+3. **Scratchpad-Driven Thesis Synthesis:**
+   - When drafting subsequent chapters (Biographical Dossier, Spheres A–F, OCEAN, Attachment, Operational Manual), the agent **must first consult `evidence_ledger.md` and `hypothesis_matrix.md`** filtered by the chapter's thematic tags.
+   - Synthesize chapter theses (`### 📌 The Core Thesis`) and select verbatim quotes directly from the scratchpad, ensuring no anomaly or intensive exchange is lost.
 
 ---
 
