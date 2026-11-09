@@ -75,7 +75,7 @@ python3 project/scripts/query_chat.py --db chat.db -st "kredyt OR mieszkanie OR 
 # Semantic Vector Search: retrieve threads by psychological concept / abstract behavior
 python3 project/scripts/query_chat.py --db chat.db --semantic "fear of vulnerability and emotional avoidance"
 
-# Full Thread Transcript: display complete reconstructed topic transcript
+# Full Thread Transcript (with parent & child lineage headers):
 python3 project/scripts/query_chat.py --db chat.db -t <thread_id_or_msg_id>
 
 # Vertical Causal Quote Chain: trace exact parent quotes and replies (N-5 ... N+5)

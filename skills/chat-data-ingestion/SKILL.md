@@ -90,9 +90,9 @@ The ingestion engine resolves concurrent discussions using **Reply-Anchored Thre
 1. **Explicit Reply (`reply_to_id`):** When a message explicitly quotes an anchor, it attaches directly to that discussion tree.
 2. **Forward Burst Continuation:** If the same sender posts subsequent messages within $\le 180$ seconds without quotes, those messages automatically inherit the thread and parent of the active thought.
 3. **Inferred Response:** When the interlocutor responds within $\le 60$ minutes (3600 seconds) without an explicit quote, the message links to the active exchange as an inferred turn-taking turn.
-4. **Direct Reply Attachment (No Artificial Thread Splitting):** When message B explicitly quotes message A (`reply_to_id = A`), message B is directly attached to the thread where message A was already located. Regardless of whether message A was part of a 1-message or a 50-message thread, message B and all its subsequent replies join that existing thread. This preserves complete multi-turn conversational context in a single thread without artificial forks or fragmented duplicate entries.
+4. **Direct Reply Attachment & 50-Message Limit Invariant:** When message B explicitly quotes message A (`reply_to_id = A`), message B attaches to the topic cluster of message A. However, to prevent oversized context monoliths, all conversation threads are capped at a strict maximum of **50 messages** (`MAX_THREAD_MESSAGES = 50`). If an extended discussion exceeds 50 messages, it is deterministically partitioned into linked sequential chunks (`_p2`, `_p3`, etc.) connected via `parent_thread_id`.
 5. **Silence Segmentation:** Inactivity gaps $> 2$ hours automatically partition sessions; gaps $> 24$ hours populate the relational `silence_gaps` table.
-6. **Chronological Audit Separation:** Threads remain strictly partitioned by topic in SQLite to protect dense vector embedding fidelity. Cross-thread context audits ($\pm 5$ messages at thread boundaries) are performed at query time via `query_chat.py --around <id> -n 5`.
+6. **Chronological Audit Separation:** Threads remain strictly partitioned by topic in SQLite to protect dense vector embedding fidelity. Cross-thread context audits ($\pm 5$ messages at thread boundaries and across parent/child lineage) are performed at query time via `query_chat.py --around <id> -n 5` or `query_chat.py -t <parent_or_child_thread_id>`.
 
 ---
 
@@ -120,11 +120,12 @@ When executing direct SQL queries against `chat.db`:
 - `char_count`, `word_count` (INTEGER).
 
 ### `threads` Table
-- `thread_id` (TEXT PRIMARY KEY): Globally unique thread ID (`<chat_id>_t<id>` or `<chat_id>_s<id>`).
+- `thread_id` (TEXT PRIMARY KEY): Globally unique thread ID (`<chat_id>_t<id>` or `<chat_id>_t<id>_p<N>`).
 - `chat_id` (TEXT): Originating chat stream.
+- `parent_thread_id` (TEXT): Pointer to parent thread if partitioned due to the 50-message limit (NULL for root threads).
 - `anchor_message_id` (INTEGER): Quoted anchor message ID.
 - `start_date`, `end_date` (TEXT): Thread timeframe.
-- `message_count` (INTEGER): Number of messages in this topic.
+- `message_count` (INTEGER): Number of messages in this topic (capped at 50).
 - `participants` (TEXT): Comma-separated list of participants.
 - `initiator` (TEXT): Who started or quoted the thread.
 - `dialogue_text` (TEXT): Reconstructed transcript ready for LLM consumption.

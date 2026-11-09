@@ -30,14 +30,27 @@ The agent is strictly forbidden from deriving analytical conclusions, biographic
 - **Absolute Citation Prohibition:** The agent is unconditionally forbidden from quoting or extracting facts, traits, or conclusions directly from CLI teasers or triage summaries without retrieving and inspecting the complete context (`query_chat.py -t <thread_id>` or `query_chat.py --around <msg_id> -n 5`).
 - **Audit Verification Invariant:** Every verbatim quote or factual attribution in any report or thesis must correspond to a verified message whose full contextual window was explicitly audited in the conversation trajectory. Citing a triage snippet without prior contextual retrieval is a critical procedural failure (*Heuristic Shortcut Violation*).
 
-### 1.2 The Thread Boundary & Chronological Fallback Protocol (Boundary $N-5 \dots N+5$ Rule)
-- **The Boundary Dilemma:** Thread disentanglement in the database partitions conversations into topical clusters to keep semantic vector embeddings clean and untainted. However, when an audited message $N$ sits near the beginning or end of a thread, the thread boundaries truncate the natural conversational timeline.
-- **Mandatory Chronological Fallback:**
-  1. **Thread Start Boundary:** If fewer than 5 messages precede message $N$ *within the thread*, the agent is strictly forbidden from concluding antecedent research inside that thread. It MUST invoke `python3 project/scripts/query_chat.py --around <msg_id> -n 5` to inspect preceding chronological turns in the raw chat stream ($N-5 \dots N-1$).
-  2. **Thread End Boundary:** If fewer than 5 messages follow message $N$ *within the thread*, the agent MUST invoke `python3 project/scripts/query_chat.py --around <msg_id> -n 5` to inspect subsequent chronological turns in the raw chat stream ($N+1 \dots N+5$) to verify the interlocutor's reaction, counter-arguments, or topic transitions.
+### 1.2 The Thread Boundary & Parent-Child Lineage Protocol (Boundary $N-5 \dots N+5$ Rule)
+- **Thread Partitioning & 50-Message Limit Invariant:**
+  To prevent unmanageable context blobs and preserve semantic vector precision, all conversation threads in the database are strictly capped at a maximum of **50 messages** (`MAX_THREAD_MESSAGES = 50`). When an extended conversation exceeds 50 messages, it is automatically partitioned into sequentially linked segments connected via `parent_thread_id` (e.g. `t_123` $\to$ `t_123_p2` $\to$ `t_123_p3`).
+- **Mandatory Boundary Audit Protocol ($\pm 5$ Rule Across Lineage Boundaries):**
+  Whenever an audited message $N$ carries analytical weight—i.e., the agent intends to draw a psychological conclusion, attribute a trait, or establish a relational dynamic—and that message is situated near a thread boundary:
+  1. **Thread Start Boundary (First 5 Messages of Thread):**
+     - If message $N$ is within the first 5 messages of the thread, the agent is strictly prohibited from drawing inferences without inspecting the preceding 5 messages ($N-5 \dots N-1$).
+     - **Parent Thread Traversal:** If the thread has a `parent_thread_id` (i.e. it is a child thread resulting from an extended conversation split), the agent **MUST** inspect the tail of the parent thread via:
+       ```bash
+       python3 project/scripts/query_chat.py --db chat.db -t <parent_thread_id>
+       ```
+       or inspect the seamless chronological boundary via `query_chat.py --around <msg_id> -n 5`.
+  2. **Thread End Boundary (Last 5 Messages of Thread):**
+     - If message $N$ is within the last 5 messages of the thread, the agent **MUST** inspect the subsequent 5 messages ($N+1 \dots N+5$) to verify the interlocutor's reaction, counter-arguments, validation, or topic closure.
+     - **Child Thread Traversal:** If child thread(s) exist for the current thread (`parent_thread_id` points to this thread), the agent **MUST** inspect the head of the child thread via:
+       ```bash
+       python3 project/scripts/query_chat.py --db chat.db -t <child_thread_id>
+       ```
   3. **Single-Message Threads:** If a thread contains only 1 message, the agent is strictly prohibited from drawing conclusions without auditing BOTH $\pm 5$ chronological messages around it via `query_chat.py --around <msg_id> -n 5`.
 - **Vectorization vs. Epistemic Separation Principle:**
-  Unrelated chronological messages must **NEVER** be concatenated into database thread objects (`dialogue_text` / `threads` table), as doing so would pollute vector embeddings and cluster unrelated topics together. The chronological inspection is an **epistemic reasoning protocol executed by the agent at query time**, not a persistent mutation of the database threads.
+  Partitioning threads at 50 messages keeps vector search embeddings tight, focused, and free of topical pollution. The parent-child traversal and chronological inspection are **epistemic reasoning protocols executed by the agent at query time**, ensuring full continuity without diluting database vector embeddings.
 
 ---
 

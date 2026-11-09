@@ -790,10 +790,16 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> 
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
+    cur.execute("PRAGMA table_info(threads);")
+    cols = {c[1] for c in cur.fetchall()}
+    has_parent = "parent_thread_id" in cols
+    parent_col = ", t.parent_thread_id" if has_parent else ", NULL"
+
     target_thread_id = identifier
-    cur.execute("""
+    cur.execute(f"""
     SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id), t.anchor_message_id,
            t.start_date, t.end_date, t.message_count, t.participants, t.initiator, t.dialogue_text
+           {parent_col}
     FROM threads t
     LEFT JOIN chats c ON t.chat_id = c.chat_id
     WHERE t.thread_id = ?;
@@ -812,9 +818,10 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> 
             m_rows = cur.fetchall()
             if m_rows:
                 target_thread_id = m_rows[0][0]
-                cur.execute("""
+                cur.execute(f"""
                 SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id), t.anchor_message_id,
                        t.start_date, t.end_date, t.message_count, t.participants, t.initiator, t.dialogue_text
+                       {parent_col}
                 FROM threads t
                 LEFT JOIN chats c ON t.chat_id = c.chat_id
                 WHERE t.thread_id = ?;
@@ -823,12 +830,21 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> 
         except ValueError:
             pass
 
-    conn.close()
     if not row:
+        conn.close()
         return None
 
+    actual_tid = row[0]
+    parent_tid = row[10]
+    children: List[str] = []
+    if has_parent:
+        cur.execute("SELECT thread_id FROM threads WHERE parent_thread_id = ? ORDER BY start_timestamp ASC;", (actual_tid,))
+        children = [r[0] for r in cur.fetchall()]
+
+    conn.close()
+
     return {
-        "thread_id": row[0],
+        "thread_id": actual_tid,
         "chat_id": row[1],
         "chat_name": row[2],
         "anchor_message_id": row[3],
@@ -837,7 +853,9 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> 
         "message_count": row[6],
         "participants": row[7],
         "initiator": row[8],
-        "dialogue_text": row[9]
+        "dialogue_text": row[9],
+        "parent_thread_id": parent_tid,
+        "child_thread_ids": children
     }
 
 
@@ -1324,20 +1342,30 @@ def print_thread(t: Dict[str, Any]):
     print("\n" + "=" * 70)
     c_label = f" [Chat: {t.get('chat_name', t.get('chat_id'))}]" if t.get("chat_name") else ""
     print(f"📜 CONVERSATION THREAD: {t['thread_id']}{c_label}")
-    print(f"Timeframe:    {t['start_date'][:16].replace('T', ' ')} to {t['end_date'][:16].replace('T', ' ')}")
-    print(f"Messages:     {t['message_count']}")
-    print(f"Participants: {t['participants']} (Initiator: {t['initiator']})")
+    if t.get("parent_thread_id"):
+        print(f"⬆️  Parent Thread:     {t['parent_thread_id']}  (Audit: python3 project/scripts/query_chat.py -t {t['parent_thread_id']})")
+    if t.get("child_thread_ids"):
+        children_str = ", ".join(t["child_thread_ids"])
+        print(f"⬇️  Child Thread(s):   {children_str}  (Audit: python3 project/scripts/query_chat.py -t {t['child_thread_ids'][0]})")
+    print(f"Timeframe:         {t['start_date'][:16].replace('T', ' ')} to {t['end_date'][:16].replace('T', ' ')}")
+    print(f"Messages:          {t['message_count']}")
+    print(f"Participants:      {t['participants']} (Initiator: {t['initiator']})")
     print("=" * 70)
     print(t["dialogue_text"])
-    if t.get("message_count", 0) <= 1:
-        print("\n⚠️  BOUNDARY / SINGLE-MESSAGE SAFEGUARD:")
-        print("   This thread contains only 1 message. The N-5...N+5 rule requires checking")
-        print("   surrounding chronological messages before drawing any conclusions.")
+
+    # Boundary warning for first 5 / last 5 messages or linked threads
+    if t.get("parent_thread_id") or t.get("child_thread_ids") or t.get("message_count", 0) <= 1:
+        print("\n⚠️  BOUNDARY AUDIT SAFEGUARD (±5 Messages Rule):")
+        print("   If analyzing messages near thread start (first 5) or end (last 5) to draw conclusions:")
+        if t.get("parent_thread_id"):
+            print(f"   - Near start: Inspect antecedent in parent thread: python3 project/scripts/query_chat.py -t {t['parent_thread_id']}")
+        if t.get("child_thread_ids"):
+            print(f"   - Near end: Inspect subsequent turns in child thread: python3 project/scripts/query_chat.py -t {t['child_thread_ids'][0]}")
         anc = t.get("anchor_message_id")
         tid_suffix = t['thread_id'].split('_')[-1]
         sugg_id = anc or (tid_suffix[1:] if tid_suffix.startswith(('s', 't')) and tid_suffix[1:].isdigit() else None)
-        if sugg_id:
-            print(f"   Audit command: python3 project/scripts/query_chat.py --around {sugg_id} -n 5")
+        around_arg = sugg_id if sugg_id else "<msg_id>"
+        print(f"   - Raw chronological stream: python3 project/scripts/query_chat.py --around {around_arg} -n 5")
     print("=" * 70)
 
 

@@ -26,6 +26,7 @@ BURST_THRESHOLD_SECONDS = 180       # 3 minutes: burst continuation threshold
 INFERRED_RESPONSE_SECONDS = 3600    # 60 minutes: inferred response without explicit quote
 SESSION_GAP_SECONDS = 7200          # 2 hours: silence threshold for new conversation session
 LONG_SILENCE_SECONDS = 86400        # 24 hours: threshold for relationship silence analysis
+MAX_THREAD_MESSAGES = 50            # 50 messages: strict message limit per conversation thread
 
 
 def extract_text(raw_text: Any) -> str:
@@ -151,6 +152,7 @@ def create_schema(conn: sqlite3.Connection):
     CREATE TABLE IF NOT EXISTS threads (
         thread_id TEXT PRIMARY KEY,
         chat_id TEXT NOT NULL,
+        parent_thread_id TEXT,
         anchor_message_id INTEGER,
         start_date TEXT NOT NULL,
         end_date TEXT NOT NULL,
@@ -170,8 +172,11 @@ def create_schema(conn: sqlite3.Connection):
     t_cols = {col[1] for col in cur.fetchall()}
     if "content_hash" not in t_cols:
         cur.execute("ALTER TABLE threads ADD COLUMN content_hash TEXT;")
+    if "parent_thread_id" not in t_cols:
+        cur.execute("ALTER TABLE threads ADD COLUMN parent_thread_id TEXT;")
 
     cur.execute("CREATE INDEX IF NOT EXISTS idx_threads_chat ON threads(chat_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_threads_parent ON threads(parent_thread_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_threads_start ON threads(start_timestamp);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_threads_gap ON threads(gap_before_seconds);")
 
@@ -225,11 +230,13 @@ def disentangle_threads(
     chat_id: str,
     burst_threshold: int = BURST_THRESHOLD_SECONDS,
     inferred_gap: int = INFERRED_RESPONSE_SECONDS,
-    session_gap: int = SESSION_GAP_SECONDS
+    session_gap: int = SESSION_GAP_SECONDS,
+    max_thread_messages: int = MAX_THREAD_MESSAGES
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     """
     Apply Reply-Anchored Threading with Forward Burst Propagation (RAT-FBP)
-    scoped to a single chat stream.
+    scoped to a single chat stream, enforcing a strict message limit per thread
+    with parent-child lineage tracking.
     """
     valid_msgs = []
     for m in messages:
@@ -313,10 +320,9 @@ def disentangle_threads(
         last_msg_per_sender[sender] = m_id
         last_msg_overall = m
 
-    # Second pass: Thread assignment & Topic clustering
+    # Second pass: Initial thread assignment & Topic clustering
     # Clean invariant: If message B has parent_id A (explicit quote, burst continuation, or inferred response),
-    # B is directly assigned to the thread of message A. Regardless of how many messages A's thread contains,
-    # all replies remain fully attached to their original discussion thread without artificial forks.
+    # B is directly assigned to the topic cluster of message A.
     thread_map: Dict[int, str] = {}
     thread_prefix = f"{chat_id}_t"
 
@@ -332,16 +338,43 @@ def disentangle_threads(
         thread_map[m_id] = t_id
         m["thread_id"] = t_id
 
-    threads_data: Dict[str, Dict[str, Any]] = {}
+    # Group messages into initial threads
+    raw_threads: Dict[str, List[Dict[str, Any]]] = {}
     for m in valid_msgs:
         t_id = m["thread_id"]
-        if t_id not in threads_data:
-            threads_data[t_id] = {
-                "thread_id": t_id,
+        if t_id not in raw_threads:
+            raw_threads[t_id] = []
+        raw_threads[t_id].append(m)
+
+    # Third pass: Enforce max_thread_messages limit and build parent-child lineage
+    threads_data: Dict[str, Dict[str, Any]] = {}
+
+    for raw_t_id, msgs in raw_threads.items():
+        if len(msgs) <= max_thread_messages:
+            threads_data[raw_t_id] = {
+                "thread_id": raw_t_id,
+                "parent_thread_id": None,
                 "anchor_id": None,
-                "messages": []
+                "messages": msgs
             }
-        threads_data[t_id]["messages"].append(m)
+        else:
+            # Partition oversized thread into linked chunks
+            prev_chunk_id: Optional[str] = None
+            for idx, i in enumerate(range(0, len(msgs), max_thread_messages)):
+                chunk_msgs = msgs[i:i + max_thread_messages]
+                chunk_id = raw_t_id if idx == 0 else f"{raw_t_id}_p{idx + 1}"
+
+                # Update message thread_id so database rows accurately reflect sub-thread partition
+                for m in chunk_msgs:
+                    m["thread_id"] = chunk_id
+
+                threads_data[chunk_id] = {
+                    "thread_id": chunk_id,
+                    "parent_thread_id": prev_chunk_id,
+                    "anchor_id": None,
+                    "messages": chunk_msgs
+                }
+                prev_chunk_id = chunk_id
 
     return valid_msgs, threads_data
 
@@ -355,7 +388,8 @@ def insert_chat_data(
     raw_messages: List[Dict[str, Any]],
     burst_threshold: int = BURST_THRESHOLD_SECONDS,
     inferred_gap: int = INFERRED_RESPONSE_SECONDS,
-    session_gap: int = SESSION_GAP_SECONDS
+    session_gap: int = SESSION_GAP_SECONDS,
+    max_thread_messages: int = MAX_THREAD_MESSAGES
 ) -> Tuple[int, int, int]:
     """Process and insert a single chat's messages, threads, and silence gaps."""
     processed_msgs, threads_data = disentangle_threads(
@@ -363,7 +397,8 @@ def insert_chat_data(
         chat_id,
         burst_threshold=burst_threshold,
         inferred_gap=inferred_gap,
-        session_gap=session_gap
+        session_gap=session_gap,
+        max_thread_messages=max_thread_messages
     )
     if not processed_msgs:
         print(f"[!] Warning: No valid messages found for chat '{chat_name}' ({chat_id}). Skipping.")
@@ -436,6 +471,7 @@ def insert_chat_data(
 
     for t_obj in sorted_threads:
         t_id = t_obj["thread_id"]
+        parent_thread_id = t_obj.get("parent_thread_id")
         msgs = t_obj["messages"]
         anchor_id = t_obj["anchor_id"]
 
@@ -476,7 +512,7 @@ def insert_chat_data(
         content_hash = hashlib.sha256(dialogue_text.encode("utf-8")).hexdigest()
 
         thread_rows.append((
-            t_id, chat_id, anchor_id, t_start_date, t_end_date, t_start_ts, t_end_ts,
+            t_id, chat_id, parent_thread_id, anchor_id, t_start_date, t_end_date, t_start_ts, t_end_ts,
             duration, len(msgs), ",".join(participants), initiator,
             gap_before, dialogue_text, content_hash
         ))
@@ -489,8 +525,8 @@ def insert_chat_data(
         prev_thread_last_sender = last_msg["sender"]
 
     cur.executemany("""
-    INSERT INTO threads (thread_id, chat_id, anchor_message_id, start_date, end_date, start_timestamp, end_timestamp, duration_seconds, message_count, participants, initiator, gap_before_seconds, dialogue_text, content_hash)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    INSERT INTO threads (thread_id, chat_id, parent_thread_id, anchor_message_id, start_date, end_date, start_timestamp, end_timestamp, duration_seconds, message_count, participants, initiator, gap_before_seconds, dialogue_text, content_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, thread_rows)
 
     cur.executemany("""
@@ -585,7 +621,8 @@ def build_databases(
     chat_id_override: Optional[str] = None,
     burst_threshold: int = BURST_THRESHOLD_SECONDS,
     inferred_gap: int = INFERRED_RESPONSE_SECONDS,
-    session_gap: int = SESSION_GAP_SECONDS
+    session_gap: int = SESSION_GAP_SECONDS,
+    max_thread_messages: int = MAX_THREAD_MESSAGES
 ):
     """
     Parse one or more JSON export files and build/update the SQLite multi-chat analytical database.
@@ -731,7 +768,8 @@ def build_databases(
             raw_messages=deduped_msgs,
             burst_threshold=burst_threshold,
             inferred_gap=inferred_gap,
-            session_gap=session_gap
+            session_gap=session_gap,
+            max_thread_messages=max_thread_messages
         )
 
         total_all_msgs += n_msgs
@@ -808,6 +846,12 @@ if __name__ == "__main__":
         default=SESSION_GAP_SECONDS,
         help=f"Min gap in seconds to partition into a new conversation session (default: {SESSION_GAP_SECONDS})"
     )
+    parser.add_argument(
+        "--max-thread-messages",
+        type=int,
+        default=MAX_THREAD_MESSAGES,
+        help=f"Max messages per thread before splitting with parent-child linkage (default: {MAX_THREAD_MESSAGES})"
+    )
     args = parser.parse_args()
 
     build_databases(
@@ -817,5 +861,6 @@ if __name__ == "__main__":
         chat_id_override=args.chat_id,
         burst_threshold=args.burst_threshold,
         inferred_gap=args.inferred_gap,
-        session_gap=args.session_gap
+        session_gap=args.session_gap,
+        max_thread_messages=args.max_thread_messages
     )
