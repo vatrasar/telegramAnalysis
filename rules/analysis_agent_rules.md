@@ -141,6 +141,9 @@ Before reading individual quotes or forming premature psychological conclusions:
    - **D (Family Roots, Parental Imprints & Domestic Order):** Discipline, parentification, commitment trauma, approach to domestic order & living space (cleanliness and orderliness vs. chaos and clutter tolerance as a psychological mirror).
    - **E (Romantic Attachment & Relational Dynamics):** Attachment style, deactivating strategies, relationship patterns.
    - **F (Leisure, Sports, Travel & Animals):** How free time is spent (active vs. passive recharge), sports & physical activity (training habits, gym, active sports vs. sedentary aversion to exercise), vacation style & holiday decompression (structured vs. spontaneous, unplugging vs. work carryover), travel motivations & patterns (why and how they travel or why they avoid it), relationship with animals/pets (ownership, affection, empathy vs. aversion).
+3. **Evidentiary Pruning Rule (Strict Omission of Unaddressed Topics):**
+   - If a life sphere, lifestyle habit, or sub-topic (e.g. sports, pets, domestic cleaning habits, vacation style) was never mentioned or discussed in the chat archive, the agent **MUST completely omit that topic from the report**.
+   - **Strict Prohibition on Placeholder Sections & Boilerplate Disclaimers:** NEVER write placeholder sections or disclaimers such as *"Brak danych na temat sportu"*, *"Temat ten nie był poruszany"*, or *"No information available"*.
 
 ### Stage 4: Forensic Dimensions & Big Five (OCEAN)
 1. **Big Five Personality Model (OCEAN):** Systematically estimate trait levels across all 5 dimensions (Openness to Experience, Conscientiousness, Extraversion, Agreeableness, Neuroticism/Emotional Stability) with spectrum ratings (Low, Moderate, High), concrete conversational markers, and developmental roots. Do not assign or classify rigid 4-letter MBTI types; focus on empirical Big Five spectrums and behavioral dynamics.

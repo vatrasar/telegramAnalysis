@@ -34,6 +34,9 @@ Rather than operating as a passive summarizer or a checklist-bound automaton, th
    - **Epistemic Authority vs. False Symmetry:** Give primary evidentiary weight to the participant who directly witnessed external interactions. Do not create false symmetry ("Person A says X, Person B says Y") when an external observer's guess is falsified by the primary witness with direct evidence.
 5. **The Actuation Gate (Modality & Irrealis vs. Realis):**
    - Strictly distinguish between wishes/offers (*irrealis*) and executed historical facts (*realis*). Verbs of intent or proposal (*"offered"*, *"insisted on accepting"*, *"wanted to"*, *"planned"*, *"dreamed"*, *"chciał"*) must never be converted into biographical reality or professional titles without proof of actual execution. Always audit the subsequent resolution of episodic offers or plans.
+6. **The Evidentiary Pruning Principle (Strict Omission of Unaddressed Topics):**
+   - The archive reflects what the participants actually discussed, not an exhaustive inventory of every human domain. If a specific life sphere, practical dimension, or topic (e.g. sports, pets, vacations, domestic cleaning) was simply never discussed in the logs, **completely omit that point or topic from the report**.
+   - **Absolute Ban on Placeholder Disclaimers:** Never write empty sections or negative boilerplate (e.g., *"Brak informacji na temat sportu"*, *"Temat ten nie był poruszany w rozmowie"*, *"No data available in archive"*).
 
 ---
 
@@ -155,6 +158,12 @@ Inspect substantive dialogue threads efficiently without getting bogged down in 
 ---
 
 ### Phase 4: Full Spectrum Life Spheres & Behavioral Dimensions Audit (A–F)
+
+> [!IMPORTANT]
+> **Evidentiary Threshold & Omission Protocol for Life Spheres:**
+> Spheres A–F and their sub-dimensions represent an investigative search guide, **NOT a mandatory list of headers to generate**.
+> - If targeted queries (`--semantic`, keyword searches) yield no mentions or substantive discussions on a topic (e.g. the interlocutors never discussed sports, pets, travel, or domestic order), **completely omit that point/topic from the report**.
+> - **Strict Prohibition on Placeholders:** Never generate empty sections or disclaimers such as *"Brak informacji o sporcie"* or *"No data available"*. Only synthesize sections backed by actual conversational evidence.
 
 Examine the subject's conduct across the 6 foundational spheres of life, ensuring thorough forensic probing into both existential dynamics and everyday practical lifestyle patterns:
 
@@ -316,7 +325,7 @@ The agent writes individual section files into a temporary working folder (e.g.,
 - `00_dossier_and_timeline.md`: Motto, Case Header, Identity Dossier, Chronological Life Timeline.
 - `01_cast_of_characters.md`: Full relational constellation with roles, topics, and emotional stances.
 - `02_cognitive_architecture_and_big_five.md`: Cognitive architecture, Big Five (OCEAN) profile estimation, and intellectual debate style.
-- `03_social_and_worldview.md`: Spheres audit (Friends, Social Cadence & Altruism/Helping, Work Ethic, Ambitions & Catalogue of Unfulfilled Goals, Team Player vs. Lone Wolf, Money Management, Politics & AI, Domestic Order, Sports/Fitness, Vacations, Travel & Animals).
+- `03_social_and_worldview.md`: Spheres audit (Friends, Social Cadence & Altruism/Helping, Work Ethic, Ambitions & Catalogue of Unfulfilled Goals, Team Player vs. Lone Wolf, Money Management, Politics & AI, Domestic Order, Sports/Fitness, Vacations, Travel & Animals). *Note: Include only spheres and sub-topics discussed in the logs; omit unaddressed topics completely without placeholder disclaimers.*
 - `04_relational_and_attachment.md`: Attachment style classification, dating history, and silence dynamics.
 - `05_shadow_and_boundaries.md`: Contradictions, accountability, boundary testing, night vs. day.
 - `06_operational_manual.md`: Blind spots, triggers, unspoken need, communication protocols, Summary Matrix.
@@ -355,6 +364,13 @@ Format quotes in markdown blockquotes.]
 ---
 
 ## 5. Report Structure Checklist
+
+> [!NOTE]
+> **Dynamic Structural Adaptability (Strict Omission Rule):**
+> The thematic chapters listed below represent the full spectrum of potential investigative domains to explore.
+> - If a specific topic, sphere, or sub-dimension (e.g., sports/athletics, relationship with animals, specific travel experiences, domestic cleaning habits) was **never discussed in the chat logs, completely omit that sub-topic or chapter from the report**.
+> - **Never include empty sections, disclaimers, or "no data available" boilerplate** (e.g. *"Brak informacji o sporcie"*, *"Temat nie był poruszany"*).
+> - Dedicated lifestyle chapters should only be included for topics that actually emerged in the conversations.
 
 A complete personality profile must contain:
 
