@@ -4,7 +4,7 @@ trigger: always_on
 
 # Life Spheres Audit & Targeted Query Lexicon
 
-These rules define the forensic probing criteria for the 6 foundational spheres of life, the catalogue of unfulfilled ambitions, and the bilingual search lexicon for qualitative evidence mining.
+These rules define the forensic probing criteria for the 6 foundational spheres of life, the catalogue of unfulfilled ambitions, and the evidentiary protocol for lifestyle and behavioral investigation.
 
 ---
 
@@ -98,22 +98,8 @@ The spheres (A–F) and their sub-dimensions represent an **investigative inquir
 
 ## 3. Targeted Search Lexicon for Lifestyle & Behavioral Probing
 
-When investigating practical behavioral spheres via `.agents/scripts/query_chat.py`, use this bilingual lookup table combining semantic search (`--semantic`) with lexical keyword filters (`-s`):
+For the curated bilingual search lexicon (Polish FTS5 keyword filters and English semantic search vectors), practical query recipes, and step-by-step probing procedures across lifestyle domains (domestic habits, work ethic, unfulfilled ambitions, friendships, finances, technology, leisure, etc.), activate the specialized skill:
 
-| Analytical Target | Polish Query Keywords (`-s`) | English / Semantic Query Keywords (`--semantic`) |
-| :--- | :--- | :--- |
-| **Domestic Order & Cleanliness** | `sprzątanie OR bałagan OR porządek OR syf OR kurz OR sprzątać` | `cleaning OR mess OR tidy OR clutter OR chore OR apartment` |
-| **Friends, Social Cadence & Meetups** | `znajomi OR przyjaciel OR kumpel OR wyjście OR piwo OR spotkać OR na żywo` | `friends OR hang out OR meet up OR drinking OR socializing` |
-| **Altruism & Helping Others** | `pomóc OR pomoc OR pomagam OR przysługa OR wsparcie OR poradzić OR wyręczyć` | `help OR helping OR favor OR support OR altruism OR assist OR volunteer` |
-| **Work Ethic & Team Role** | `praca OR szef OR nadgodziny OR leniuchować OR obijać OR awans OR lider OR polecenia` | `work ethic OR boss OR overtime OR slacking OR leader OR task` |
-| **Aspirations & Plan Execution** | `planuję OR plany OR cel OR marzenie OR ambicja OR projekt OR zamierzam OR postanowiłem OR zrealizować OR rzucić` | `plan OR goal OR ambition OR project OR intention OR execute OR follow through OR milestone` |
-| **Unfulfilled Ambitions & Abandoned Plans** | `chciałem być OR marzyłem o OR miałem plan OR zrezygnowałem OR nie wyszło OR odpuściłem OR żałuję OR rzuciłem OR niedokończone OR planowałem` | `used to want OR dreamed of OR had a plan OR gave up OR didn't work out OR dropped out OR regret OR abandoned OR unfinished` |
-| **Team Player vs. Lone Wolf** | `zespół OR drużyna OR współpraca OR gracz zespołowy OR razem OR samotnik OR indywidualista` | `teamwork OR team player OR collaboration OR cooperative OR lone wolf` |
-| **Sports & Physical Activity** | `sport OR siłownia OR bieganie OR biegam OR trening OR ćwiczyć OR rower OR basen OR mecz` | `sports OR gym OR workout OR running OR fitness OR exercise OR training` |
-| **Leisure & Hobbies** | `czas wolny OR hobby OR grać OR seriale OR czytać OR odpoczynek OR nudzi mi się` | `free time OR hobby OR gaming OR watching OR reading OR bored` |
-| **Political & Societal Views** | `polityka OR wybory OR rząd OR podatki OR partia OR państwo OR wolność` | `politics OR elections OR government OR taxes OR freedom OR laws` |
-| **Vacations & Holidays** | `urlop OR wakacje OR wyjazd OR odpocząć OR plaża OR hotel OR wolne w pracy` | `vacation OR holiday OR summer trip OR resort OR time off` |
-| **AI & Modern Technology** | `AI OR sztuczna inteligencja OR ChatGPT OR model OR robot OR technologia` | `AI OR artificial intelligence OR LLM OR automation OR tech` |
-| **Animals & Pets** | `pies OR piesek OR kot OR kotek OR zwierzak OR pupil OR schronisko` | `dog OR puppy OR cat OR kitten OR pet OR animal OR shelter` |
-| **Travel (Motivations & Style)** | `podróż OR zwiedzać OR samolot OR lot OR zagranica OR walizka OR wycieczka` | `travel OR trip OR flight OR abroad OR sight-seeing OR journey` |
-| **Money Management & Spending** | `pieniądze OR oszczędzać OR wydać OR drogo OR tanio OR kupić OR finanse OR kredyt` | `money OR save OR spend OR budget OR splurge OR frugal OR debt` |
+- **Skill Reference:** [`targeted-search-lexicon`](../skills/targeted-search-lexicon/SKILL.md)
+
+When auditing any life sphere, invoke `targeted-search-lexicon` to retrieve pre-calibrated search expressions combining lexical filters (`-s`, `-st`) and semantic vectors (`--semantic`) for execution via `query_chat.py`.
