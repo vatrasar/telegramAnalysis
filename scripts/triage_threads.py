@@ -540,7 +540,9 @@ def print_reduction_report(conn: sqlite3.Connection):
             icon = "😢" if ptype == "profound_sadness" else ("🎉" if ptype == "euphoric_joy" else "😡")
             print(f"[{pdate}] Thread {pid} | Msgs: {pmsgs} | Score: {pscore:.1f} | {icon} {ptype.upper()}")
             print(f"  Reason:  {preason}")
-            print(f"  Snippet: {ptext.strip().replace(chr(10), ' ')}...\n")
+            teaser = ptext.strip().replace(chr(10), " ")[:70]
+            print(f"  Audit:   python3 project/scripts/query_chat.py -t {pid} (or --around <msg_id> -n 5)")
+            print(f"  Teaser:  \"{teaser}...\" [UNVERIFIED RADAR HIT - DO NOT CITE WITHOUT AUDIT]\n")
 
     # Showcase Radar 3: Confessions & Advice Seeking
     cur.execute("""
@@ -560,7 +562,9 @@ def print_reduction_report(conn: sqlite3.Connection):
         for aid, adate, amsgs, ascore, acat, areason, atext in advice_samples:
             print(f"[{adate}] Thread {aid} | Msgs: {amsgs} | Score: {ascore:.1f} | Cat: {acat}")
             print(f"  Reason:  {areason}")
-            print(f"  Snippet: {atext.strip().replace(chr(10), ' ')}...\n")
+            teaser = atext.strip().replace(chr(10), " ")[:70]
+            print(f"  Audit:   python3 project/scripts/query_chat.py -t {aid} (or --around <msg_id> -n 5)")
+            print(f"  Teaser:  \"{teaser}...\" [UNVERIFIED RADAR HIT - DO NOT CITE WITHOUT AUDIT]\n")
 
     # Showcase Radar 1: Anomalies & Shock
     cur.execute("""
@@ -589,7 +593,9 @@ def print_reduction_report(conn: sqlite3.Connection):
             if anotes:
                 print(f"  Notes:   {anotes}")
             print(f"  Reason:  {areason}")
-            print(f"  Snippet: {atext.strip().replace(chr(10), ' ')}...\n")
+            teaser = atext.strip().replace(chr(10), " ")[:70]
+            print(f"  Audit:   python3 project/scripts/query_chat.py -t {aid} (or --around <msg_id> -n 5)")
+            print(f"  Teaser:  \"{teaser}...\" [UNVERIFIED RADAR HIT - DO NOT CITE WITHOUT AUDIT]\n")
 
     # Showcase of filtered noise
     cur.execute("""
@@ -608,7 +614,8 @@ def print_reduction_report(conn: sqlite3.Connection):
         print("-" * 80)
         for nid, ndate, nmsgs, nscore, ncat, ntext in noise_samples:
             print(f"[{ndate}] Thread {nid} | Msgs: {nmsgs} | Cat: {ncat} | Score: {nscore:.1f}")
-            print(f"  Snippet: {ntext.strip().replace(chr(10), ' ')}...\n")
+            teaser = ntext.strip().replace(chr(10), " ")[:70]
+            print(f"  Sample:  \"{teaser}...\"\n")
     print("=" * 80)
 
 

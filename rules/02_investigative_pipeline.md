@@ -43,7 +43,7 @@ If `setup_config.py` returns **ANY exit code other than 0** (e.g., Code 2, 3, 4,
 ### 3.1 Mode A: Ad-Hoc Questions, Fact-Checking & Targeted Inquiries (Default)
 When the user asks a specific question about the chat (e.g. *"What did X say about Y?"*, *"When did they discuss Z?"*, *"Verify if event W actually happened"*, *"Compare communication volume"*):
 1. **Targeted Query Execution:** Execute relevant `query_chat.py` calls (`-s`, `--semantic`, `--stats`, `--gaps`).
-2. **Universal Epistemic Audit:** Audit retrieved messages in context ($N-5 \dots N+5$ via `-c <msg_id>`). Disambiguate pronouns, check third-party boundaries, and verify intent.
+2. **Universal Epistemic Audit:** Audit retrieved messages in context ($N-5 \dots N+5$ via `--around <msg_id> -n 5` or `-c <msg_id>`). Apply the Anti-Snippet Ingestion Rule and the Thread Boundary Fallback Protocol. Disambiguate pronouns, check third-party boundaries, and verify intent.
 3. **Direct & Concise Response:** Answer directly with exact dates and verbatim message anchors (`[#ID | YYYY-MM-DD]`).
 4. **Prohibitions in Mode A:**
    - **DO NOT** initialize the research scratchpad (`export_scratchpad.py`).
@@ -64,10 +64,12 @@ python3 project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_s
 #### Step B.2: Macro-Reconnaissance & Anomaly Detection
 1. Quantitative balance: `query_chat.py --stats`, `--gaps`, `--timeline`, `--burning-days`.
 2. Inspect diagnostic radars: `--anomalies-only`, `--emotional-peaks`, `--advice-seeking`, `--triaged-threads`.
-3. **Anti-Simpson Relational Protocol:** In multi-chat archives, always audit metrics per individual dyad via `Per-Chat Relational Breakdown` in `--gaps` (`query_chat.py -C <chat_id> --gaps`).
+3. **Anti-Snippet Ingestion Guard:** Treat all radar hits strictly as hypothesis cues. Never cite or draft from a triage preview without full contextual audit via `query_chat.py -t <id>` or `query_chat.py --around <msg_id> -n 5`.
+4. **Anti-Simpson Relational Protocol:** In multi-chat archives, always audit metrics per individual dyad via `Per-Chat Relational Breakdown` in `--gaps` (`query_chat.py -C <chat_id> --gaps`).
 
 #### Step B.3: Forensic Scratchpad Ingestion & Hypothesis Synthesis
 - Audit threads in small batches (10–15 threads at a time) in `evidence_ledger.md` or via `query_chat.py -t <id>`.
+- **Thread Boundary Fallback Protocol:** If an analyzed message is near thread start/end or in a single-message thread, invoke `query_chat.py --around <id> -n 5` to inspect chronological before/after turns across thread lines.
 - Cross-examine words vs. actions across the longitudinal timeline.
 
 #### Step B.4: Intensive Discussions & Life Spheres Audit

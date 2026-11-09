@@ -25,6 +25,20 @@ The agent is strictly forbidden from deriving analytical conclusions, biographic
   1. Inspect how the interlocutor received and treated message $N$. Did they validate it, accept it, laugh it off, or correct/rebut it?
   2. *Immediate Rebuttal Invalidation:* If a proposition in message $N$ is immediately contradicted, corrected, or rejected by the interlocutor in turns $N+1 \dots N+5$ (e.g., *"No"*, *"Who said that"*, *"Nope"*), the agent is strictly forbidden from adopting it as an objective fact.
 
+### 1.1 The Anti-Snippet Ingestion Rule (Triage & Search Previews are Pointers, NEVER Evidence)
+- **Zero-Trust for CLI Previews:** Text teasers, search previews, or snippet outputs produced by `triage_threads.py` or `query_chat.py` (e.g. `Teaser: ...` or search match previews) are strictly discovery pointers and preliminary screening hypotheses.
+- **Absolute Citation Prohibition:** The agent is unconditionally forbidden from quoting or extracting facts, traits, or conclusions directly from CLI teasers or triage summaries without retrieving and inspecting the complete context (`query_chat.py -t <thread_id>` or `query_chat.py --around <msg_id> -n 5`).
+- **Audit Verification Invariant:** Every verbatim quote or factual attribution in any report or thesis must correspond to a verified message whose full contextual window was explicitly audited in the conversation trajectory. Citing a triage snippet without prior contextual retrieval is a critical procedural failure (*Heuristic Shortcut Violation*).
+
+### 1.2 The Thread Boundary & Chronological Fallback Protocol (Boundary $N-5 \dots N+5$ Rule)
+- **The Boundary Dilemma:** Thread disentanglement in the database partitions conversations into topical clusters to keep semantic vector embeddings clean and untainted. However, when an audited message $N$ sits near the beginning or end of a thread, the thread boundaries truncate the natural conversational timeline.
+- **Mandatory Chronological Fallback:**
+  1. **Thread Start Boundary:** If fewer than 5 messages precede message $N$ *within the thread*, the agent is strictly forbidden from concluding antecedent research inside that thread. It MUST invoke `python3 project/scripts/query_chat.py --around <msg_id> -n 5` to inspect preceding chronological turns in the raw chat stream ($N-5 \dots N-1$).
+  2. **Thread End Boundary:** If fewer than 5 messages follow message $N$ *within the thread*, the agent MUST invoke `python3 project/scripts/query_chat.py --around <msg_id> -n 5` to inspect subsequent chronological turns in the raw chat stream ($N+1 \dots N+5$) to verify the interlocutor's reaction, counter-arguments, or topic transitions.
+  3. **Single-Message Threads:** If a thread contains only 1 message, the agent is strictly prohibited from drawing conclusions without auditing BOTH $\pm 5$ chronological messages around it via `query_chat.py --around <msg_id> -n 5`.
+- **Vectorization vs. Epistemic Separation Principle:**
+  Unrelated chronological messages must **NEVER** be concatenated into database thread objects (`dialogue_text` / `threads` table), as doing so would pollute vector embeddings and cluster unrelated topics together. The chronological inspection is an **epistemic reasoning protocol executed by the agent at query time**, not a persistent mutation of the database threads.
+
 ---
 
 ## 2. The Vocative & Left-Dislocation Protocol (Chat Syntax Disambiguation)

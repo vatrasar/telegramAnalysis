@@ -90,8 +90,9 @@ The ingestion engine resolves concurrent discussions using **Reply-Anchored Thre
 1. **Explicit Reply (`reply_to_id`):** When a message explicitly quotes an anchor, it attaches directly to that discussion tree.
 2. **Forward Burst Continuation:** If the same sender posts subsequent messages within $\le 180$ seconds without quotes, those messages automatically inherit the thread and parent of the active thought.
 3. **Inferred Response:** When the interlocutor responds within $\le 60$ minutes (3600 seconds) without an explicit quote, the message links to the active exchange as an inferred turn-taking turn.
-4. **Anchor Resolution:** The originating message quoted at the beginning of a thread is included as an `[Anchor #ID]` header in the transcript, ensuring full standalone context.
+4. **Direct Reply Attachment (No Artificial Thread Splitting):** When message B explicitly quotes message A (`reply_to_id = A`), message B is directly attached to the thread where message A was already located. Regardless of whether message A was part of a 1-message or a 50-message thread, message B and all its subsequent replies join that existing thread. This preserves complete multi-turn conversational context in a single thread without artificial forks or fragmented duplicate entries.
 5. **Silence Segmentation:** Inactivity gaps $> 2$ hours automatically partition sessions; gaps $> 24$ hours populate the relational `silence_gaps` table.
+6. **Chronological Audit Separation:** Threads remain strictly partitioned by topic in SQLite to protect dense vector embedding fidelity. Cross-thread context audits ($\pm 5$ messages at thread boundaries) are performed at query time via `query_chat.py --around <id> -n 5`.
 
 ---
 

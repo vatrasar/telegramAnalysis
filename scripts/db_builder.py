@@ -314,28 +314,20 @@ def disentangle_threads(
         last_msg_overall = m
 
     # Second pass: Thread assignment & Topic clustering
+    # Clean invariant: If message B has parent_id A (explicit quote, burst continuation, or inferred response),
+    # B is directly assigned to the thread of message A. Regardless of how many messages A's thread contains,
+    # all replies remain fully attached to their original discussion thread without artificial forks.
     thread_map: Dict[int, str] = {}
-    anchor_map: Dict[str, Optional[int]] = {}
     thread_prefix = f"{chat_id}_t"
-    session_prefix = f"{chat_id}_s"
 
     for m in valid_msgs:
         m_id = m["id"]
         p_id = m["parent_id"]
-        l_type = m["link_type"]
 
-        if l_type == "explicit_reply" and p_id:
-            parent_m = msg_dict[p_id]
-            if parent_m["link_type"] in ("explicit_reply", "inferred_response") or (p_id in thread_map and thread_map[p_id].startswith(thread_prefix)):
-                t_id = thread_map[p_id]
-            else:
-                t_id = f"{thread_prefix}{p_id}"
-                anchor_map[t_id] = p_id
-        elif p_id and p_id in thread_map:
+        if p_id and p_id in thread_map:
             t_id = thread_map[p_id]
         else:
-            t_id = f"{session_prefix}{m_id}"
-            anchor_map[t_id] = None
+            t_id = f"{thread_prefix}{m_id}"
 
         thread_map[m_id] = t_id
         m["thread_id"] = t_id
@@ -346,7 +338,7 @@ def disentangle_threads(
         if t_id not in threads_data:
             threads_data[t_id] = {
                 "thread_id": t_id,
-                "anchor_id": anchor_map.get(t_id),
+                "anchor_id": None,
                 "messages": []
             }
         threads_data[t_id]["messages"].append(m)
@@ -419,6 +411,25 @@ def insert_chat_data(
     thread_fts_rows = []
     gap_rows = []
 
+    # Calculate silence gaps directly from chronological messages (ground truth of conversational silences)
+    prev_m: Optional[Dict[str, Any]] = None
+    for m in processed_msgs:
+        if prev_m is not None:
+            gap_sec = m["timestamp"] - prev_m["timestamp"]
+            if gap_sec >= LONG_SILENCE_SECONDS:
+                duration_hrs = round(gap_sec / 3600.0, 1)
+                gap_rows.append((
+                    chat_id,
+                    prev_m["date"],
+                    m["date"],
+                    gap_sec,
+                    duration_hrs,
+                    prev_m["sender"],
+                    m["sender"],
+                    m["thread_id"]
+                ))
+        prev_m = m
+
     sorted_threads = sorted(threads_data.values(), key=lambda x: x["messages"][0]["timestamp"])
     prev_thread_end_ts: Optional[int] = None
     prev_thread_last_sender: Optional[str] = None
@@ -445,18 +456,6 @@ def insert_chat_data(
         gap_before = None
         if prev_thread_end_ts is not None:
             gap_before = t_start_ts - prev_thread_end_ts
-            if gap_before >= LONG_SILENCE_SECONDS:
-                duration_hrs = round(gap_before / 3600.0, 1)
-                gap_rows.append((
-                    chat_id,
-                    datetime.fromtimestamp(prev_thread_end_ts).isoformat(),
-                    t_start_date,
-                    gap_before,
-                    duration_hrs,
-                    prev_thread_last_sender or "Unknown",
-                    initiator,
-                    t_id
-                ))
 
         # Build formatted dialogue text with anchor message at top if present
         dialogue_lines = []

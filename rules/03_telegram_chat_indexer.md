@@ -81,8 +81,11 @@ python3 project/scripts/query_chat.py --db chat.db -t <thread_id_or_msg_id>
 # Vertical Causal Quote Chain: trace exact parent quotes and replies (N-5 ... N+5)
 python3 project/scripts/query_chat.py --db chat.db -c <msg_id>
 
-# Local Context Window: display N messages surrounding target message
+# Local Context Window: display N messages surrounding target message within the same thread
 python3 project/scripts/query_chat.py --db chat.db -f <msg_id> -n 10 -w 5
+
+# Horizontal Chronological Audit Window (N-5 ... N+5 across thread boundaries):
+python3 project/scripts/query_chat.py --db chat.db --around <msg_id> -n 5
 
 # Machine-Readable JSON: emit structured JSON output for agent parsing
 python3 project/scripts/query_chat.py --db chat.db --stats -s "awans" --json

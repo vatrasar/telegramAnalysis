@@ -1008,6 +1008,88 @@ def get_quote_chain(db_path: str, msg_id: int, chat_id: Optional[str] = None) ->
     }
 
 
+def get_chronological_around(
+    db_path: str,
+    msg_id: int,
+    window: int = 5,
+    chat_id: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve chronological messages surrounding msg_id strictly by timestamp/id,
+    crossing thread boundaries to enforce the N-5 ... N+5 audit protocol.
+    """
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    sql = """
+    SELECT m.id, m.chat_id, coalesce(c.chat_name, m.chat_id), m.date, m.timestamp,
+           m.sender, m.reply_to_id, m.thread_id, m.text
+    FROM messages m
+    LEFT JOIN chats c ON m.chat_id = c.chat_id
+    WHERE m.id = ?
+    """
+    p: List[Any] = [msg_id]
+    if chat_id:
+        sql += " AND m.chat_id = ?"
+        p.append(chat_id)
+
+    cur.execute(sql, p)
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        return None
+
+    t_id, c_id, chat_name, t_date, t_ts, t_sender, t_reply, t_thread, t_text = row
+
+    # Fetch preceding messages in the same chat
+    cur.execute("""
+    SELECT id, date, timestamp, sender, reply_to_id, thread_id, text
+    FROM messages
+    WHERE chat_id = ? AND (timestamp < ? OR (timestamp = ? AND id < ?))
+    ORDER BY timestamp DESC, id DESC
+    LIMIT ?;
+    """, (c_id, t_ts, t_ts, t_id, window))
+    before_rows = cur.fetchall()
+    before_rows.reverse()
+
+    # Fetch subsequent messages in the same chat
+    cur.execute("""
+    SELECT id, date, timestamp, sender, reply_to_id, thread_id, text
+    FROM messages
+    WHERE chat_id = ? AND (timestamp > ? OR (timestamp = ? AND id > ?))
+    ORDER BY timestamp ASC, id ASC
+    LIMIT ?;
+    """, (c_id, t_ts, t_ts, t_id, window))
+    after_rows = cur.fetchall()
+    conn.close()
+
+    def format_m(r, is_target=False):
+        return {
+            "id": r[0],
+            "date": r[1],
+            "timestamp": r[2],
+            "sender": r[3],
+            "reply_to_id": r[4],
+            "thread_id": r[5],
+            "text": r[6],
+            "is_target": is_target
+        }
+
+    return {
+        "chat_id": c_id,
+        "chat_name": chat_name,
+        "target_id": msg_id,
+        "window": window,
+        "preceding_count": len(before_rows),
+        "subsequent_count": len(after_rows),
+        "messages": (
+            [format_m(r) for r in before_rows] +
+            [format_m((t_id, t_date, t_ts, t_sender, t_reply, t_thread, t_text), is_target=True)] +
+            [format_m(r) for r in after_rows]
+        )
+    }
+
+
 def get_semantic_batch_results(
     db_path: str,
     concepts: List[str],
@@ -1247,6 +1329,34 @@ def print_thread(t: Dict[str, Any]):
     print(f"Participants: {t['participants']} (Initiator: {t['initiator']})")
     print("=" * 70)
     print(t["dialogue_text"])
+    if t.get("message_count", 0) <= 1:
+        print("\n⚠️  BOUNDARY / SINGLE-MESSAGE SAFEGUARD:")
+        print("   This thread contains only 1 message. The N-5...N+5 rule requires checking")
+        print("   surrounding chronological messages before drawing any conclusions.")
+        anc = t.get("anchor_message_id")
+        tid_suffix = t['thread_id'].split('_')[-1]
+        sugg_id = anc or (tid_suffix[1:] if tid_suffix.startswith(('s', 't')) and tid_suffix[1:].isdigit() else None)
+        if sugg_id:
+            print(f"   Audit command: python3 project/scripts/query_chat.py --around {sugg_id} -n 5")
+    print("=" * 70)
+
+
+def print_chronological_around(c: Dict[str, Any]):
+    print("\n" + "=" * 70)
+    c_label = f" [Chat: {c.get('chat_name', c.get('chat_id'))}]" if c.get("chat_name") else ""
+    print(f"⏱️  CHRONOLOGICAL AUDIT WINDOW: Message #{c['target_id']}{c_label} (±{c['window']} msgs)")
+    print("=" * 70)
+    for m in c["messages"]:
+        is_target = m.get("is_target", False)
+        prefix = f"[Reply to #{m['reply_to_id']}] " if m.get("reply_to_id") else ""
+        thread_tag = f" (Thread: {m['thread_id']})" if m.get("thread_id") else ""
+        dt_str = m['date'][:16].replace('T', ' ')
+        if is_target:
+            print("-" * 70)
+            print(f"👉 [#{m['id']} | {dt_str}{thread_tag}] {m['sender']}: {prefix}{m['text']}  [AUDITED TARGET]")
+            print("-" * 70)
+        else:
+            print(f"   [#{m['id']} | {dt_str}{thread_tag}] {m['sender']}: {prefix}{m['text']}")
     print("=" * 70)
 
 
@@ -1344,6 +1454,7 @@ def main():
     parser.add_argument("--from-msg", "-f", action="append", type=int, help="Display a slice of a thread starting from this message_id (can be repeated)")
     parser.add_argument("--window", "-w", type=int, default=0, help="Number of preceding messages to show before --from-msg (default: 0)")
     parser.add_argument("--chain", "-c", action="append", type=int, help="Display direct causal quote chain for a message_id (can be repeated)")
+    parser.add_argument("--around", "-ar", "-ctx", action="append", type=int, help="Display chronological context surrounding a message across thread boundaries (can be repeated)")
     parser.add_argument("--semantic", "-sem", action="append", help="Search threads by psychological concept/meaning (can be repeated)")
     parser.add_argument("--limit", "-n", type=int, default=10, help="Maximum number of results to display per query (default: 10)")
 
@@ -1418,13 +1529,14 @@ def main():
     thread_ids = [str(x) for x in extract_list(args.thread, "thread")]
     from_msgs = [int(x) for x in extract_list(args.from_msg, "from_msg")]
     chains = [int(x) for x in extract_list(args.chain, "chain")]
+    around_msgs = [int(x) for x in extract_list(args.around, "around")]
     semantic_queries = [str(x) for x in extract_list(args.semantic, "semantic")]
 
     has_actions = any([
         run_stats, run_gaps, run_timeline, run_burning, run_intensive,
         run_triaged, run_triage_status,
         search_queries, search_thread_queries, thread_ids,
-        from_msgs, chains, semantic_queries
+        from_msgs, chains, around_msgs, semantic_queries
     ])
 
     if not has_actions:
@@ -1575,7 +1687,26 @@ def main():
         if args.json:
             aggregated["quote_chains"] = chain_results
 
-    # 11. Batch Semantic Search
+    # 11. Retrieve Chronological Window Across Thread Boundaries (N-5 ... N+5 Audit)
+    if around_msgs:
+        around_window = window if window > 0 else (limit if limit != 10 else 5)
+        around_results: Dict[str, Any] = {}
+        for a_id in around_msgs:
+            a_obj = get_chronological_around(args.db, a_id, window=around_window, chat_id=resolved_chat_id)
+            if a_obj:
+                if args.json:
+                    around_results[str(a_id)] = a_obj
+                else:
+                    print_chronological_around(a_obj)
+            else:
+                if args.json:
+                    around_results[str(a_id)] = None
+                else:
+                    print(f"\n[!] Message #{a_id} not found.")
+        if args.json:
+            aggregated["chronological_around"] = around_results
+
+    # 12. Batch Semantic Search
     if semantic_queries:
         sem_res = get_semantic_batch_results(args.db, semantic_queries, top_k=limit, chat_id=resolved_chat_id)
         if args.json:
