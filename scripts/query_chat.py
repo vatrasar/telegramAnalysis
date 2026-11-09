@@ -462,7 +462,10 @@ def get_triaged_threads(
     chat_id: Optional[str] = None,
     min_salience: float = 0.0,
     category: Optional[str] = None,
-    anomalies_only: bool = False
+    anomalies_only: bool = False,
+    emotional_peaks_only: bool = False,
+    peak_type: Optional[str] = None,
+    advice_seeking_only: bool = False
 ) -> List[Dict[str, Any]]:
     """Retrieve dialogue threads qualified by System-1 (Jev) triage for LLM profiling."""
     conn = sqlite3.connect(db_path)
@@ -477,31 +480,26 @@ def get_triaged_threads(
     cur.execute("PRAGMA table_info(thread_triage)")
     cols = {col[1] for col in cur.fetchall()}
     has_anom = "is_atypical" in cols
+    has_peak = "emotional_peak" in cols
+    has_advice = "is_advice_seeking" in cols
 
-    if has_anom:
-        sql = """
-        SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id) as chat_name,
-               t.start_date, t.end_date, t.message_count, sum(m.word_count) as total_words,
-               t.participants, tr.salience_score, tr.primary_category, tr.reason,
-               tr.is_atypical, tr.interlocutor_surprised, tr.anomaly_notes
-        FROM thread_triage tr
-        JOIN threads t ON tr.thread_id = t.thread_id
-        JOIN messages m ON t.thread_id = m.thread_id
-        LEFT JOIN chats c ON t.chat_id = c.chat_id
-        WHERE tr.escalate = 1
-        """
-    else:
-        sql = """
-        SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id) as chat_name,
-               t.start_date, t.end_date, t.message_count, sum(m.word_count) as total_words,
-               t.participants, tr.salience_score, tr.primary_category, tr.reason,
-               0, 0, ''
-        FROM thread_triage tr
-        JOIN threads t ON tr.thread_id = t.thread_id
-        JOIN messages m ON t.thread_id = m.thread_id
-        LEFT JOIN chats c ON t.chat_id = c.chat_id
-        WHERE tr.escalate = 1
-        """
+    atyp_col = "tr.is_atypical" if has_anom else "0"
+    surp_col = "tr.interlocutor_surprised" if has_anom else "0"
+    note_col = "tr.anomaly_notes" if has_anom else "''"
+    peak_col = "tr.emotional_peak" if has_peak else "'none'"
+    adv_col = "tr.is_advice_seeking" if has_advice else "0"
+
+    sql = f"""
+    SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id) as chat_name,
+           t.start_date, t.end_date, t.message_count, sum(m.word_count) as total_words,
+           t.participants, tr.salience_score, tr.primary_category, tr.reason,
+           {atyp_col}, {surp_col}, {note_col}, {peak_col}, {adv_col}
+    FROM thread_triage tr
+    JOIN threads t ON tr.thread_id = t.thread_id
+    JOIN messages m ON t.thread_id = m.thread_id
+    LEFT JOIN chats c ON t.chat_id = c.chat_id
+    WHERE tr.escalate = 1
+    """
 
     params: List[Any] = []
     if chat_id:
@@ -515,6 +513,14 @@ def get_triaged_threads(
         params.append(category)
     if anomalies_only and has_anom:
         sql += " AND (tr.is_atypical = 1 OR tr.interlocutor_surprised = 1) "
+    if emotional_peaks_only and has_peak:
+        if peak_type:
+            sql += " AND tr.emotional_peak = ? "
+            params.append(peak_type)
+        else:
+            sql += " AND tr.emotional_peak != 'none' "
+    if advice_seeking_only and has_advice:
+        sql += " AND tr.is_advice_seeking = 1 "
 
     sql += """
     GROUP BY t.thread_id
@@ -543,7 +549,9 @@ def get_triaged_threads(
             "reason": r[10] or "",
             "is_atypical": r[11] or 0,
             "interlocutor_surprised": r[12] or 0,
-            "anomaly_notes": r[13] or ""
+            "anomaly_notes": r[13] or "",
+            "emotional_peak": r[14] or "none",
+            "is_advice_seeking": r[15] or 0
         })
     return results
 
@@ -1051,16 +1059,23 @@ def print_triaged_threads(threads: List[Dict[str, Any]]):
     print("-" * 95)
     for t in threads:
         flags = []
-        if t.get("is_atypical"):
+        if t.get("is_atypical") or t.get("interlocutor_surprised"):
             flags.append("⚡")
-        if t.get("interlocutor_surprised"):
-            flags.append("😲")
+        peak = t.get("emotional_peak", "none")
+        if peak == "profound_sadness":
+            flags.append("😢")
+        elif peak == "euphoric_joy":
+            flags.append("🎉")
+        elif peak == "intense_rage":
+            flags.append("😡")
+        if t.get("is_advice_seeking"):
+            flags.append("💡")
         flag_str = "".join(flags)
-        flag_display = f"{flag_str:<4}" if flag_str else "    "
+        flag_display = f"{flag_str:<5}" if flag_str else "     "
         r_snippet = (t.get("reason", "") or "")[:25]
         print(f"{flag_display} {t['thread_id']:<22} {t['start_date']:<17} {t['salience_score']:<6.1f} {t['category'][:21]:<22} {t['message_count']:<5} {t['total_words']:<7,} {r_snippet}")
         if t.get("anomaly_notes"):
-            print(f"     ↳ [ANOMALY NOTES] {t['anomaly_notes']}")
+            print(f"     ↳ [RADAR NOTES] {t['anomaly_notes']}")
 
 
 def print_search_messages(query: str, rows: List[Dict[str, Any]]):
@@ -1188,6 +1203,9 @@ def main():
     parser.add_argument("--min-messages", type=int, default=6, help="Minimum messages for --intensive-threads (default: 6)")
     parser.add_argument("--triaged-threads", action="store_true", help="Display threads qualified by System-1 (Jev) triage for LLM profiling")
     parser.add_argument("--anomalies-only", action="store_true", help="Display only triaged threads with atypical behavior or interlocutor surprise")
+    parser.add_argument("--emotional-peaks", action="store_true", help="Display only triaged threads with acute emotional peaks")
+    parser.add_argument("--peak-type", type=str, help="Filter --emotional-peaks by type (profound_sadness, euphoric_joy, intense_rage)")
+    parser.add_argument("--advice-seeking", action="store_true", help="Display only triaged threads with intimate confessions or advice seeking")
     parser.add_argument("--min-salience", type=float, default=0.0, help="Minimum salience score for --triaged-threads")
     parser.add_argument("--triage-category", type=str, help="Filter --triaged-threads by primary category")
     parser.add_argument("--triage-status", action="store_true", help="Display summary reduction report of System-1 triage")
@@ -1246,7 +1264,10 @@ def main():
     run_burning = args.burning_days or batch_config.get("burning_days", False)
     run_intensive = args.intensive_threads or batch_config.get("intensive_threads", False)
     run_anomalies_only = args.anomalies_only or batch_config.get("anomalies_only", False)
-    run_triaged = args.triaged_threads or run_anomalies_only or batch_config.get("triaged_threads", False)
+    run_peaks = args.emotional_peaks or batch_config.get("emotional_peaks", False)
+    peak_type = args.peak_type or batch_config.get("peak_type")
+    run_advice = args.advice_seeking or batch_config.get("advice_seeking", False)
+    run_triaged = args.triaged_threads or run_anomalies_only or run_peaks or run_advice or batch_config.get("triaged_threads", False)
     run_triage_status = args.triage_status or batch_config.get("triage_status", False)
     min_salience = float(batch_config.get("min_salience", args.min_salience))
     triage_category = batch_config.get("triage_category", args.triage_category)
@@ -1339,7 +1360,10 @@ def main():
     if run_triaged:
         triaged_data = get_triaged_threads(
             args.db, limit=limit, chat_id=resolved_chat_id, min_salience=min_salience, category=triage_category,
-            anomalies_only=run_anomalies_only
+            anomalies_only=run_anomalies_only,
+            emotional_peaks_only=run_peaks,
+            peak_type=peak_type,
+            advice_seeking_only=run_advice
         )
         if args.json:
             aggregated["triaged_threads"] = triaged_data

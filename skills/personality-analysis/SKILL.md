@@ -79,9 +79,11 @@ Before reading raw text or forming early impressions, establish the quantitative
    - Identify statistically anomalous days ($\mu + 2\sigma$ message/word volume). These pinpoint emotional crises, late-night confrontations, breakthrough disclosures, or intense intellectual battles.
 5. **Substantive Dialogue Threads (`--intensive-threads`):**
    - Filter out small talk and isolate high-volume discussions ranked by total substantive words and interaction density.
-6. **System-1 Triage & Quiet Disclosures (`--triaged-threads`, `--triage-status`):**
-   - Inspect threads pre-filtered by the System-1 triage engine (`project/scripts/triage_threads.py`).
-   - Rescues low-volume, high-salience psychological disclosures ("quiet disclosures", e.g. 2-3 message admissions of trauma, grief, or relational fractures) that pure word-count heuristics discard, while pruning 70–80% of routine logistical noise.
+6. **System-1 Triage & The Three Diagnostic Radars (`--triage-status`):**
+   - **Radar 1: Behavioral Anomalies & Interlocutor Shock (`--anomalies-only`):** Evaluates behavioral deviations (`is_atypical`) and moments where the interlocutor exhibits disbelief, shock, or calls out strange behavior.
+   - **Radar 2: Acute Emotional Peaks & Dyadic Gravity (`--emotional-peaks`, `--peak-type`):** Audits affective extremes (`profound_sadness`, `euphoric_joy`, `intense_rage`), capturing both direct speaker emotionality and subtle flat-affect disclosures mirrored by intense partner consoling or condolences.
+   - **Radar 3: Confessions & Advice Seeking (`--advice-seeking`):** Pinpoints active decision impasses, moral dilemmas, and moments where psychological defenses drop to seek guidance or make intimate disclosures.
+   - **Filtered Dialogue Pool (`--triaged-threads`):** Rescues low-volume quiet disclosures (e.g. 1-2 message admissions of trauma, grief, or relational fractures) that pure word-count heuristics discard, while pruning ~45-80% of routine logistical noise.
 
 ---
 

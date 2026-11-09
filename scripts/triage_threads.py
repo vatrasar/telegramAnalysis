@@ -5,8 +5,11 @@ Applies fast, typed System-1 evaluation via OpenRouter to screen ALL conversatio
 threads in the SQLite database (chat.db).
 Supports both OpenRouter Decision Models (POST /api/alpha/decisions, e.g. pplx-decider, jev)
 and standard Chat Completions models (POST /api/v1/chat/completions).
-Detects high-salience psychological disclosures, behavioral anomalies, and interlocutor
-surprise/shock, while eliminating conversational noise before deep LLM analysis.
+
+Diagnostic Radars:
+1. Behavioral Anomalies & Interlocutor Shock (is_atypical, interlocutor_surprised)
+2. Acute Emotional Peaks & Dyadic Gravity (emotional_peak: profound_sadness, euphoric_joy, intense_rage)
+3. Confessions & Advice Seeking (is_advice_seeking)
 """
 
 import os
@@ -42,7 +45,7 @@ def load_config() -> Dict[str, Any]:
 
 
 def init_triage_table(conn: sqlite3.Connection):
-    """Ensure the thread_triage table exists in the database with anomaly detection columns."""
+    """Ensure the thread_triage table exists in the database with all diagnostic radar columns."""
     cur = conn.cursor()
     cur.execute("""
     CREATE TABLE IF NOT EXISTS thread_triage (
@@ -55,6 +58,8 @@ def init_triage_table(conn: sqlite3.Connection):
         reason TEXT,
         is_atypical INTEGER DEFAULT 0,
         interlocutor_surprised INTEGER DEFAULT 0,
+        emotional_peak TEXT DEFAULT 'none',
+        is_advice_seeking INTEGER DEFAULT 0,
         anomaly_notes TEXT,
         raw_response TEXT,
         triaged_at TEXT NOT NULL
@@ -67,15 +72,19 @@ def init_triage_table(conn: sqlite3.Connection):
         cur.execute("ALTER TABLE thread_triage ADD COLUMN is_atypical INTEGER DEFAULT 0")
     if "interlocutor_surprised" not in existing_cols:
         cur.execute("ALTER TABLE thread_triage ADD COLUMN interlocutor_surprised INTEGER DEFAULT 0")
+    if "emotional_peak" not in existing_cols:
+        cur.execute("ALTER TABLE thread_triage ADD COLUMN emotional_peak TEXT DEFAULT 'none'")
+    if "is_advice_seeking" not in existing_cols:
+        cur.execute("ALTER TABLE thread_triage ADD COLUMN is_advice_seeking INTEGER DEFAULT 0")
     if "anomaly_notes" not in existing_cols:
         cur.execute("ALTER TABLE thread_triage ADD COLUMN anomaly_notes TEXT")
-    if "content_hash" not in existing_cols:
-        cur.execute("ALTER TABLE thread_triage ADD COLUMN content_hash TEXT")
 
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_escalate ON thread_triage(escalate);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_score ON thread_triage(salience_score);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_atypical ON thread_triage(is_atypical);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_surprised ON thread_triage(interlocutor_surprised);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_peak ON thread_triage(emotional_peak);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_advice ON thread_triage(is_advice_seeking);")
     conn.commit()
 
 
@@ -144,6 +153,26 @@ def call_openrouter_decisions(
                     "Does any interlocutor exhibit shock, disbelief, cognitive dissonance, confusion, "
                     "or call out unexpected behavior ('wait what?', 'seriously?', 'since when?')?"
                 )
+            },
+            "emotional_peak": {
+                "type": "choice",
+                "instructions": (
+                    "Does this dialogue contain an acute emotional peak or grave emotional situation "
+                    "(either from direct intense feelings, tragic medical/life disclosures, or deep empathetic distress, condolences, and consoling from the interlocutor)?"
+                ),
+                "criteria": {
+                    "none": "Routine emotional baseline, mild everyday feelings, calm conversation, or intellectual debates",
+                    "profound_sadness": "Acute grief, heartbreak, despair, crying, tragic illness/family news, or deep empathetic condolences/consoling",
+                    "euphoric_joy": "Intense joy, celebration, euphoric breakthrough, falling in love, relief",
+                    "intense_rage": "Explosive fury, extreme indignation, verbal aggression, loss of temper"
+                }
+            },
+            "is_advice_seeking": {
+                "type": "noul",
+                "instructions": (
+                    "Does a participant explicitly ask for advice on a personal problem, express a moral/life dilemma ('what should I do?'), "
+                    "or announce an intimate personal confession ('I need to confess something', 'can I tell you something in confidence')?"
+                )
             }
         }
     }
@@ -169,8 +198,17 @@ def call_openrouter_decisions(
             is_atypical = 1 if float(answers.get("is_atypical", {}).get("noul", 0.0)) >= 0.5 else 0
             interlocutor_surprised = 1 if float(answers.get("interlocutor_surprised", {}).get("noul", 0.0)) >= 0.5 else 0
 
-            has_anomaly = (is_atypical == 1) or (interlocutor_surprised == 1)
-            if has_anomaly:
+            peak_data = answers.get("emotional_peak", {})
+            emotional_peak = str(peak_data.get("choice", peak_data.get("value", "none")))
+            if emotional_peak not in ("none", "profound_sadness", "euphoric_joy", "intense_rage"):
+                emotional_peak = "none"
+
+            is_advice_seeking = 1 if float(answers.get("is_advice_seeking", {}).get("noul", 0.0)) >= 0.5 else 0
+
+            # Escalation policy:
+            # High priority flags ALWAYS escalate and get salience score boosted
+            has_special_flag = (is_atypical == 1) or (interlocutor_surprised == 1) or (emotional_peak != "none") or (is_advice_seeking == 1)
+            if has_special_flag:
                 should_escalate = True
                 score = max(score, 2.5)
             else:
@@ -183,6 +221,20 @@ def call_openrouter_decisions(
                 reason_parts.append("atypical_behavior")
             if interlocutor_surprised:
                 reason_parts.append("interlocutor_shock")
+            if emotional_peak != "none":
+                reason_parts.append(f"peak:{emotional_peak}")
+            if is_advice_seeking:
+                reason_parts.append("advice/confession")
+
+            notes_parts = []
+            if is_atypical:
+                notes_parts.append("Atypical behavior")
+            if interlocutor_surprised:
+                notes_parts.append("Interlocutor surprised")
+            if emotional_peak != "none":
+                notes_parts.append(f"Peak: {emotional_peak}")
+            if is_advice_seeking:
+                notes_parts.append("Advice seeking/confession")
 
             return {
                 "escalate": 1 if should_escalate else 0,
@@ -191,7 +243,9 @@ def call_openrouter_decisions(
                 "primary_category": cat,
                 "is_atypical": is_atypical,
                 "interlocutor_surprised": interlocutor_surprised,
-                "anomaly_notes": "Atypical/shock detected" if has_anomaly else "",
+                "emotional_peak": emotional_peak,
+                "is_advice_seeking": is_advice_seeking,
+                "anomaly_notes": ", ".join(notes_parts),
                 "reason": ", ".join(reason_parts),
                 "raw_response": json.dumps(resp_data)
             }
@@ -233,11 +287,15 @@ def call_openrouter_chat_completions(
         "Evaluate whether a chat conversation thread contains substantive psychological, biographical, "
         "emotional, relational, or ideological content worth analyzing for a deep personality profile, "
         "or whether it is trivial chitchat, memes, or logistics.\n\n"
-        "Crucial Diagnostic Criteria:\n"
-        "1. is_atypical: Set true if behaviors, declarations, stories, or emotional reactions deviate from "
-        "standard social/conversational baselines (e.g., bizarre claims, disproportionate aggression, taboo disclosures).\n"
+        "Crucial Diagnostic Radars:\n"
+        "1. is_atypical: Set true if behaviors, declarations, stories, or emotional reactions deviate markedly "
+        "from standard social/conversational baselines (e.g. bizarre claims, disproportionate aggression, taboo disclosures).\n"
         "2. interlocutor_surprised: Set true if any interlocutor exhibits shock, disbelief, cognitive dissonance, "
-        "confusion, or explicitly calls out unexpected behavior ('wait what?', 'seriously?', 'since when?').\n\n"
+        "confusion, or explicitly calls out unexpected behavior ('wait what?', 'seriously?', 'since when?').\n"
+        "3. emotional_peak: Set to 'profound_sadness' (acute grief, tragic news, crying, deep condolences/consoling by interlocutor), "
+        "'euphoric_joy' (intense happiness, celebration, infatuation, relief), 'intense_rage' (fury, verbal aggression), or 'none'.\n"
+        "4. is_advice_seeking: Set true if a participant explicitly asks for advice, expresses a personal dilemma ('what should I do?'), "
+        "or announces an intimate confession ('I need to confess something').\n\n"
         "Respond ONLY with a valid JSON object matching this schema:\n"
         "{\n"
         '  "escalate_to_llm": boolean,\n'
@@ -246,7 +304,9 @@ def call_openrouter_chat_completions(
         '  "primary_category": "trivial_logistics" | "biographical_fact" | "emotional_vulnerability" | "relational_conflict_or_boundary" | "values_and_worldview" | "defense_or_coping",\n'
         '  "is_atypical": boolean,\n'
         '  "interlocutor_surprised": boolean,\n'
-        '  "anomaly_notes": "Short 1-sentence description if is_atypical or interlocutor_surprised is true, otherwise empty string",\n'
+        '  "emotional_peak": "none" | "profound_sadness" | "euphoric_joy" | "intense_rage",\n'
+        '  "is_advice_seeking": boolean,\n'
+        '  "anomaly_notes": "Short 1-sentence description if special radars triggered, otherwise empty string",\n'
         '  "reason": "1-sentence concise diagnostic rationale"\n'
         "}"
     )
@@ -259,7 +319,7 @@ def call_openrouter_chat_completions(
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0.1,
-        "max_tokens": 200
+        "max_tokens": 250
     }
 
     req_data = json.dumps(payload).encode("utf-8")
@@ -284,10 +344,14 @@ def call_openrouter_chat_completions(
             reason = str(parsed.get("reason", ""))
             is_atypical = bool(parsed.get("is_atypical", False))
             interlocutor_surprised = bool(parsed.get("interlocutor_surprised", False))
+            emotional_peak = str(parsed.get("emotional_peak", "none"))
+            if emotional_peak not in ("none", "profound_sadness", "euphoric_joy", "intense_rage"):
+                emotional_peak = "none"
+            is_advice_seeking = bool(parsed.get("is_advice_seeking", False))
             anomaly_notes = str(parsed.get("anomaly_notes", "")).strip()
 
-            has_anomaly = is_atypical or interlocutor_surprised
-            if has_anomaly:
+            has_special_flag = is_atypical or interlocutor_surprised or (emotional_peak != "none") or is_advice_seeking
+            if has_special_flag:
                 should_escalate = True
                 score = max(score, 2.5)
             else:
@@ -302,6 +366,8 @@ def call_openrouter_chat_completions(
                 "primary_category": cat,
                 "is_atypical": 1 if is_atypical else 0,
                 "interlocutor_surprised": 1 if interlocutor_surprised else 0,
+                "emotional_peak": emotional_peak,
+                "is_advice_seeking": 1 if is_advice_seeking else 0,
                 "anomaly_notes": anomaly_notes,
                 "reason": reason,
                 "raw_response": content
@@ -340,6 +406,8 @@ def evaluate_single_thread(
             "confidence": 1.0,
             "is_atypical": 0,
             "interlocutor_surprised": 0,
+            "emotional_peak": "none",
+            "is_advice_seeking": 0,
             "anomaly_notes": "",
             "reason": "Thread empty or under 10 chars",
             "raw_response": "{}"
@@ -364,12 +432,11 @@ def evaluate_single_thread(
 
     res["thread_id"] = thread_data["thread_id"]
     res["chat_id"] = thread_data["chat_id"]
-    res["content_hash"] = thread_data.get("content_hash")
     return res
 
 
 def print_reduction_report(conn: sqlite3.Connection):
-    """Generate and display comprehensive reduction and triage statistics."""
+    """Generate and display comprehensive reduction and diagnostic radar statistics."""
     cur = conn.cursor()
 
     cur.execute("SELECT count(*) FROM threads")
@@ -386,11 +453,24 @@ def print_reduction_report(conn: sqlite3.Connection):
     escalated_count = cur.fetchone()[0]
     rejected_count = total_triaged - escalated_count
 
+    # Radar 1: Anomalies & Shock
     cur.execute("SELECT count(*) FROM thread_triage WHERE is_atypical = 1")
     atypical_count = cur.fetchone()[0]
-
     cur.execute("SELECT count(*) FROM thread_triage WHERE interlocutor_surprised = 1")
     surprised_count = cur.fetchone()[0]
+
+    # Radar 2: Emotional Peaks
+    cur.execute("SELECT count(*) FROM thread_triage WHERE emotional_peak != 'none'")
+    peaks_count = cur.fetchone()[0]
+    cur.execute("SELECT emotional_peak, count(*) FROM thread_triage WHERE emotional_peak != 'none' GROUP BY emotional_peak")
+    peak_map = dict(cur.fetchall())
+    sadness_count = peak_map.get("profound_sadness", 0)
+    joy_count = peak_map.get("euphoric_joy", 0)
+    rage_count = peak_map.get("intense_rage", 0)
+
+    # Radar 3: Advice Seeking & Confessions
+    cur.execute("SELECT count(*) FROM thread_triage WHERE is_advice_seeking = 1")
+    advice_count = cur.fetchone()[0]
 
     cur.execute("""
     SELECT sum(m.word_count)
@@ -410,7 +490,7 @@ def print_reduction_report(conn: sqlite3.Connection):
     word_reduction_pct = ((triaged_words - escalated_words) / triaged_words * 100.0) if triaged_words > 0 else 0.0
 
     print("\n" + "=" * 80)
-    print("🎯 SYSTEM 1 TRIAGE (DECIDER / ROUTER) REDUCTION & ANOMALY REPORT")
+    print("🎯 SYSTEM 1 TRIAGE (DECIDER / ROUTER) REDUCTION & DIAGNOSTIC REPORT")
     print("=" * 80)
     print(f"Total Threads in Database:      {total_threads:,}")
     print(f"Threads Evaluated by Triage:    {total_triaged:,} ({total_triaged / total_threads * 100.0:.1f}% coverage)")
@@ -420,8 +500,10 @@ def print_reduction_report(conn: sqlite3.Connection):
     print(f"📉 Thread Volume Reduction:      {reduction_thread_pct:.1f}%")
     print(f"📉 Word / Token Reduction:       {word_reduction_pct:.1f}% ({triaged_words:,} words -> {escalated_words:,} words)")
     print("-" * 80)
-    print(f"⚡ Atypical Behavior Detected:   {atypical_count:,} threads")
-    print(f"😲 Interlocutor Shock/Surprise:   {surprised_count:,} threads")
+    print("🔍 DIAGNOSTIC RADARS OVERVIEW:")
+    print(f"  ⚡ Radar 1 (Anomalies & Shocks):      {atypical_count + surprised_count} flags (Atypical: {atypical_count}, Surprised: {surprised_count})")
+    print(f"  🎭 Radar 2 (Acute Emotional Peaks):    {peaks_count} threads (😢 Sadness/Grief: {sadness_count}, 🎉 Joy/Euphoria: {joy_count}, 😡 Rage: {rage_count})")
+    print(f"  💡 Radar 3 (Confessions & Advice):     {advice_count} threads")
     print("=" * 80)
 
     cur.execute("""
@@ -439,7 +521,48 @@ def print_reduction_report(conn: sqlite3.Connection):
         filt = total - esc
         print(f"{cat:<32} {total:<8} {esc:<12} {filt:<10} {avg_score:.2f}")
 
-    # Showcase of detected anomalies & surprises
+    # Showcase Radar 2: Acute Emotional Peaks
+    cur.execute("""
+    SELECT t.thread_id, t.start_date, t.message_count, tr.salience_score, tr.emotional_peak,
+           tr.reason, substr(t.dialogue_text, 1, 120)
+    FROM thread_triage tr
+    JOIN threads t ON tr.thread_id = t.thread_id
+    WHERE tr.emotional_peak != 'none'
+    ORDER BY tr.salience_score DESC, t.message_count ASC
+    LIMIT 4
+    """)
+    peak_samples = cur.fetchall()
+
+    if peak_samples:
+        print("\n🎭 ACUTE EMOTIONAL PEAKS (Grief, Euphoria, Rage & Empathetic Consoling):")
+        print("-" * 80)
+        for pid, pdate, pmsgs, pscore, ptype, preason, ptext in peak_samples:
+            icon = "😢" if ptype == "profound_sadness" else ("🎉" if ptype == "euphoric_joy" else "😡")
+            print(f"[{pdate}] Thread {pid} | Msgs: {pmsgs} | Score: {pscore:.1f} | {icon} {ptype.upper()}")
+            print(f"  Reason:  {preason}")
+            print(f"  Snippet: {ptext.strip().replace(chr(10), ' ')}...\n")
+
+    # Showcase Radar 3: Confessions & Advice Seeking
+    cur.execute("""
+    SELECT t.thread_id, t.start_date, t.message_count, tr.salience_score, tr.primary_category,
+           tr.reason, substr(t.dialogue_text, 1, 120)
+    FROM thread_triage tr
+    JOIN threads t ON tr.thread_id = t.thread_id
+    WHERE tr.is_advice_seeking = 1
+    ORDER BY tr.salience_score DESC, t.message_count ASC
+    LIMIT 3
+    """)
+    advice_samples = cur.fetchall()
+
+    if advice_samples:
+        print("💡 INTIMATE CONFESSIONS & ADVICE SEEKING (Life Dilemmas & Decision Impasses):")
+        print("-" * 80)
+        for aid, adate, amsgs, ascore, acat, areason, atext in advice_samples:
+            print(f"[{adate}] Thread {aid} | Msgs: {amsgs} | Score: {ascore:.1f} | Cat: {acat}")
+            print(f"  Reason:  {areason}")
+            print(f"  Snippet: {atext.strip().replace(chr(10), ' ')}...\n")
+
+    # Showcase Radar 1: Anomalies & Shock
     cur.execute("""
     SELECT t.thread_id, t.start_date, t.message_count, tr.salience_score, tr.primary_category,
            tr.is_atypical, tr.interlocutor_surprised, tr.anomaly_notes, tr.reason,
@@ -448,12 +571,12 @@ def print_reduction_report(conn: sqlite3.Connection):
     JOIN threads t ON tr.thread_id = t.thread_id
     WHERE tr.is_atypical = 1 OR tr.interlocutor_surprised = 1
     ORDER BY tr.salience_score DESC, t.message_count ASC
-    LIMIT 4
+    LIMIT 3
     """)
     anomalies = cur.fetchall()
 
     if anomalies:
-        print("\n⚡ DETECTED BEHAVIORAL ANOMALIES & INTERLOCUTOR SHOCKS:")
+        print("⚡ BEHAVIORAL ANOMALIES & INTERLOCUTOR SHOCKS:")
         print("-" * 80)
         for aid, adate, amsgs, ascore, acat, atyp, asurp, anotes, areason, atext in anomalies:
             flags = []
@@ -467,26 +590,6 @@ def print_reduction_report(conn: sqlite3.Connection):
                 print(f"  Notes:   {anotes}")
             print(f"  Reason:  {areason}")
             print(f"  Snippet: {atext.strip().replace(chr(10), ' ')}...\n")
-
-    # Showcase of captured short threads (Quiet Disclosures)
-    cur.execute("""
-    SELECT t.thread_id, t.start_date, t.message_count, tr.salience_score, tr.primary_category, tr.reason,
-           substr(t.dialogue_text, 1, 100)
-    FROM thread_triage tr
-    JOIN threads t ON tr.thread_id = t.thread_id
-    WHERE tr.escalate = 1 AND t.message_count <= 8 AND tr.is_atypical = 0 AND tr.interlocutor_surprised = 0
-    ORDER BY tr.salience_score DESC, t.message_count ASC
-    LIMIT 3
-    """)
-    short_gems = cur.fetchall()
-
-    if short_gems:
-        print("💎 CAPTURED 'QUIET DISCLOSURES' (Short threads rescued by Triage, previously lost to volume filters):")
-        print("-" * 80)
-        for gid, gdate, gmsgs, gscore, gcat, greason, gtext in short_gems:
-            print(f"[{gdate}] Thread {gid} | Msgs: {gmsgs} | Score: {gscore:.1f} | Cat: {gcat}")
-            print(f"  Reason: {greason}")
-            print(f"  Snippet: {gtext.strip().replace(chr(10), ' ')}...\n")
 
     # Showcase of filtered noise
     cur.execute("""
@@ -535,30 +638,20 @@ def run_triage(
     init_triage_table(conn)
     cur = conn.cursor()
 
-    # 1. Clean orphaned triage records (threads that no longer exist or changed ID)
-    cur.execute("DELETE FROM thread_triage WHERE thread_id NOT IN (SELECT thread_id FROM threads);")
-    conn.commit()
-
-    sql = "SELECT t.thread_id, t.chat_id, t.start_date, t.duration_seconds, t.message_count, t.participants, t.initiator, t.dialogue_text, t.content_hash FROM threads t"
+    sql = "SELECT thread_id, chat_id, start_date, duration_seconds, message_count, participants, initiator, dialogue_text FROM threads"
     where_clauses = []
     params = []
 
     if not force:
-        where_clauses.append("""
-        t.thread_id NOT IN (
-            SELECT tr.thread_id 
-            FROM thread_triage tr 
-            WHERE tr.content_hash IS NOT NULL AND tr.content_hash = t.content_hash
-        )
-        """)
+        where_clauses.append("thread_id NOT IN (SELECT thread_id FROM thread_triage)")
     if chat_id:
-        where_clauses.append("t.chat_id = ?")
+        where_clauses.append("chat_id = ?")
         params.append(chat_id)
 
     if where_clauses:
         sql += " WHERE " + " AND ".join(where_clauses)
 
-    sql += " ORDER BY t.start_timestamp ASC"
+    sql += " ORDER BY start_timestamp ASC"
     if limit:
         sql += f" LIMIT {int(limit)}"
 
@@ -566,7 +659,7 @@ def run_triage(
     rows = cur.fetchall()
 
     if not rows:
-        print("[*] All threads in database have already been triaged with current content hashes! (Use --force to re-evaluate).")
+        print("[*] All threads in database have already been triaged! (Use --force to re-evaluate).")
         print_reduction_report(conn)
         conn.close()
         return 0
@@ -581,8 +674,7 @@ def run_triage(
             "message_count": r[4],
             "participants": r[5],
             "initiator": r[6],
-            "dialogue_text": r[7],
-            "content_hash": r[8]
+            "dialogue_text": r[7]
         })
 
     total_to_process = len(thread_items)
@@ -590,7 +682,7 @@ def run_triage(
     print(f"    - Provider:    OpenRouter")
     print(f"    - Model:       {model}")
     print(f"    - Concurrency: {concurrency} workers")
-    print(f"    - Threshold:   Salience >= {salience_threshold} (Anomalies always escalated)")
+    print(f"    - Threshold:   Salience >= {salience_threshold} (Anomalies, peaks & advice always escalated)")
     print("-" * 80)
 
     start_time = time.time()
@@ -617,8 +709,9 @@ def run_triage(
                 cur.execute("""
                 INSERT OR REPLACE INTO thread_triage
                 (thread_id, chat_id, salience_score, escalate, primary_category, confidence, reason,
-                 is_atypical, interlocutor_surprised, anomaly_notes, raw_response, content_hash, triaged_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 is_atypical, interlocutor_surprised, emotional_peak, is_advice_seeking,
+                 anomaly_notes, raw_response, triaged_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     result["thread_id"],
                     result["chat_id"],
@@ -629,32 +722,46 @@ def run_triage(
                     result["reason"],
                     result.get("is_atypical", 0),
                     result.get("interlocutor_surprised", 0),
+                    result.get("emotional_peak", "none"),
+                    result.get("is_advice_seeking", 0),
                     result.get("anomaly_notes", ""),
                     result.get("raw_response", ""),
-                    result.get("content_hash"),
                     now_iso
                 ))
                 conn.commit()
 
+                # Generate visual status icons
+                icons = []
                 if result.get("is_atypical") or result.get("interlocutor_surprised"):
-                    status_icon = "⚡"
-                elif result["escalate"] == 1:
-                    status_icon = "🟢"
-                else:
-                    status_icon = "⚪"
+                    icons.append("⚡")
+                if result.get("emotional_peak") == "profound_sadness":
+                    icons.append("😢")
+                elif result.get("emotional_peak") == "euphoric_joy":
+                    icons.append("🎉")
+                elif result.get("emotional_peak") == "intense_rage":
+                    icons.append("😡")
+                if result.get("is_advice_seeking"):
+                    icons.append("💡")
+                if not icons:
+                    icons.append("🟢" if result["escalate"] == 1 else "⚪")
 
+                status_icon = "".join(icons)
                 badge = ""
                 if result.get("is_atypical"):
                     badge += "[ATYPICAL] "
                 if result.get("interlocutor_surprised"):
                     badge += "[SURPRISE] "
+                if result.get("emotional_peak") != "none":
+                    badge += f"[{result['emotional_peak'].upper()}] "
+                if result.get("is_advice_seeking"):
+                    badge += "[ADVICE] "
 
                 print(
-                    f"[{completed_count:4d}/{total_to_process}] {status_icon} "
+                    f"[{completed_count:4d}/{total_to_process}] {status_icon:<4} "
                     f"Thread {result['thread_id'][:16]} | "
                     f"Score: {result['salience_score']:.1f} | "
-                    f"Cat: {result['primary_category'][:18]:<18} | "
-                    f"{badge}{result['reason'][:35]}"
+                    f"Cat: {result['primary_category'][:16]:<16} | "
+                    f"{badge}{result['reason'][:30]}"
                 )
 
             except Exception as e:

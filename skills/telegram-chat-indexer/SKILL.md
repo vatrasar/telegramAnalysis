@@ -119,6 +119,12 @@ python3 project/scripts/query_chat.py --db chat.db --stats --gaps --timeline --t
 # Review detected behavioral anomalies and interlocutor shocks:
 python3 project/scripts/query_chat.py --db chat.db --anomalies-only
 
+# Review acute emotional peaks (grief, euphoria, rage & condolences):
+python3 project/scripts/query_chat.py --db chat.db --emotional-peaks
+
+# Review intimate confessions and advice-seeking dilemmas:
+python3 project/scripts/query_chat.py --db chat.db --advice-seeking
+
 # Retrieve high-salience triaged threads:
 python3 project/scripts/query_chat.py --db chat.db --triaged-threads --limit 25
 

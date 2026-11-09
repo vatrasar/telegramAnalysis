@@ -85,7 +85,10 @@ Immediately following vector indexing, run the System-1 triage engine across all
 python3 project/scripts/triage_threads.py --db chat.db
 ```
 - **DO NOT SKIP THIS STEP.** The System-1 decider screens 100% of conversation threads, pruning ~45–80% of routine logistical noise while salvaging low-volume, high-salience disclosures ("quiet disclosures", e.g. 1–2 message admissions of trauma, health crises, or breakups) that volume-based filters discard.
-- It detects and indexes behavioral anomalies (`is_atypical`) and interlocutor surprise/shock (`interlocutor_surprised`), providing high-priority forensic investigative leads.
+- It deploys **Three Core Diagnostic Radars**:
+  1. **Radar 1 (Behavioral Anomalies & Interlocutor Shock):** Detects deviant behavior (`is_atypical`) and conversational dissonance where the partner calls out unexpected behavior (`interlocutor_surprised`).
+  2. **Radar 2 (Acute Emotional Peaks & Dyadic Gravity):** Flags moments of maximal affective amplitude (`emotional_peak`: `profound_sadness`, `euphoric_joy`, `intense_rage`), capturing both direct speaker affect and subtle flat-affect disclosures revealed through interlocutor grief, deep consoling, or condolences.
+  3. **Radar 3 (Confessions & Advice Seeking):** Isolates moments where the subject suspends defenses to seek advice on life/moral dilemmas or declare intimate confessions (`is_advice_seeking`).
 
 ### Step 3.4: Data Exploration & Analysis via CLI
 All data exploration, cross-relational mining, and quote retrieval must be performed through `project/scripts/query_chat.py` (with optional `--chat <id_or_name>` filtering) or direct SQL queries against `chat.db`.
@@ -101,7 +104,10 @@ Before reading individual quotes or forming premature psychological conclusions:
 3. Run `query_chat.py --timeline` to detect phases of closeness, conflict, or emotional detachment across years.
 4. Run `query_chat.py --burning-days` to isolate statistically anomalous peak intensity days ($\mu + 2\sigma$).
 5. Run `query_chat.py --triage-status` to inspect the macro reduction report, noise elimination rate, and category distribution.
-6. Run `query_chat.py --anomalies-only` to review the highest-priority behavioral anomalies and interlocutor shocks.
+6. **Deploy the Three Diagnostic Radars:**
+   - Run `query_chat.py --anomalies-only` to review behavioral deviations and partner shock.
+   - Run `query_chat.py --emotional-peaks` (with optional `--peak-type profound_sadness | euphoric_joy | intense_rage`) to audit emotional valleys, grief, and affective peaks.
+   - Run `query_chat.py --advice-seeking` to inspect moments of internal conflict, moral dilemmas, and vulnerability disclosures.
 7. Run `query_chat.py --triaged-threads` (or `--triaged-threads --triage-category <category>`) to retrieve substantive dialogue threads, avoiding unindexed noise.
 
 ### Stage 2: Biographical Dossier & Cast of Characters
