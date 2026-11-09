@@ -25,8 +25,8 @@ from typing import Dict, Any, List, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Directory paths
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # project/scripts
-PROJECT_DIR = os.path.dirname(SCRIPT_DIR)               # project
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # .agents/scripts
+PROJECT_DIR = os.path.dirname(SCRIPT_DIR)               # .agents
 ROOT_DIR = os.path.dirname(PROJECT_DIR)                  # workspace root
 
 CONFIG_PATH = os.path.join(ROOT_DIR, "config", "embeddings_config.json")
@@ -38,7 +38,7 @@ def load_config() -> Dict[str, Any]:
     if not os.path.exists(CONFIG_PATH):
         raise FileNotFoundError(
             f"Config file missing at: {CONFIG_PATH}\n"
-            f"Run 'python3 project/scripts/setup_config.py' to generate a clean template."
+            f"Run 'python3 .agents/scripts/setup_config.py' to generate a clean template."
         )
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         return json.load(f)

@@ -19,8 +19,8 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional, Set, Tuple
 
 # Directory paths
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # project/scripts
-PROJECT_DIR = os.path.dirname(SCRIPT_DIR)               # project
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # .agents/scripts
+PROJECT_DIR = os.path.dirname(SCRIPT_DIR)               # .agents
 ROOT_DIR = os.path.dirname(PROJECT_DIR)                  # workspace root
 DEFAULT_DB_PATH = os.path.join(ROOT_DIR, "chat.db")
 
@@ -512,9 +512,9 @@ def main():
     # Safety check: enforce stateless project principle
     abs_out = os.path.abspath(args.output_dir)
     if abs_out.startswith(PROJECT_DIR):
-        print(f"[!] ERROR: Target directory '{args.output_dir}' is inside 'project/'.")
+        print(f"[!] ERROR: Target directory '{args.output_dir}' is inside the agent package ('.agents/').")
         print("    Per the Stateless Agent Principle, all reports, databases, and scratchpads")
-        print("    must be stored outside 'project/' (e.g. in workspace root 'reports/<subject>_scratchpad/').")
+        print("    must be stored outside the agent package (e.g. in workspace root 'reports/<subject>_scratchpad/').")
         sys.exit(1)
 
     try:

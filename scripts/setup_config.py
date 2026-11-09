@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Configuration Initializer & Pre-Flight Validator.
-Ensures config/embeddings_config.json exists above project/ in the workspace root,
+Ensures config/embeddings_config.json exists above .agents/ in the workspace root,
 validates user-provided OpenRouter API credentials, and tests connectivity
 for both the Embeddings model and the System-1 Triage/Decider model.
 """
@@ -15,9 +15,9 @@ import urllib.request
 import urllib.error
 from typing import Dict, Any
 
-# Workspace root is above the project/ directory
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # project/scripts
-PROJECT_DIR = os.path.dirname(SCRIPT_DIR)               # project
+# Workspace root is above the agent package directory (.agents/)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # .agents/scripts
+PROJECT_DIR = os.path.dirname(SCRIPT_DIR)               # .agents
 ROOT_DIR = os.path.dirname(PROJECT_DIR)                  # workspace root
 
 CONFIG_DIR = os.path.join(ROOT_DIR, "config")

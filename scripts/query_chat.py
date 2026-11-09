@@ -1179,7 +1179,7 @@ def print_triaged_threads(threads: List[Dict[str, Any]]):
     print("🧠 TRIAGED HIGH-SALIENCE DIALOGUE THREADS (SYSTEM-1 JEV QUALIFIED)")
     print("=" * 95)
     if not threads:
-        print("No triaged threads found meeting criteria (or run 'python3 project/scripts/triage_threads.py' first).")
+        print("No triaged threads found meeting criteria (or run 'python3 .agents/scripts/triage_threads.py' first).")
         return
 
     print(f"{'Flag':<5} {'Thread ID':<22} {'Date':<17} {'Score':<6} {'Category':<22} {'Msgs':<5} {'Words':<7} {'Reason'}")
@@ -1368,7 +1368,7 @@ def main():
 
     if not os.path.exists(args.db):
         print(f"[!] Database file '{args.db}' not found.")
-        print("    Build it first using: python3 project/scripts/db_builder.py rozmowy/*.json -o chat.db")
+        print("    Build it first using: python3 .agents/scripts/db_builder.py rozmowy/*.json -o chat.db")
         sys.exit(1)
 
     # Catalog command

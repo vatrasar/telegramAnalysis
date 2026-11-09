@@ -19,8 +19,8 @@ import urllib.request
 import urllib.error
 from typing import List, Dict, Any, Tuple, Optional
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # project/scripts
-PROJECT_DIR = os.path.dirname(SCRIPT_DIR)               # project
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # .agents/scripts
+PROJECT_DIR = os.path.dirname(SCRIPT_DIR)               # .agents
 ROOT_DIR = os.path.dirname(PROJECT_DIR)                  # workspace root
 
 CONFIG_PATH = os.path.join(ROOT_DIR, "config", "embeddings_config.json")
@@ -284,7 +284,7 @@ def search_semantic_batch(
             print(f"\n[!] WARNING: Database '{db_path}' contains NO vector embeddings!", file=sys.stderr)
             print("    Embedding configuration in config/embeddings_config.json is missing or placeholder.", file=sys.stderr)
             print("    Falling back to lexical FTS5 (BM25) search. Real semantic embeddings were NOT used.", file=sys.stderr)
-            print("    To fix: Complete setup ('python3 project/scripts/setup_config.py') and run vector indexing ('python3 project/scripts/vector_indexer.py --db <db> --index').\n", file=sys.stderr)
+            print("    To fix: Complete setup ('python3 .agents/scripts/setup_config.py') and run vector indexing ('python3 .agents/scripts/vector_indexer.py --db <db> --index').\n", file=sys.stderr)
             results_map: Dict[str, List[Dict[str, Any]]] = {}
             for query in queries:
                 clean_q = "".join(c if c.isalnum() or c.isspace() else " " for c in query).strip()
