@@ -99,7 +99,7 @@ All data exploration, cross-relational mining, and quote retrieval must be perfo
 
 ### Stage 1: Macro-Reconnaissance & Anomaly Detection
 Before reading individual quotes or forming premature psychological conclusions:
-1. Run `query_chat.py --stats` to establish communication volume, balance of participation, and message verbosity.
+1. Run `query_chat.py --stats` to establish communication volume, balance of participation, thread initiation, and message verbosity.
 2. Run `query_chat.py --gaps` to examine silences $>24$h and identify who maintains the relationship vs. who withdraws.
 3. Run `query_chat.py --timeline` to detect phases of closeness, conflict, or emotional detachment across years.
 4. Run `query_chat.py --burning-days` to isolate statistically anomalous peak intensity days ($\mu + 2\sigma$).
@@ -109,6 +109,13 @@ Before reading individual quotes or forming premature psychological conclusions:
    - Run `query_chat.py --emotional-peaks` (with optional `--peak-type profound_sadness | euphoric_joy | intense_rage`) to audit emotional valleys, grief, and affective peaks.
    - Run `query_chat.py --advice-seeking` to inspect moments of internal conflict, moral dilemmas, and vulnerability disclosures.
 7. Run `query_chat.py --triaged-threads` (or `--triaged-threads --triage-category <category>`) to retrieve substantive dialogue threads, avoiding unindexed noise.
+
+> [!WARNING]
+> **Anti-Simpson Relational Protocol (Multi-Chat Dyadic Normalization):**
+> Conversational initiative, thread starting, and silence reconnection are **dyadic interpersonal dynamics**, not universal subject constants.
+> In archives with multiple chat files sharing a primary subject:
+> - **NEVER** evaluate an interlocutor's attachment or conversational initiative using raw global corpus shares (`Global %` or flat corpus percentages), which suffer from Simpson's paradox (an interlocutor present in only 1 of 5 chats mathematically appears to have only ~10-20% global share despite 50/50 balance in their relationship).
+> - **Always audit metrics per individual chat** via the `Per-Chat Relational Breakdown` in `--gaps`, `In-Chat %` in `--stats`, or filtered queries (`query_chat.py -C <chat_id> --gaps`). Relational conclusions must reflect the specific dyad.
 
 ### Stage 2: Biographical Dossier & Cast of Characters
 1. **Origin Story Reconstruction:** Search for autobiographical fragments across school, university, past relationships, career pivots, and formative crucibles.

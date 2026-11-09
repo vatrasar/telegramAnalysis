@@ -73,11 +73,11 @@ Rather than operating as a passive summarizer or a checklist-bound automaton, th
 
 Before reading raw text or forming early impressions, establish the quantitative landscape using `project/scripts/query_chat.py`:
 
-1. **Macro Balance (`--stats`):** Total message volume, date ranges, word-share percentages, and average words per message.
+1. **Macro Balance (`--stats`):** Total message volume, date ranges, word-share percentages, threads initiated, and average words per message. When evaluating multi-chat corpora, inspect `In-Chat %` and per-chat breakdowns rather than flat corpus shares to avoid Simpson's paradox.
 2. **Activity Chronology (`--timeline`):** Monthly ebb and flow; locate multi-month peaks of intensity or prolonged dormant phases.
 3. **Silence & Reconnection Ratios (`--gaps --min-hours 24`):**
    - Who breaks silences $>24$h, $>5$ days, or $>14$ days?
-   - Identify who actively sustains the relationship vs. who withdraws.
+   - In multi-chat databases, examine the **Per-Chat Relational Breakdown** or run per chat (`-C <chat_id>`), assessing who actively sustains *each specific dyadic relationship* vs. who withdraws. Avoid evaluating interlocutors on raw global percentages.
 4. **Burning Days (`--burning-days`):**
    - Identify statistically anomalous days ($\mu + 2\sigma$ message/word volume). These pinpoint emotional crises, late-night confrontations, breakthrough disclosures, or intense intellectual battles.
 5. **Substantive Dialogue Threads (`--intensive-threads`):**

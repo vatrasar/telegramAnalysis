@@ -113,8 +113,11 @@ Run the CLI to extract hard statistical facts and review System-1 triage anomali
 # List all indexed chats in the database:
 python3 project/scripts/query_chat.py --db chat.db --list-chats
 
-# Global overview across all chats combined:
+# Global overview across all chats combined (includes In-Chat normalized initiative and per-chat breakdowns):
 python3 project/scripts/query_chat.py --db chat.db --stats --gaps --timeline --triage-status
+
+# Focused inspection of a specific relationship dyad:
+python3 project/scripts/query_chat.py --db chat.db --chat <chat_name_or_id> --stats --gaps
 
 # Review detected behavioral anomalies and interlocutor shocks:
 python3 project/scripts/query_chat.py --db chat.db --anomalies-only
