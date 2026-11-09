@@ -35,6 +35,8 @@ Rather than operating as a passive summarizer or a checklist-bound automaton, th
    - **Look Ahead ($N+1 \dots N+5$):** Inspect the interlocutor's reaction. Never treat a proposition as objective fact if refuted, corrected, or laughed off.
    - **Thesis Corroboration & Anti-"Eureka!" Check:** A single matching quote is merely an initial hypothesis. Always seek corroboration in the archive and check consistency against the subject's overall baseline.
    - **Epistemic Authority vs. False Symmetry:** Give primary evidentiary weight to the participant who directly witnessed external interactions. Do not create false symmetry ("Person A says X, Person B says Y") when an external observer's guess is falsified by the primary witness with direct evidence.
+   - **Pronoun Antecedent Disambiguation:** When multiple entities are mentioned in the conversational window, actively trace personal pronouns (*he*, *she*, *they*) back to the exact antecedent noun or proper name. Never assume a pronoun refers to the primary subject or prominent character by default.
+   - **Collective-to-Individual Boundary:** Never project traits, political leanings, or beliefs of a family or group onto an individual without direct personal evidence.
 5. **The Actuation Gate (Modality & Irrealis vs. Realis):**
    - Strictly distinguish between wishes/offers (*irrealis*) and executed historical facts (*realis*). Verbs of intent or proposal (*"offered"*, *"insisted on accepting"*, *"wanted to"*, *"planned"*, *"dreamed"*, *"chciał"*) must never be converted into biographical reality or professional titles without proof of actual execution. Always audit the subsequent resolution of episodic offers or plans.
 6. **The Evidentiary Pruning Principle (Strict Omission of Unaddressed Topics):**
@@ -161,6 +163,12 @@ People rarely narrate their life sequentially; they drop autobiographical crumbs
 >    - **Modality vs. Fact:** Never convert modal verbs, job offers, or desires (*offered*, *insisted on accepting*, *wanted*, *planned*, *applied*) into established biographical facts.
 >    - **Resolution Audit:** When a high-gravity opportunity or life change is mentioned (job offer, engagement, move, degree application), trace the thread forward or query the aftermath to determine whether it was realized, blocked, or abandoned.
 >    - **Conditional Psychological Crucible Recording:** If (and only if) an unrealized trajectory or thwarted ambition caused documented interpersonal tension or emotional wounds (e.g. mother's blocked kindergarten directorship), record it under that character's psychological dynamics / sources of friction. **Do not force this field if no such event occurred**, and **never confuse an unrealized dream with actual occupational status**.
+> 7. **Strict Multi-Entity Pronoun & Anaphora Resolution:**
+>    - In threads where two or more third parties or interlocutors are mentioned in close proximity, personal pronouns (*he*, *she*, *they*, *on*, *ona*) must **NEVER** be attributed to a specific character without explicitly verifying and confirming the antecedent noun/proper name in preceding turns ($N-5 \dots N$).
+>    - Proximity to a prominent character does not confer identity. The antecedent must be definitively confirmed before attributing any statement, action, or trait to an individual.
+> 8. **Collective-to-Individual Attribute Leakage Ban (Social Unit $\to$ Individual Attribution Ban):**
+>    - Ideological leanings, political alignments, religious orientations, habits, or behavioral traits attributed in the source text to a collective social unit (such as a character's family, household, peer group, or partner) **must NEVER be transposed, projected, or inherited onto an individual character as their personal attribute**.
+>    - An agent may only assign personal views, traits, or orientations to an individual if directly affirmed by or documented for that specific individual. Familial or environmental context may only be noted as background context where explicitly verified and relevant, never converted into a personal trait or label.
 
 #### 2. Cast of Characters (Relational Constellation)
 Systematically audit all significant recurring third parties mentioned in the logs:
@@ -183,6 +191,13 @@ Format the relational constellation strictly as a **3-column Markdown table**:
 | **[Character / Role]** | [Verified details, status, meeting context] | [Recurring themes, friction, relational dynamic] |
 ```
 *(In default Polish reports, format headers as: `| Postać / Rola | Identyfikacja i Status | Główne Motywy i Dynamika Relacyjna |`)*
+
+> [!IMPORTANT]
+> **Atomic Attribute Grounding in Cast of Characters (Zero-Filler Rule):**
+> In `01_cast_of_characters.md`, within the *Identification & Status* column:
+> - Every single factual descriptor, label, political/ideological alignment, religious belief, occupation, or personal habit must be independently grounded in verified conversational evidence.
+> - Agents are strictly prohibited from adding unverified worldview, political, or psychological labels as synthetic filler or narrative color to embellish a profile.
+> - If a specific personal dimension lacks direct primary proof in the archive, it must be completely omitted rather than approximated.
 
 ---
 

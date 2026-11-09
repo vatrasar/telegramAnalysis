@@ -152,7 +152,7 @@ Before drafting narrative chapters or biographical dossiers, the agent audits hi
    - Whenever an episodic life event, major offer, or intention appears in the logs (job offer, engagement proposal, university application, planned relocation, proposed breakup), the agent **MUST** audit the aftermath/resolution:
      - Did the event actually take place, or was it blocked, rejected, abandoned, or derailed by third parties or circumstances?
      - What was the verified outcome in subsequent months or years?
-5. **Relational Constellation & Entity Disambiguation (The 4-Principle Engine):**
+5. **Relational Constellation & Entity Disambiguation (The Multi-Principle Engine):**
    - **Principle A: Relational Roles vs. Demographic Attributes (The NPC Filter):**
      - Relational roles (*"sister"*, *"ex"*, *"boss"*, *"therapist"*) denote guaranteed bonds with the subject (distinguishing them from random strangers/NPCs).
      - **Bond $\neq$ Uniqueness:** A relational role guarantees a bond, but does **NOT** guarantee a 1-to-1 individual mapping (a subject can have multiple sisters simultaneously, or sequential bosses and partners across different years).
@@ -173,6 +173,12 @@ Before drafting narrative chapters or biographical dossiers, the agent audits hi
        2. **High-Gravity & Consequential Actions:** Crimes, violence, major financial exchanges, severe betrayal, life-altering decisions, legal or physical conflicts.
        3. **Character & Relational Pathology Attributions:** Assigning toxic dynamics, manipulation, harassment, or persistent behavioral patterns to a specific person.
        4. **Core Psychological Crucibles:** Formative traumas, foundational trust fractures, and primary attachment wounds.
+   - **Principle E: Strict Multi-Entity Pronoun & Anaphora Resolution:**
+     - In conversation threads where two or more third parties or interlocutors are mentioned or discussed in close proximity, personal pronouns (*"he"*, *"she"*, *"they"*, *"on"*, *"ona"*, *"jego"*, *"jej"*) must **NEVER** be attributed to a character without explicitly verifying and confirming the antecedent noun/proper name in preceding turns ($N-5 \dots N$).
+     - Agents are strictly forbidden from defaulting or assuming a pronoun refers to whichever character is currently in analytical focus or prominent in memory. The antecedent must be definitively proven before assigning any action, statement, or trait to an entity.
+   - **Principle F: Collective-to-Individual Attribute Leakage Ban (Social Unit $\to$ Individual Attribution Ban):**
+     - Ideological leanings, political alignments, religious orientations, behavioral patterns, or pathologies attributed in the source text to a collective social unit (such as a character's family, household, peer circle, ethnic group, or partner) **must NEVER be transposed, projected, or inherited onto an individual character as their personal attribute**.
+     - An agent may only assign personal views, traits, or orientations to an individual if directly affirmed by or documented for that specific individual. Familial or environmental context may only be noted as background context where explicitly verified and relevant, never converted into a personal trait or label.
 
 ### Stage 3: Intensive Discussions & Life Spheres Audit
 1. Audit all intensive discussions using the **3-Point Thread Inspection Method** (Trigger $\to$ Core Stances $\to$ Resolution/Exit).
@@ -220,13 +226,16 @@ Before drafting narrative chapters or biographical dossiers, the agent audits hi
   - **Shared Attribute Trap:** Never conflate two distinct people simply because they share descriptive traits (e.g. same nationality, city, app, ethnicity, or generic role like "friend" / "ex").
   - Maintain clear entity profiles: `Name/Alias` + `Active Date Range` + `Context/Platform` + `True Nature of Bond` (platonic online friend vs. romantic partner).
   - Actively cross-check names before attributing actions: verify whether a story belongs to Person A or Person B.
+  - **Multi-Entity Pronoun & Anaphora Resolution:** In multi-entity threads, never assign propositions containing pronouns (*"he"*, *"she"*, *"they"*) to an entity without tracing back to the explicit noun antecedent. Proximity to another character's mention does not confer identity.
+  - **Collective-to-Individual Attribute Leakage Ban:** Never transfer attributes, political affiliations, religious beliefs, or behaviors of a social unit (family, household, peer group) onto an individual entity as their personal attribute without explicit personal confirmation.
 - **Strict Timeline Bridging Ban (The Span Claim Gate):**
   - Never synthesize continuous multi-year spans (e.g. *"2020–2023"*) from disjointed mentions across years.
   - The **Span Claim Gate** enforces that whenever claiming a relationship duration or start year in a dossier, the agent MUST run a targeted query to verify continuity across intervening years or find a direct duration quote.
   - Distinguish between *"known someone casually since [Year]"* vs. *"actively dated during [Year]"*.
   - Treat isolated mentions of distant years (e.g. 2020 mentioned in a 2024 chat) as potential retrospective flashbacks (*Outliers*), requiring inspection of that specific anchor message before linking it to an ongoing entity.
-- **Fact-Pinning in Biographical Dossiers:**
+- **Fact-Pinning & Atomic Attribute Grounding in Dossiers & Cast of Characters:**
   - In `00_dossier_and_timeline.md` and `01_cast_of_characters.md`, every biographical milestone, relationship entry, and ex-partner summary MUST be anchored by verifiable message IDs (`[#ID | YYYY-MM-DD]`). Never draft biographical narratives from loose semantic impressions.
+  - **Atomic Grounding & Zero-Filler Rule:** In `01_cast_of_characters.md` (specifically the *Identification & Status* column), every single factual descriptor, label, political/ideological alignment, religious belief, occupation, or personal habit must be independently backed by verifiable evidence. Agents are strictly prohibited from adding unverified worldview, political, or psychological labels as synthetic filler or narrative color to embellish a profile. If a specific personal dimension lacks direct primary proof in the archive, it must be completely omitted rather than approximated.
 - **The Actuation Gate & Conditional Unrealized Trajectories:**
   - In `01_cast_of_characters.md`, maintain a strict boundary between verified biographical reality (ground truth occupation/status) and modal intentions or unfulfilled offers.
   - **Conditional Friction Recording:** Only if an unrealized trajectory, thwarted job offer, or blocked ambition actually occurred and manifested as a significant source of psychological tension, resentment, or identity conflict, record it under that character's psychological dynamics / sources of friction. Do **NOT** force this field if no such episode exists in the logs, and **NEVER** substitute an unrealized ambition for an actual occupational title.
