@@ -360,6 +360,11 @@ def insert_chat_data(
     if cur.fetchone()[0] > 0:
         cur.execute("DELETE FROM thread_embeddings WHERE chat_id = ?;", (chat_id,))
 
+    # If triage table exists, clean old triage entries for this chat
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
+    if cur.fetchone()[0] > 0:
+        cur.execute("DELETE FROM thread_triage WHERE chat_id = ?;", (chat_id,))
+
     msg_dict = {m["id"]: m for m in processed_msgs}
     start_date = processed_msgs[0]["date"]
     end_date = processed_msgs[-1]["date"]

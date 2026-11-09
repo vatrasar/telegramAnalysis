@@ -32,6 +32,8 @@ Rather than operating as a passive summarizer or a checklist-bound automaton, th
    - **Look Back (Origin Check):** When a strong factual claim is made about a third party, trace back through the archive. Is it grounded in prior factual disclosures, or is it a spontaneous inference, hyperbole, or conversational provocation?
    - **Look Ahead (Next-Turn Proof):** Always examine turns $N+1$ to $N+5$. If the interlocutor immediately refutes, corrects, or jokes away the statement, never record that claim as established fact.
    - **Epistemic Authority vs. False Symmetry:** Give primary evidentiary weight to the participant who directly witnessed external interactions. Do not create false symmetry ("Person A says X, Person B says Y") when an external observer's guess is falsified by the primary witness with direct evidence.
+5. **The Actuation Gate (Modality & Irrealis vs. Realis):**
+   - Strictly distinguish between wishes/offers (*irrealis*) and executed historical facts (*realis*). Verbs of intent or proposal (*"offered"*, *"insisted on accepting"*, *"wanted to"*, *"planned"*, *"dreamed"*, *"chciał"*) must never be converted into biographical reality or professional titles without proof of actual execution. Always audit the subsequent resolution of episodic offers or plans.
 
 ---
 
@@ -43,11 +45,12 @@ Rather than operating as a passive summarizer or a checklist-bound automaton, th
 > 1. Pre-flight verification (`project/scripts/setup_config.py`) succeeded with Exit Code 0.
 > 2. Analytical database was built cleanly without cross-subject contamination (`project/scripts/db_builder.py <file> -o chat.db --clean` or via a dedicated subject database `-o chat_<subject>.db`).
 > 3. Semantic vector embeddings were generated (`project/scripts/vector_indexer.py --db chat.db --index`).
-> Deep psychological exploration and semantic search (`--semantic`) strictly depend on indexed vector embeddings; never skip indexing or silently downgrade to keyword matching.
+> 4. System-1 dialogue thread triage was executed (`project/scripts/triage_threads.py --db chat.db`).
+> Deep psychological exploration, semantic search (`--semantic`), and quiet disclosure retrieval strictly depend on indexed vector embeddings and System-1 triage; never skip indexing or triage.
 
 ```
-[Phase 1: Macro-Recon & Anomalies] 
-   └── --stats, --timeline, --gaps, --burning-days, --intensive-threads
+[Phase 1: Macro-Recon & Triage Anomalies] 
+   └── --stats, --timeline, --gaps, --burning-days, --anomalies-only, --triaged-threads
 [Phase 2: Biographical Dossier & Cast of Characters]
    └── Chronological Timeline + Relational Constellation Mapping
 [Phase 3: All Intensive Discussions & Ideology]
@@ -73,6 +76,9 @@ Before reading raw text or forming early impressions, establish the quantitative
    - Identify statistically anomalous days ($\mu + 2\sigma$ message/word volume). These pinpoint emotional crises, late-night confrontations, breakthrough disclosures, or intense intellectual battles.
 5. **Substantive Dialogue Threads (`--intensive-threads`):**
    - Filter out small talk and isolate high-volume discussions ranked by total substantive words and interaction density.
+6. **System-1 Triage & Quiet Disclosures (`--triaged-threads`, `--triage-status`):**
+   - Inspect threads pre-filtered by the System-1 triage engine (`project/scripts/triage_threads.py`).
+   - Rescues low-volume, high-salience psychological disclosures ("quiet disclosures", e.g. 2-3 message admissions of trauma, grief, or relational fractures) that pure word-count heuristics discard, while pruning 70–80% of routine logistical noise.
 
 ---
 
@@ -108,8 +114,13 @@ People rarely narrate their life sequentially; they drop autobiographical crumbs
 >    - *Sequential Roles Across Timelines (e.g. Bosses, Therapists, Partners):* A role like *"my boss"* changes over time across career pivots. It maps to a specific person ONLY when grounded in the chronological employment timeline (e.g. Boss at Company A in 2021 vs. Boss at Company B in 2023). If the employer context is ambiguous, route to `Boss_Unresolved`.
 >    - *Container-Level Psychological Analysis:* In psychological analyses of family dynamics or authority relations, analyze the interaction at the container level without forcing a premature or false biographical attribution.
 > 5. **Negative Anchor Audit & Span Claim Gate:**
->    - Query for definitive negative milestones (e.g. `boyfriend OR chłopak OR ex OR first time OR never OR until`). An explicit quote such as *"I didn't even have a boyfriend until last year"* is an iron-clad falsification gate that instantly disqualifies earlier romantic relationships.
+>    - **Primary Subject:** Query for definitive negative milestones (e.g. `boyfriend OR chłopak OR ex OR first time OR never OR until`). An explicit quote such as *"I didn't even have a boyfriend until last year"* is an iron-clad falsification gate that instantly disqualifies earlier romantic relationships.
+>    - **Key Entity Baseline Audit:** Extend falsification queries to core third parties (parents, partners). Before recording a permanent role or profession, query baseline statements (e.g. `mother AND (work OR job OR housewife OR pracuj OR dom)`). A direct declaration like *"my mother is not working"* overrides episodic stories about offers.
 >    - Never synthesize continuous multi-year spans (e.g. "2020–2023") by interpolating between disconnected mentions. Fact-pin every timeline claim with supporting message IDs (`[#ID | YYYY-MM-DD]`).
+> 6. **The Actuation Gate & Resolution Check Protocol:**
+>    - **Modality vs. Fact:** Never convert modal verbs, job offers, or desires (*offered*, *insisted on accepting*, *wanted*, *planned*, *applied*) into established biographical facts.
+>    - **Resolution Audit:** When a high-gravity opportunity or life change is mentioned (job offer, engagement, move, degree application), trace the thread forward or query the aftermath to determine whether it was realized, blocked, or abandoned.
+>    - **Conditional Psychological Crucible Recording:** If (and only if) an unrealized trajectory or thwarted ambition caused documented interpersonal tension or emotional wounds (e.g. mother's blocked kindergarten directorship), record it under that character's psychological dynamics / sources of friction. **Do not force this field if no such event occurred**, and **never confuse an unrealized dream with actual occupational status**.
 
 #### 2. Cast of Characters (Relational Constellation)
 Systematically audit all significant recurring third parties mentioned in the logs:
@@ -121,8 +132,8 @@ Systematically audit all significant recurring third parties mentioned in the lo
 
 For each figure, determine:
 - **Exact Identification:** Distinct name/alias, active dates, and context of meeting. If multiple figures share a nationality or generic label, list them as explicitly separate entities.
-- **Their Role:** Authority figure, emotional anchor, dependent responsibility, rival, or trigger.
-- **Recurring Themes:** What situations invoke this person?
+- **Their Role & Verified Status:** Authority figure, emotional anchor, dependent responsibility, rival, or trigger. Verified occupational or marital status grounded in actual practice (not unrealized offers).
+- **Recurring Themes & Dynamics:** What situations invoke this person? If an unrealized trajectory or thwarted ambition occurred and generated acute emotional conflict, capture it here as a psychological dynamic.
 - **Emotional Stance & Boundaries:** Does the subject show deference, resentment, warmth, contempt, envy, or filial guilt? Can they set firm boundaries, or do they capitulate?
 
 ---
@@ -143,29 +154,54 @@ Inspect substantive dialogue threads efficiently without getting bogged down in 
 
 ---
 
-### Phase 4: Full Spectrum Life Spheres Audit (A–F)
+### Phase 4: Full Spectrum Life Spheres & Behavioral Dimensions Audit (A–F)
 
-Examine the subject's conduct across the 6 foundational spheres of life:
+Examine the subject's conduct across the 6 foundational spheres of life, ensuring thorough forensic probing into both existential dynamics and everyday practical lifestyle patterns:
 
 #### A. Social Matrix & Friendship Dynamics
-- **Friendship Paradigm:** Do they view friends as authentic confidants, an admiring audience, or utilitarian assets? Do they maintain an exclusive inner circle while keeping others at arm's length?
+- **Authentic Friends vs. Superficial Contacts:** Does the subject possess a genuine circle of close, trusted friends, or are social contacts primarily superficial acquaintances, colleagues, or online contacts?
+- **Social Cadence & Meeting Frequency:** How often do they actually meet friends in real life? Are offline hangouts frequent, routine, sporadic, or actively avoided in favor of digital-only interactions?
+- **Shared Social Activities:** How do they spend time with friends? (E.g., house visits, dining/pub outings, shared gaming sessions, sports/outdoor activities, artistic/intellectual discussions, or mutual venting).
+- **Altruism & Helping Others (Prosocial Stance):** Do they genuinely enjoy helping others, offering spontaneous assistance, time, advice, or practical aid? Is their helpfulness selfless and empathic, or is it transactional (expecting payback), driven by a savior/caretaker complex, or avoided altogether?
+- **Friendship Paradigm & Boundaries:** Do they view friends as authentic confidants, an admiring audience, or utilitarian assets? Do they maintain an exclusive inner circle while keeping others at arm's length?
 - **Loyalty vs. Door-Slamming:** Do they repair relational fractures, or do they permanently cut ties (*door-slam*) upon the first perceived disloyalty?
-- **Envy vs. Compersion:** How do they react to peers' achievements? Genuine pride vs. passive-aggressive minimization, envy, or anxious comparison.
-- **Confidentiality:** Do they guard secrets faithfully, or instrumentalize gossip?
+- **Envy vs. Compersion & Confidentiality:** How do they react to peers' achievements? Genuine pride vs. passive-aggressive minimization, envy, or anxious comparison. Do they guard secrets faithfully or instrumentalize gossip?
 
-#### B. Work, Ambition & Authority Relations
+#### B. Professional Sphere, Work Ethic & Financial Psychology
+- **Work Ethic & Diligence (Hard Worker vs. Slacker):** Are they a conscientious grinder/workaholic ("pracuś"), driven by perfectionism and duty, or do they slack off ("obijanie się"), procrastinate, coast, or do the bare minimum?
+- **Aspirations, Ambitions & Plan Execution Track Record:**
+  - *Declared Ambitions & Long-term Vision:* What scale of ambition do they voice (career milestones, creative projects, entrepreneurial ventures, educational pivots, relocation)?
+  - *Follow-Through vs. Phantom Declarations:* Over the longitudinal timeline, do they systematically execute declared plans, hit milestones, and follow through, OR do their ambitious declarations evaporate into empty words, perpetual postponement, and wishful thinking?
+  - *Specific Unfulfilled Ambitions & Abandoned Goals (The Catalogue of Unrealized Dreams):*
+    - The profiler must explicitly identify, itemize, and name the **concrete unfulfilled ambitions, abandoned ventures, uncompleted qualifications/degrees, dropped projects, or deferred life paths** revealed across the archive (e.g. *"wanted to launch a startup but never did"*, *"planned to study abroad"*, *"abandoned writing a book/creative work"*, *"dreamed of switching to medicine/IT but stayed in a safe job"*).
+    - For each identified unfulfilled ambition, investigate:
+      1. What was the exact envisioned ambition and when was it declared?
+      2. At what stage did execution stall or derail?
+      3. What was the true blocker (e.g., perfectionist paralysis, fear of public failure, lack of financial runway, loss of novelty, partner/parental discouragement)?
+      4. Does it linger as an open psychic wound, a chronic source of melancholy/regret ("what could have been"), or was it maturely mourned and replaced?
+  - *Coping with Unfulfilled Ambitions & Failure:* How do they handle stalled projects or unrealized dreams? Do they exhibit mature self-reflection and realistic recalibration, or retreat into externalized blame (blaming systems, bosses, lack of time) and rationalization?
+- **Team Player vs. Lone Wolf:** Are they a cooperative team player who communicates constructively, shares credit, and fosters group alignment, or a fiercely autonomous lone wolf who distrusts collective efforts and prefers working strictly in a silo?
+- **Team Role & Leadership Dynamics:** Are they a natural leader, project initiator, and decision-maker who takes responsibility, or do they prefer being an individual contributor / task executor who follows explicit orders and avoids organizational exposure?
 - **Hierarchy & Power:** Do they instinctively rebel against superiors and corporate structures, or act as hyper-conscientious perfectionists desperate for validation?
 - **Agency vs. Imposter Syndrome:** Do they possess genuine self-efficacy, or suffer chronic feelings of fraudulence despite external achievements?
-- **Money & Material Success:** Is wealth a measure of security, a shield of autonomy, social status, or a subconscious source of guilt?
+- **Financial Psychology & Money Management:**
+  - *Frugality vs. Spendthrift Habits:* Are they disciplined savers, bargain hunters, and frugal planners, or impulsive spenders, status buyers, or lavish spendthrifts?
+  - *Attitude Toward Wealth & Material Security:* Is money an instrument of safety, a shield of autonomy, social status, or a subconscious source of guilt? How do they handle everyday budgeting, luxury purchases, debts, investments, or treating others?
 
-#### C. Worldview, Politics & Cognitive Debate Style
-- **Socio-Political Beliefs:** Views on governance, taxation, individual liberty, tradition, religion, and social conventions.
+#### C. Worldview, Politics & Technology Stance
+- **Socio-Political Beliefs:** Explicit political orientation (conservative, liberal, libertarian, left-wing, centrist, or apolitical/disillusioned), stance on governance, taxation, civic duties, individual liberties, tradition, and religion.
+- **Attitude Toward Artificial Intelligence & Modern Technology:**
+  - *AI & Tech Posture:* Are they enthusiastic early adopters, pragmatic utilitarians, philosophical skeptics, or apprehensive about AI (automation, ethical risks, epistemic decline, dehumanization)?
+  - *Practical Tech Usage:* Do they embrace modern digital tools and AI assistants in their daily workflow and reasoning, or do they express resistance to technological shifts?
 - **Cognitive Style in Debate:** Do they lean on empirical evidence and formal logic, or emotional appeal and moral superiority? Do they respect ideological opponents or dehumanize them?
 
-#### D. Family Roots & Parental Imprints
+#### D. Family Roots, Parental Imprints & Domestic Environment
 - **Parental Imprints:** Mother and father archetypes; presence of conditional love, harsh discipline, or emotional neglect.
 - **Sibling Dynamics & Parentification:** Were they forced to take on adult caretaker roles prematurely?
 - **Generational Traps:** Did they witness an entrapped or unhappy parental marriage? How does this dictate their fear of commitment?
+- **Approach to Domestic Order & Living Space:**
+  - *Orderliness vs. Chaos:* Meticulous cleanliness and structured minimalism vs. high clutter tolerance, disorganization, or chronic mess.
+  - *Domestic Environment as Psychological Mirror:* How does their living space reflect their internal state? (E.g., compulsive cleaning as a stress-relief mechanism vs. neglecting environment during depressive/overwhelmed episodes).
 
 #### E. Romantic Attachment & Deactivating Strategies
 - **Attachment Style Diagnosis:** Explicitly classify according to Bowlby / Ainsworth / Bartholomew:
@@ -175,10 +211,46 @@ Examine the subject's conduct across the 6 foundational spheres of life:
   - *Fearful-Avoidant (Disorganized):* Desires closeness but fears engulfment; push-pull dynamics; guarded exterior until bonded, then intense anxiety.
 - **Deactivating Strategies:** Checklist perfectionism, sabotage when intimacy deepens.
 
-#### F. Passions, Aesthetics & Solitude
-- **Authentic Obsessions:** What topics make their eyes light up once social and professional masks are discarded?
-- **Restoration Modes:** How do they recharge? (Solitude, gaming, literature, physical exertion, technical tinkering).
-- **Aesthetic Sensibility:** What art, design, or ideas inspire them?
+#### F. Leisure, Sports, Travel, Vacations & Relationship with Animals
+- **Free Time & Hobbies (Restoration Modes):** How do they actively choose to spend discretionary time? Passive consumption (scrolling, streaming) vs. active passions (gaming, reading, creative arts, physical sports, technical tinkering, solo contemplation).
+- **Sports & Physical Activity:**
+  - *Exercise Habits & Preferences:* Do they practice sports or physical training (e.g., gym, running, swimming, cycling, team sports, martial arts, fitness classes)? Do they follow/watch sports as a spectator?
+  - *Function of Physical Culture:* Is exercise a discipline, a stress-relief mechanism, an aesthetic body-image drive, or do they express active aversion/apathy toward physical exertion (sedentary lifestyle)?
+- **Vacation & Holiday Style:** How do they spend vacations and time off?
+  - *Style & Structure:* Rigidly planned itineraries vs. spontaneous drifting; resort comfort vs. adventurous exploration; traveling solo vs. with partners/friends.
+  - *Psychological Decompression:* Can they genuinely unplug from work and duties, or do they carry anxiety and hyper-vigilance into their time off?
+- **Travel Motivations & Modus Operandi (Why and How They Travel):**
+  - *Drivers:* Why do they travel (or why do they avoid it)? Driven by cultural curiosity, escape from routine, wanderlust, romantic getaways, or staying grounded as a committed homebody.
+  - *Pattern:* Domestic getaways vs. international travel, high-frequency nomadism vs. rare, carefully curated journeys.
+- **Relationship with Animals & Pets:**
+  - *Pet Ownership & Affection:* Do they have pets (dogs, cats, etc.), desire pets, or avoid them?
+  - *Emotional Bond & Empathy:* How do they interact with and talk about animals? Animal empathy serves as a potent window into their instinctual warmth, capacity for unconditional care, or sensory/cleanliness boundaries.
+
+---
+
+#### Targeted Search Lexicon for Lifestyle & Behavioral Probing
+
+To investigate these practical behavioral spheres effectively, the agent executes targeted queries using `project/scripts/query_chat.py` (combining semantic search `--semantic` with keyword filters `-s`):
+
+| Analytical Target | Polish Query Keywords | English / Concept Query Keywords |
+| :--- | :--- | :--- |
+| **Domestic Order & Cleanliness** | `sprzątanie OR bałagan OR porządek OR syf OR kurz OR sprzątać` | `cleaning OR mess OR tidy OR clutter OR chore OR apartment` |
+| **Friends, Social Cadence & Meetups** | `znajomi OR przyjaciel OR kumpel OR wyjście OR piwo OR spotkać OR na żywo` | `friends OR hang out OR meet up OR drinking OR socializing` |
+| **Altruism & Helping Others** | `pomóc OR pomoc OR pomagam OR przysługa OR wsparcie OR poradzić OR wyręczyć` | `help OR helping OR favor OR support OR altruism OR assist OR volunteer` |
+| **Work Ethic & Team Role** | `praca OR szef OR nadgodziny OR leniuchować OR obijać OR awans OR lider OR polecenia` | `work ethic OR boss OR overtime OR slacking OR leader OR task` |
+| **Aspirations & Plan Execution** | `planuję OR plany OR cel OR marzenie OR ambicja OR projekt OR zamierzam OR postanowiłem OR zrealizować OR rzucić` | `plan OR goal OR ambition OR project OR intention OR execute OR follow through OR milestone` |
+| **Unfulfilled Ambitions & Abandoned Plans** | `chciałem być OR marzyłem o OR miałem plan OR zrezygnowałem OR nie wyszło OR odpuściłem OR żałuję OR rzuciłem OR niedokończone OR planowałem` | `used to want OR dreamed of OR had a plan OR gave up OR didn't work out OR dropped out OR regret OR abandoned OR unfinished` |
+| **Team Player vs. Lone Wolf** | `zespół OR drużyna OR współpraca OR gracz zespołowy OR razem OR samotnik OR indywidualista` | `teamwork OR team player OR collaboration OR cooperative OR lone wolf` |
+| **Sports & Physical Activity** | `sport OR siłownia OR bieganie OR biegam OR trening OR ćwiczyć OR rower OR basen OR mecz` | `sports OR gym OR workout OR running OR fitness OR exercise OR training` |
+| **Leisure & Hobbies** | `czas wolny OR hobby OR grać OR seriale OR czytać OR odpoczynek OR nudzi mi się` | `free time OR hobby OR gaming OR watching OR reading OR bored` |
+| **Political & Societal Views** | `polityka OR wybory OR rząd OR podatki OR partia OR państwo OR wolność` | `politics OR elections OR government OR taxes OR freedom OR laws` |
+| **Vacations & Holidays** | `urlop OR wakacje OR wyjazd OR odpocząć OR plaża OR hotel OR wolne w pracy` | `vacation OR holiday OR summer trip OR resort OR time off` |
+| **AI & Modern Technology** | `AI OR sztuczna inteligencja OR ChatGPT OR model OR robot OR technologia` | `AI OR artificial intelligence OR LLM OR automation OR tech` |
+| **Animals & Pets** | `pies OR piesek OR kot OR kotek OR zwierzak OR pupil OR schronisko` | `dog OR puppy OR cat OR kitten OR pet OR animal OR shelter` |
+| **Travel (Motivations & Style)** | `podróż OR zwiedzać OR samolot OR lot OR zagranica OR walizka OR wycieczka` | `travel OR trip OR flight OR abroad OR sight-seeing OR journey` |
+| **Money Management & Spending** | `pieniądze OR oszczędzać OR wydać OR drogo OR tanio OR kupić OR finanse OR kredyt` | `money OR save OR spend OR budget OR splurge OR frugal OR debt` |
+
+---
 
 ---
 
@@ -215,20 +287,20 @@ Conduct targeted forensic investigations across these 11 specialized layers:
 11. **Big Five Personality Dimensions (OCEAN - Observational Profiling):**
     Systematically evaluate and estimate the subject's spectrum across all 5 dimensions (Very Low / Low / Moderate / High / Very High or spectrum tendencies), anchored in longitudinal conversational evidence:
     - **O — Openness to Experience (Otwartość na doświadczenie):**
-      - *High:* Intellectual curiosity, philosophical inquiry, artistic/aesthetic appreciation, passion for unconventional models, conceptual breadth, rich metaphorical idiolect.
-      - *Low:* Pragmatic adherence to immediate concrete reality, preference for conventional routines, dismissal of abstract hypothetical speculation.
+      - *High:* Intellectual curiosity, philosophical inquiry, artistic/aesthetic appreciation, passion for unconventional models, exploration through travel (seeking cultural novelty and foreign horizons), enthusiasm and experimentation with AI and cutting-edge technologies, rich metaphorical idiolect.
+      - *Low:* Pragmatic adherence to immediate concrete reality, preference for conventional routines, homebody orientation avoiding travel or novelty, dismissal of abstract hypothetical speculation and tech disruptions.
     - **C — Conscientiousness (Sumienność):**
-      - *High:* High structural discipline, organized message formatting (bullet points, clear paragraphs, syntactic precision), reliable follow-through on declared tasks, perfectionism, high self-control.
-      - *Low:* Spontaneous stream-of-consciousness bursts, disorganization, procrastination, fluid boundaries, abandoning threads mid-thought, impulsivity.
+      - *High:* High structural discipline, strong work ethic ("pracuś", high diligence, taking ownership or perfectionism), systematic execution of declared plans and ambitions over time (high follow-through, milestones achieved), physical fitness consistency (regular workouts or sports routine), domestic cleanliness and orderliness (intolerance of clutter/mess), disciplined financial management (budgeting, frugality, long-term saving), organized message formatting (bullet points, clear paragraphs, syntactic precision), reliable follow-through on declared tasks.
+      - *Low:* Spontaneous stream-of-consciousness bursts, disorganization, chronic procrastination or slacking at work ("obijanie się"), recurring ambitious declarations without real-world execution (phantom plans, wishful thinking, abandoned projects), sedentary physical habits, high tolerance for domestic mess and clutter, impulsive spending or lack of financial planning, fluid boundaries, abandoning threads mid-thought.
     - **E — Extraversion (Ekstrawersja):**
-      - *High:* High conversational initiative, low latency in reconnecting after gaps (`--gaps`), external processing (thinking out loud via message bursts), expressive emotional valence, active desire for social contact.
-      - *Low (Introversion):* Solitary recharge, deliberate paragraph synthesis, comfort with prolonged silence, high selectivity in dialogue partners, conversational energy depleting during group chatter.
+      - *High:* High conversational initiative, low latency in reconnecting after gaps (`--gaps`), external processing (thinking out loud via message bursts), expressive emotional valence, active desire for social contact, frequent offline meetups with friends, preference for group activities, team sports, and high-energy social gatherings.
+      - *Low (Introversion):* Solitary recharge, deliberate paragraph synthesis, comfort with prolonged silence, high selectivity in dialogue partners, rare or curated offline meetups, conversational energy depleting during group chatter, preference for solo hobbies, solo fitness (running, home workouts), and solitary travel/vacation retreats.
     - **A — Agreeableness (Ugodowość):**
-      - *High:* Empathic validation, active de-escalation of interpersonal tension, prosocial cooperation, willingness to accommodate and soothe, avoidance of harsh friction.
-      - *Low:* Argumentative debate stance, intellectual skepticism, blunt confrontation, low fear of relational rupture, competitive drive in ideological clashes, skepticism of other people's motives.
+      - *High:* Empathic validation, active de-escalation of interpersonal tension, prosocial cooperation, natural empathy and warmth toward animals and vulnerable beings, altruism and genuine joy in helping others, collaborative team-player mindset (seeking mutual win-win over asserting dominance), willingness to accommodate and soothe, avoidance of harsh friction.
+      - *Low:* Argumentative debate stance, intellectual skepticism, blunt confrontation, indifference or instrumental stance toward others/animals, lone-wolf mentality (resisting team dependence), conditional or reluctant helping, low fear of relational rupture, competitive drive in ideological clashes, skepticism of other people's motives.
     - **N — Neuroticism / Emotional Stability (Neurotyczność / Stabilność emocjonalna):**
-      - *High Neuroticism (Low Stability):* Heightened emotional volatility, rumination, acute sensitivity to perceived slights, vulnerability decompensation during late-night fatigue ("Nighttime Truth"), catastrophizing, chronic anxiety spikes on anomalous peak days (`--burning-days`).
-      - *Low Neuroticism (High Stability):* Emotional poise under pressure, stoic baseline affect, resilient recovery from conflict, resistance to spiral thinking, even-tempered interaction style.
+      - *High Neuroticism (Low Stability):* Heightened emotional volatility, rumination, acute sensitivity to perceived slights, vulnerability decompensation during late-night fatigue ("Nighttime Truth"), financial anxiety and catastrophic money fears, inability to relax on vacations/holidays, chronic anxiety spikes on anomalous peak days (`--burning-days`).
+      - *Low Neuroticism (High Stability):* Emotional poise under pressure, stoic baseline affect, resilient recovery from conflict, resistance to spiral thinking, even-tempered interaction style, relaxed attitude toward uncertainties.
     - *Triangulation & Synergies:* Cross-examine how Big Five traits interact with Attachment Style and relational defenses (e.g. Introversion + Low Agreeableness + High Openness fueling an intellectualized detached critic stance; High Neuroticism fueling Anxious/Disorganized Attachment deactivating spirals).
 12. **Operational User Manual & Actionable Playbook:**
     - Synthesize pragmatic rules for interacting with this individual (see below).
@@ -244,7 +316,7 @@ The agent writes individual section files into a temporary working folder (e.g.,
 - `00_dossier_and_timeline.md`: Motto, Case Header, Identity Dossier, Chronological Life Timeline.
 - `01_cast_of_characters.md`: Full relational constellation with roles, topics, and emotional stances.
 - `02_cognitive_architecture_and_big_five.md`: Cognitive architecture, Big Five (OCEAN) profile estimation, and intellectual debate style.
-- `03_social_and_worldview.md`: Spheres audit (Friends, Work/Authorities, Politics/Philosophy, Passions).
+- `03_social_and_worldview.md`: Spheres audit (Friends, Social Cadence & Altruism/Helping, Work Ethic, Ambitions & Catalogue of Unfulfilled Goals, Team Player vs. Lone Wolf, Money Management, Politics & AI, Domestic Order, Sports/Fitness, Vacations, Travel & Animals).
 - `04_relational_and_attachment.md`: Attachment style classification, dating history, and silence dynamics.
 - `05_shadow_and_boundaries.md`: Contradictions, accountability, boundary testing, night vs. day.
 - `06_operational_manual.md`: Blind spots, triggers, unspoken need, communication protocols, Summary Matrix.
@@ -291,10 +363,11 @@ A complete personality profile must contain:
 3. **Biographical Dossier & Life Timeline:** Reconstructed origin story, formative milestones, turning points.
 4. **Cast of Characters:** Comprehensive table and profile of recurring third parties and the subject's stance toward them.
 5. **Core Thematic Chapters (Thesis-First):**
-   - Big Five (OCEAN) Cognitive Architecture & Processing Habits.
-   - Socio-Political Philosophy & Intellectual Debate Style.
-   - Social Circle & Friendship Dynamics (Door-slams, loyalty, envy).
-   - Work, Ambition & Authority Relations.
+   - Big Five (OCEAN) Cognitive Architecture & Processing Habits (including Conscientiousness, Orderliness & Cleanliness).
+   - Socio-Political Philosophy, Stance on AI/Technology & Intellectual Debate Style.
+   - Social Circle, Friendship Dynamics, Social Cadence & Altruism (Offline vs. online frequency, shared activities, helping behavior, loyalty, door-slams).
+   - Work Ethic, Ambitions, Catalogue of Specific Unfulfilled Ambitions & Plan Execution (Follow-Through vs. Phantom Declarations), Team Role (Leader vs. Executor, Team Player vs. Lone Wolf) & Money Management (Frugal vs. Spendthrift).
+   - Leisure, Sports/Physical Activity, Vacations, Travel Motivations & Relationship with Animals.
    - Romantic Attachment & Emotional Defense Mechanisms.
    - Internal Contradictions, Accountability & Boundary Testing.
    - The Prefrontal Fatigue Window ("Nighttime Truth").

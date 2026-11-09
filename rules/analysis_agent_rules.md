@@ -73,7 +73,15 @@ python3 project/scripts/vector_indexer.py --db chat.db --index
 - It is a required prerequisite for `--semantic` searches and psychological concept retrieval in Phase 2.
 - The agent must verify that this step completed successfully before moving to query or analysis stages.
 
-### Step 3.3: Data Exploration & Analysis via CLI
+### Step 3.3: System-1 Dialogue Thread Triage (MANDATORY PREREQUISITE)
+Immediately following vector indexing, run the System-1 triage engine across all threads:
+```bash
+python3 project/scripts/triage_threads.py --db chat.db
+```
+- **DO NOT SKIP THIS STEP.** The System-1 decider screens 100% of conversation threads, pruning ~45–80% of routine logistical noise while salvaging low-volume, high-salience disclosures ("quiet disclosures", e.g. 1–2 message admissions of trauma, health crises, or breakups) that volume-based filters discard.
+- It detects and indexes behavioral anomalies (`is_atypical`) and interlocutor surprise/shock (`interlocutor_surprised`), providing high-priority forensic investigative leads.
+
+### Step 3.4: Data Exploration & Analysis via CLI
 All data exploration, cross-relational mining, and quote retrieval must be performed through `project/scripts/query_chat.py` (with optional `--chat <id_or_name>` filtering) or direct SQL queries against `chat.db`.
 
 ---
@@ -86,14 +94,23 @@ Before reading individual quotes or forming premature psychological conclusions:
 2. Run `query_chat.py --gaps` to examine silences $>24$h and identify who maintains the relationship vs. who withdraws.
 3. Run `query_chat.py --timeline` to detect phases of closeness, conflict, or emotional detachment across years.
 4. Run `query_chat.py --burning-days` to isolate statistically anomalous peak intensity days ($\mu + 2\sigma$).
-5. Run `query_chat.py --intensive-threads` to retrieve substantive dialogue threads ranked by volume, eliminating small-talk noise.
+5. Run `query_chat.py --triage-status` to inspect the macro reduction report, noise elimination rate, and category distribution.
+6. Run `query_chat.py --anomalies-only` to review the highest-priority behavioral anomalies and interlocutor shocks.
+7. Run `query_chat.py --triaged-threads` (or `--triaged-threads --triage-category <category>`) to retrieve substantive dialogue threads, avoiding unindexed noise.
 
 ### Stage 2: Biographical Dossier & Cast of Characters
 1. **Origin Story Reconstruction:** Search for autobiographical fragments across school, university, past relationships, career pivots, and formative crucibles.
-2. **Negative Anchor Audit (Falsification Gate):**
-   - Explicitly query for milestone boundaries and absolute declarations (e.g. *"first boyfriend/girlfriend"*, *"never dated before"*, *"didn't have [...] until"*, *"first job"*).
-   - A single negative anchor (e.g. *"I didn't have a boyfriend until 2023"*) acts as an iron-clad falsification filter that invalidates any prior dating hypotheses.
-3. **Relational Constellation & Entity Disambiguation (The 4-Principle Engine):**
+2. **Negative Anchor Audit & Baseline Check (Falsification Gate):**
+   - **Primary Subject:** Explicitly query for milestone boundaries and absolute declarations (e.g. *"first boyfriend/girlfriend"*, *"never dated before"*, *"didn't have [...] until"*, *"first job"*). A single negative anchor (e.g. *"I didn't have a boyfriend until 2023"*) acts as an iron-clad falsification filter that invalidates any prior dating hypotheses.
+   - **Key Entities Baseline Audit:** Extend the negative anchor audit to key figures in the Cast of Characters (e.g. parents, long-term partners). Before assigning a lifelong profession or status, query their baseline state (e.g. `mother AND (work OR job OR housewife OR pracuj OR dom)`). A direct baseline statement (e.g. *"my mother is not working"*) invalidates contradictory episodic impressions.
+3. **The Actuation Gate (Modality & Irrealis vs. Realis):**
+   - **Strict Prohibition on Intent Extrapolation:** Verbs of modality, offers, aspirations, proposals, or desires (*"offered"*, *"wanted to"*, *"insisted on accepting"*, *"applied"*, *"planned"*, *"dreamed"*, *"almost"*, *"chciał"*, *"miał zamiar"*) must **NEVER** be converted into established biographical facts, professions, degrees, or relational statuses.
+   - A status is an objective biographical fact **only** if supported by verifiable evidence of execution, duration, or ongoing practice (*"worked there for 2 years"*, *"signed the contract"*, *"came home from school shifts"*).
+4. **Resolution Check Protocol:**
+   - Whenever an episodic life event, major offer, or intention appears in the logs (job offer, engagement proposal, university application, planned relocation, proposed breakup), the agent **MUST** audit the aftermath/resolution:
+     - Did the event actually take place, or was it blocked, rejected, abandoned, or derailed by third parties or circumstances?
+     - What was the verified outcome in subsequent months or years?
+5. **Relational Constellation & Entity Disambiguation (The 4-Principle Engine):**
    - **Principle A: Relational Roles vs. Demographic Attributes (The NPC Filter):**
      - Relational roles (*"sister"*, *"ex"*, *"boss"*, *"therapist"*) denote guaranteed bonds with the subject (distinguishing them from random strangers/NPCs).
      - **Bond $\neq$ Uniqueness:** A relational role guarantees a bond, but does **NOT** guarantee a 1-to-1 individual mapping (a subject can have multiple sisters simultaneously, or sequential bosses and partners across different years).
@@ -117,13 +134,13 @@ Before reading individual quotes or forming premature psychological conclusions:
 
 ### Stage 3: Intensive Discussions & Life Spheres Audit
 1. Audit all intensive discussions using the **3-Point Thread Inspection Method** (Trigger $\to$ Core Stances $\to$ Resolution/Exit).
-2. Systematically examine the 6 core life spheres:
-   - **A:** Social circle & friends (loyalty, door-slams, envy vs. pride).
-   - **B:** Work, ambition & stance toward authorities (rebellion vs. perfectionist approval-seeking).
-   - **C:** Socio-political worldview & debate conduct (empirical logic vs. emotional moralism).
-   - **D:** Family roots & parental imprints (discipline, parentification, commitment trauma).
-   - **E:** Romantic attachment & deactivating strategies.
-   - **F:** Passions, aesthetic sensibilities & solitude.
+2. Systematically examine the 6 core life spheres, auditing both deep psychological dynamics and practical daily lifestyle patterns:
+   - **A (Social Matrix & Friends):** Presence of authentic friends vs. acquaintances, meeting cadence and frequency (offline meetups vs. online), shared social activities, altruism & helping others (prosocial assistance vs. transactional helping), loyalty vs. door-slams, envy vs. pride.
+   - **B (Work, Ambition, Leadership, Plan Execution & Finances):** Work ethic ("pracuś" / diligent grinder vs. "obijanie się" / slacker / coaster), declared aspirations and long-term ambitions, **concrete catalogue of specific unfulfilled ambitions and abandoned projects** (itemizing exact dropped ventures, uncompleted degrees, postponed career pivots, and unreached goals), plan execution track record over time (systematic follow-through vs. phantom declarations, wishful thinking, and unfulfilled ambitions), team dynamics (collaborative team player vs. autonomous lone wolf), team role (natural leader/initiator vs. task executor/follower), authority relations, money management & spending psychology (frugal/disciplined saver vs. lavish spendthrift / impulse buyer).
+   - **C (Worldview, Politics & Technology):** Socio-political beliefs and ideological alignment, attitude toward Artificial Intelligence & modern technology (enthusiast, pragmatist, skeptic, fear of dehumanization), debate conduct (empirical logic vs. emotional moralism).
+   - **D (Family Roots, Parental Imprints & Domestic Order):** Discipline, parentification, commitment trauma, approach to domestic order & living space (cleanliness and orderliness vs. chaos and clutter tolerance as a psychological mirror).
+   - **E (Romantic Attachment & Relational Dynamics):** Attachment style, deactivating strategies, relationship patterns.
+   - **F (Leisure, Sports, Travel & Animals):** How free time is spent (active vs. passive recharge), sports & physical activity (training habits, gym, active sports vs. sedentary aversion to exercise), vacation style & holiday decompression (structured vs. spontaneous, unplugging vs. work carryover), travel motivations & patterns (why and how they travel or why they avoid it), relationship with animals/pets (ownership, affection, empathy vs. aversion).
 
 ### Stage 4: Forensic Dimensions & Big Five (OCEAN)
 1. **Big Five Personality Model (OCEAN):** Systematically estimate trait levels across all 5 dimensions (Openness to Experience, Conscientiousness, Extraversion, Agreeableness, Neuroticism/Emotional Stability) with spectrum ratings (Low, Moderate, High), concrete conversational markers, and developmental roots. Do not assign or classify rigid 4-letter MBTI types; focus on empirical Big Five spectrums and behavioral dynamics.
@@ -154,6 +171,9 @@ Before reading individual quotes or forming premature psychological conclusions:
   - Treat isolated mentions of distant years (e.g. 2020 mentioned in a 2024 chat) as potential retrospective flashbacks (*Outliers*), requiring inspection of that specific anchor message before linking it to an ongoing entity.
 - **Fact-Pinning in Biographical Dossiers:**
   - In `00_dossier_and_timeline.md` and `01_cast_of_characters.md`, every biographical milestone, relationship entry, and ex-partner summary MUST be anchored by verifiable message IDs (`[#ID | YYYY-MM-DD]`). Never draft biographical narratives from loose semantic impressions.
+- **The Actuation Gate & Conditional Unrealized Trajectories:**
+  - In `01_cast_of_characters.md`, maintain a strict boundary between verified biographical reality (ground truth occupation/status) and modal intentions or unfulfilled offers.
+  - **Conditional Friction Recording:** Only if an unrealized trajectory, thwarted job offer, or blocked ambition actually occurred and manifested as a significant source of psychological tension, resentment, or identity conflict, record it under that character's psychological dynamics / sources of friction. Do **NOT** force this field if no such episode exists in the logs, and **NEVER** substitute an unrealized ambition for an actual occupational title.
 
 ---
 

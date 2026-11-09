@@ -456,6 +456,98 @@ def get_intensive_threads(
     return results
 
 
+def get_triaged_threads(
+    db_path: str,
+    limit: int = 25,
+    chat_id: Optional[str] = None,
+    min_salience: float = 0.0,
+    category: Optional[str] = None,
+    anomalies_only: bool = False
+) -> List[Dict[str, Any]]:
+    """Retrieve dialogue threads qualified by System-1 (Jev) triage for LLM profiling."""
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage'")
+    if cur.fetchone()[0] == 0:
+        conn.close()
+        return []
+
+    # Check available columns in thread_triage
+    cur.execute("PRAGMA table_info(thread_triage)")
+    cols = {col[1] for col in cur.fetchall()}
+    has_anom = "is_atypical" in cols
+
+    if has_anom:
+        sql = """
+        SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id) as chat_name,
+               t.start_date, t.end_date, t.message_count, sum(m.word_count) as total_words,
+               t.participants, tr.salience_score, tr.primary_category, tr.reason,
+               tr.is_atypical, tr.interlocutor_surprised, tr.anomaly_notes
+        FROM thread_triage tr
+        JOIN threads t ON tr.thread_id = t.thread_id
+        JOIN messages m ON t.thread_id = m.thread_id
+        LEFT JOIN chats c ON t.chat_id = c.chat_id
+        WHERE tr.escalate = 1
+        """
+    else:
+        sql = """
+        SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id) as chat_name,
+               t.start_date, t.end_date, t.message_count, sum(m.word_count) as total_words,
+               t.participants, tr.salience_score, tr.primary_category, tr.reason,
+               0, 0, ''
+        FROM thread_triage tr
+        JOIN threads t ON tr.thread_id = t.thread_id
+        JOIN messages m ON t.thread_id = m.thread_id
+        LEFT JOIN chats c ON t.chat_id = c.chat_id
+        WHERE tr.escalate = 1
+        """
+
+    params: List[Any] = []
+    if chat_id:
+        sql += " AND t.chat_id = ? "
+        params.append(chat_id)
+    if min_salience > 0.0:
+        sql += " AND tr.salience_score >= ? "
+        params.append(min_salience)
+    if category:
+        sql += " AND tr.primary_category = ? "
+        params.append(category)
+    if anomalies_only and has_anom:
+        sql += " AND (tr.is_atypical = 1 OR tr.interlocutor_surprised = 1) "
+
+    sql += """
+    GROUP BY t.thread_id
+    ORDER BY tr.salience_score DESC, total_words DESC
+    LIMIT ?;
+    """
+    params.append(limit)
+
+    cur.execute(sql, params)
+    rows = cur.fetchall()
+    conn.close()
+
+    results = []
+    for r in rows:
+        results.append({
+            "thread_id": r[0],
+            "chat_id": r[1],
+            "chat_name": r[2],
+            "start_date": r[3][:16].replace("T", " "),
+            "end_date": r[4][:16].replace("T", " "),
+            "message_count": r[5],
+            "total_words": r[6] or 0,
+            "participants": r[7],
+            "salience_score": r[8],
+            "category": r[9],
+            "reason": r[10] or "",
+            "is_atypical": r[11] or 0,
+            "interlocutor_surprised": r[12] or 0,
+            "anomaly_notes": r[13] or ""
+        })
+    return results
+
+
 def get_search_messages(
     db_path: str,
     query: str,
@@ -947,6 +1039,30 @@ def print_intensive_threads(threads: List[Dict[str, Any]]):
         print(f"{t['thread_id']:<22} {c_label:<14} {t['start_date']:<17} {t['message_count']:<6} {t['total_words']:<8,} {t['participants']}")
 
 
+def print_triaged_threads(threads: List[Dict[str, Any]]):
+    print("\n" + "=" * 95)
+    print("🧠 TRIAGED HIGH-SALIENCE DIALOGUE THREADS (SYSTEM-1 JEV QUALIFIED)")
+    print("=" * 95)
+    if not threads:
+        print("No triaged threads found meeting criteria (or run 'python3 project/scripts/triage_threads.py' first).")
+        return
+
+    print(f"{'Flag':<5} {'Thread ID':<22} {'Date':<17} {'Score':<6} {'Category':<22} {'Msgs':<5} {'Words':<7} {'Reason'}")
+    print("-" * 95)
+    for t in threads:
+        flags = []
+        if t.get("is_atypical"):
+            flags.append("⚡")
+        if t.get("interlocutor_surprised"):
+            flags.append("😲")
+        flag_str = "".join(flags)
+        flag_display = f"{flag_str:<4}" if flag_str else "    "
+        r_snippet = (t.get("reason", "") or "")[:25]
+        print(f"{flag_display} {t['thread_id']:<22} {t['start_date']:<17} {t['salience_score']:<6.1f} {t['category'][:21]:<22} {t['message_count']:<5} {t['total_words']:<7,} {r_snippet}")
+        if t.get("anomaly_notes"):
+            print(f"     ↳ [ANOMALY NOTES] {t['anomaly_notes']}")
+
+
 def print_search_messages(query: str, rows: List[Dict[str, Any]]):
     print("\n" + "=" * 70)
     print(f"🔍 MESSAGE SEARCH: '{query}' ({len(rows)} matches)")
@@ -1070,6 +1186,11 @@ def main():
     parser.add_argument("--intensive-threads", action="store_true", help="Display substantive dialogue threads ranked by volume (anti-noise)")
     parser.add_argument("--min-words", type=int, default=50, help="Minimum total words for --intensive-threads (default: 50)")
     parser.add_argument("--min-messages", type=int, default=6, help="Minimum messages for --intensive-threads (default: 6)")
+    parser.add_argument("--triaged-threads", action="store_true", help="Display threads qualified by System-1 (Jev) triage for LLM profiling")
+    parser.add_argument("--anomalies-only", action="store_true", help="Display only triaged threads with atypical behavior or interlocutor surprise")
+    parser.add_argument("--min-salience", type=float, default=0.0, help="Minimum salience score for --triaged-threads")
+    parser.add_argument("--triage-category", type=str, help="Filter --triaged-threads by primary category")
+    parser.add_argument("--triage-status", action="store_true", help="Display summary reduction report of System-1 triage")
 
     # Repeatable flags for multi-query execution
     parser.add_argument("--search", "-s", action="append", help="Search individual messages via FTS5 (can be repeated)")
@@ -1124,6 +1245,11 @@ def main():
     run_timeline = args.timeline or batch_config.get("timeline", False)
     run_burning = args.burning_days or batch_config.get("burning_days", False)
     run_intensive = args.intensive_threads or batch_config.get("intensive_threads", False)
+    run_anomalies_only = args.anomalies_only or batch_config.get("anomalies_only", False)
+    run_triaged = args.triaged_threads or run_anomalies_only or batch_config.get("triaged_threads", False)
+    run_triage_status = args.triage_status or batch_config.get("triage_status", False)
+    min_salience = float(batch_config.get("min_salience", args.min_salience))
+    triage_category = batch_config.get("triage_category", args.triage_category)
     min_hours = batch_config.get("min_hours", args.min_hours)
     min_words = batch_config.get("min_words", args.min_words)
     min_messages = batch_config.get("min_messages", args.min_messages)
@@ -1148,6 +1274,7 @@ def main():
 
     has_actions = any([
         run_stats, run_gaps, run_timeline, run_burning, run_intensive,
+        run_triaged, run_triage_status,
         search_queries, search_thread_queries, thread_ids,
         from_msgs, chains, semantic_queries
     ])
@@ -1201,6 +1328,23 @@ def main():
             aggregated["intensive_threads"] = intensive_data
         else:
             print_intensive_threads(intensive_data)
+
+    # 5b. System-1 Triaged Threads (Jev Qualified)
+    if run_triage_status:
+        from triage_threads import print_reduction_report
+        t_conn = sqlite3.connect(args.db)
+        print_reduction_report(t_conn)
+        t_conn.close()
+
+    if run_triaged:
+        triaged_data = get_triaged_threads(
+            args.db, limit=limit, chat_id=resolved_chat_id, min_salience=min_salience, category=triage_category,
+            anomalies_only=run_anomalies_only
+        )
+        if args.json:
+            aggregated["triaged_threads"] = triaged_data
+        else:
+            print_triaged_threads(triaged_data)
 
     # 6. Keyword Search (Individual Messages)
     if search_queries:

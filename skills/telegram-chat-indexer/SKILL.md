@@ -55,8 +55,9 @@ This system applies **Reply-Anchored Threading with Forward Burst Propagation (R
 | `config/embeddings_config.template.json` | Template configuration for vector embeddings (OpenRouter API or local models). |
 | `project/scripts/setup_config.py` | Initializes config file in workspace root, validates API keys, and performs live OpenRouter connectivity tests. |
 | `project/scripts/db_builder.py` | Reads raw Telegram `result.json`, parses text/media, runs RAT-FBP, and builds SQLite analytical database + FTS5 full-text tables. |
-| `project/scripts/query_chat.py` | Command-line interface for the analysis agent to extract statistics, analyze silence gaps, search keywords, and retrieve full threads. |
 | `project/scripts/vector_indexer.py` | Generates dense embeddings for conversation threads into SQLite via OpenRouter API or local GPU/CPU. |
+| `project/scripts/triage_threads.py` | System-1 Dialogue Thread Triage Engine: classifies threads, filters conversational noise, detects behavioral anomalies and interlocutor shocks. |
+| `project/scripts/query_chat.py` | Command-line interface for the analysis agent to extract statistics, analyze silence gaps, search keywords, query triaged threads, and retrieve transcripts. |
 | `project/scripts/requirements.txt` | Optional local ML dependencies (`sentence-transformers`). |
 
 ---
@@ -99,20 +100,30 @@ python3 project/scripts/vector_indexer.py --db chat.db --index --chat ania
 ```
 *Note: Generating dense vector embeddings allows `query_chat.py --semantic` to retrieve high-level psychological constructs, defensive patterns, and emotional undertones. The agent must verify vector indexing completion before proceeding to analysis.*
 
-### Step 3: Phase 1 – Quantitative Mining
-Run the CLI to extract hard statistical facts before doing psychological interpretation:
+### Step 2.5: System-1 Dialogue Thread Triage (MANDATORY PREREQUISITE)
+Execute System-1 triage to classify threads, detect behavioral anomalies, and filter noise:
+```bash
+python3 project/scripts/triage_threads.py --db chat.db
+```
+*Note: Evaluates threads with sub-second decision models, eliminating ~45–80% of logistical noise while salvaging low-volume quiet disclosures and flagging interlocutor shock (`is_atypical`, `interlocutor_surprised`).*
+
+### Step 3: Phase 1 – Quantitative Mining & Anomaly Reconnaissance
+Run the CLI to extract hard statistical facts and review System-1 triage anomalies:
 ```bash
 # List all indexed chats in the database:
 python3 project/scripts/query_chat.py --db chat.db --list-chats
 
 # Global overview across all chats combined:
-python3 project/scripts/query_chat.py --db chat.db --stats --gaps --timeline
+python3 project/scripts/query_chat.py --db chat.db --stats --gaps --timeline --triage-status
 
-# Or filter specifically to one relationship / contact:
-python3 project/scripts/query_chat.py --db chat.db --chat mama --stats --gaps
+# Review detected behavioral anomalies and interlocutor shocks:
+python3 project/scripts/query_chat.py --db chat.db --anomalies-only
+
+# Retrieve high-salience triaged threads:
+python3 project/scripts/query_chat.py --db chat.db --triaged-threads --limit 25
 
 # Output as structured JSON for fast agent ingestion:
-python3 project/scripts/query_chat.py --db chat.db --stats --gaps --timeline --json
+python3 project/scripts/query_chat.py --db chat.db --stats --gaps --timeline --triage-status --json
 ```
 
 ### Step 4: Phase 2 – Qualitative & Evidence Retrieval
