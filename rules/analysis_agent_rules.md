@@ -252,7 +252,7 @@ Before drafting narrative chapters or biographical dossiers, the agent audits hi
     - `### 🔍 Verbatim Evidence & Case Studies` (verbatim quotes with exact `YYYY-MM-DD` dates in blockquotes)
     - `### 💡 Key Takeaway` (concise operational takeaway)
   - Mandatory Biographical Dossier & Life Timeline.
-  - Mandatory Cast of Characters table and commentary.
+  - Mandatory Cast of Characters 3-column table (`Postać / Rola`, `Identyfikacja i Status`, `Główne Motywy i Dynamika Relacyjna`) and commentary.
   - Mandatory Attachment Style classification (Secure, Anxious-Preoccupied, Dismissive-Avoidant, Fearful-Avoidant).
   - Mandatory Big Five (OCEAN) profile estimation (Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism/Emotional Stability). Do not assign MBTI types.
   - Mandatory **Operational User Manual** (Blind spots, triggers, unspoken need, communication protocols, statement reliability).

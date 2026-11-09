@@ -170,11 +170,19 @@ Systematically audit all significant recurring third parties mentioned in the lo
 - **Professional Figures:** Bosses, mentors, coworkers, clients.
 - **Rivals / Adversaries:** Individuals with whom the subject entered sharp dispute or estrangement.
 
-For each figure, determine:
-- **Exact Identification:** Distinct name/alias, active dates, and context of meeting. If multiple figures share a nationality or generic label, list them as explicitly separate entities.
-- **Their Role & Verified Status:** Authority figure, emotional anchor, dependent responsibility, rival, or trigger. Verified occupational or marital status grounded in actual practice (not unrealized offers).
-- **Recurring Themes & Dynamics:** What situations invoke this person? If an unrealized trajectory or thwarted ambition occurred and generated acute emotional conflict, capture it here as a psychological dynamic.
-- **Emotional Stance & Boundaries:** Does the subject show deference, resentment, warmth, contempt, envy, or filial guilt? Can they set firm boundaries, or do they capitulate?
+For each figure, determine these three core dimensions:
+- **Character / Role:** Distinct name/alias, relational bond, or conversational function (e.g. *Father (Patriarchal Authority)*, *Primary Confidant / Mirror*).
+- **Identification & Verified Status:** Active dates, context of meeting, and verified occupational or marital status grounded in actual practice (not unrealized offers). If multiple figures share a nationality or generic label, list them as explicitly separate entities.
+- **Key Dynamics & Relational Themes:** What situations invoke this person? Recurring interaction patterns and sources of interpersonal friction (capturing thwarted ambitions or life conflicts where documented).
+
+Format the relational constellation strictly as a **3-column Markdown table**:
+
+```markdown
+| Character / Role | Identification & Status | Key Dynamics & Relational Themes |
+| :--- | :--- | :--- |
+| **[Character / Role]** | [Verified details, status, meeting context] | [Recurring themes, friction, relational dynamic] |
+```
+*(In default Polish reports, format headers as: `| Postać / Rola | Identyfikacja i Status | Główne Motywy i Dynamika Relacyjna |`)*
 
 ---
 
@@ -360,7 +368,7 @@ To prevent context truncation, preserve precision, and allow targeted editing, t
 ### Recommended Drafting Layout:
 The agent writes individual section files into a temporary working folder (e.g., `reports/<subject>_sections/` outside `project/`):
 - `00_dossier_and_timeline.md`: Motto, Case Header, Identity Dossier, Chronological Life Timeline.
-- `01_cast_of_characters.md`: Full relational constellation with roles, topics, and emotional stances.
+- `01_cast_of_characters.md`: Full relational constellation 3-column table (Character/Role, Identification & Status, Key Dynamics) and commentary.
 - `02_cognitive_architecture_and_big_five.md`: Cognitive architecture, Big Five (OCEAN) profile estimation, and intellectual debate style.
 - `03_social_and_worldview.md`: Spheres audit (Friends, Social Cadence & Altruism/Helping, Work Ethic, Ambitions & Catalogue of Unfulfilled Goals, Team Player vs. Lone Wolf, Money Management, Politics & AI, Domestic Order, Sports/Fitness, Vacations, Travel & Animals). *Note: Include only spheres and sub-topics discussed in the logs; omit unaddressed topics completely without placeholder disclaimers.*
 - `04_relational_and_attachment.md`: Attachment style classification, dating history, and silence dynamics.
@@ -426,7 +434,7 @@ A complete personality profile must contain:
 1. **Opening Motto:** Verbatim quote encapsulating their core philosophy or existential longing.
 2. **Case File Header:** Name/alias, diagnosed Attachment Style, Big Five (OCEAN) summary profile (e.g., O: High, C: High, E: Low, A: Low-Moderate, N: High), date range analyzed, total volume.
 3. **Biographical Dossier & Life Timeline:** Reconstructed origin story, formative milestones, turning points.
-4. **Cast of Characters:** Comprehensive table and profile of recurring third parties and the subject's stance toward them.
+4. **Cast of Characters:** Comprehensive 3-column table and profile of recurring third parties.
 5. **Core Thematic Chapters (Thesis-First):**
    - Big Five (OCEAN) Cognitive Architecture & Processing Habits (including Conscientiousness, Orderliness & Cleanliness).
    - Socio-Political Philosophy, Stance on AI/Technology & Intellectual Debate Style.
