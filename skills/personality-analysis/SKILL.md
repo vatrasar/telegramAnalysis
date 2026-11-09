@@ -129,6 +129,7 @@ People rarely narrate their life sequentially; they drop autobiographical crumbs
 - **Formative Chapters:** Childhood, family atmosphere, parental discipline, sibling dynamics, school/university years, pivotal relocations.
 - **Relational History:** Significant past romantic relationships, breakups, betrayals, formative lessons.
 - **Turning Points (Crucibles):** Severe illness, bereavement, financial crisis, career shifts, therapy, or moments of profound loss of control.
+- **Formatting Requirement:** Present the timeline strictly as a structured chronological bullet flow (hierarchical bullet list with bolded eras/dates and indented detail sub-bullets). Never use monospace code blocks or ASCII pipe trees (`│`).
 
 > [!CAUTION]
 > **Biographical Integrity & Entity Resolution Engine**
@@ -397,10 +398,17 @@ Format quotes in markdown blockquotes.]
 [1–2 punchy sentences summarizing the operational insight.]
 ```
 
-### Strict Prohibition on Mermaid Diagrams & Visual Graphs
+### Strict Prohibition on Mermaid Diagrams, Visual Graphs & ASCII Code-Block Timelines
 - **NEVER use `mermaid` code blocks, flowcharts, graph TD/LR diagrams, or node schemes** under any circumstances.
-- Visual mermaid graphs are banned: they render awkwardly, clutter markdown documents, and degrade readability in forensic psychological reports.
-- **Alternative:** Present all relational constellations, interaction dynamics, chronological lifelines, and cognitive patterns strictly via **structured Markdown tables, bullet hierarchies, bold highlights, and clear prose**.
+- **NEVER draw ASCII art pseudo-timelines or tree graphs** using vertical pipes (`│`, `├──`, `└──`) inside monospace code blocks (` ``` `). They destroy readability, disable responsive line wrapping, and degrade forensic reporting quality.
+- **Timeline Standard (Structured Chronological Bullet Flow):** Format biographical timelines and lifelines strictly as hierarchical Markdown lists with bolded periods and indented detail bullets:
+  ```markdown
+  ### 📅 Chronological Life Timeline
+  * **[Year / Date Span] — [Phase or Formative Theme Title]**
+    * **[Specific Event / Crucible]:** Detailed narrative, psychological impact, and verbatim anchor `[#ID | YYYY-MM-DD]`.
+    * **[Additional Dynamic]:** Context and observations.
+  ```
+- **Alternative for Other Data:** Present relational constellations, interaction dynamics, and matrices via structured Markdown tables and analytical prose.
 
 ---
 

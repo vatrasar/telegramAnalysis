@@ -257,9 +257,13 @@ Before drafting narrative chapters or biographical dossiers, the agent audits hi
   - Mandatory Big Five (OCEAN) profile estimation (Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism/Emotional Stability). Do not assign MBTI types.
   - Mandatory **Operational User Manual** (Blind spots, triggers, unspoken need, communication protocols, statement reliability).
   - Conclude with the standard **Summary Matrix** table (including Big Five and Attachment Style).
-- **Strict Prohibition on Mermaid Diagrams & Graphs:**
-  - **NEVER** generate mermaid code blocks (````mermaid```), flowcharts, or graphical node diagrams. They produce awkward, cluttered, and poorly readable outputs in psychological and behavioral reports.
-  - Represent all relational networks, timelines, cognitive architectures, and behavioral loops strictly using **clean Markdown tables, structured bullet hierarchies, and analytical prose**.
+- **Strict Prohibition on Mermaid Diagrams, Visual Graphs & ASCII Code-Block Timelines:**
+  - **NEVER** generate mermaid code blocks (````mermaid```), flowcharts, or graphical node diagrams under any circumstances.
+  - **NEVER** generate ASCII art pseudo-timelines or tree drawings using pipes (`│`, `├──`, `└──`) inside monospace code blocks (` ``` `). They break text wrapping, degrade readability, and ruin document typography.
+  - **Timeline Formatting Standard (Chronological Bullet Flow):** Format all chronological lifelines and biographical timelines strictly as **clean Markdown structured bullet hierarchies**:
+    - Top level: `* **[Year / Date Span] — [Phase or Formative Theme Title]**`
+    - Sub-bullets: indented bullet points detailing key events, psychological implications, and fact-pinning anchors (`[#ID | YYYY-MM-DD]`).
+  - Represent all relational networks, cognitive architectures, and behavioral loops strictly using clean Markdown tables, structured bullet hierarchies, and analytical prose.
 - Benchmark quality against reference profiles in `przykłądoweAnalizy/`.
 
 ---
