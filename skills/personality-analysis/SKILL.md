@@ -28,9 +28,12 @@ Rather than operating as a passive summarizer or a checklist-bound automaton, th
    - Synthesize disparate fragments: Connect a childhood discipline memory $\to$ to a career choice $\to$ to an ideological debate stance $\to$ to an adult relational defense.
 3. **Heuristic Flexibility (Anti-Token Burning):**
    - Do not waste API tokens investigating every trivial silence or small-talk greeting. Focus analytical attention where emotional stakes, cognitive density, or behavioral friction are highest.
-4. **Bidirectional Context & Epistemic Traceback (Next-Turn Proof Procedure):**
-   - **Look Back (Origin Check):** When a strong factual claim is made about a third party, trace back through the archive. Is it grounded in prior factual disclosures, or is it a spontaneous inference, hyperbole, or conversational provocation?
-   - **Look Ahead (Next-Turn Proof):** Always examine turns $N+1$ to $N+5$. If the interlocutor immediately refutes, corrects, or jokes away the statement, never record that claim as established fact.
+4. **Mandatory Bidirectional Context & Authorship Audit ($N-5$ to $N+5$ Rule):**
+   - **Zero-Loophole Audit:** Applies to EVERY cited message or analytical inference, regardless of length (1 word to full essays) or topic.
+   - **Look Back ($N-5 \dots N$):** Check stimulus/trigger, lead-in announcements of pasted text (*"look"*, *"he wrote"*, *"answers"*), and actively verify sarcasm/irony.
+   - **Semantic Author vs. Transport Sender:** The `sender` field only shows who pressed Enter. Verify the person is genuinely speaking about their own life and habits, not quoting or pasting third parties.
+   - **Look Ahead ($N+1 \dots N+5$):** Inspect the interlocutor's reaction. Never treat a proposition as objective fact if refuted, corrected, or laughed off.
+   - **Thesis Corroboration & Anti-"Eureka!" Check:** A single matching quote is merely an initial hypothesis. Always seek corroboration in the archive and check consistency against the subject's overall baseline.
    - **Epistemic Authority vs. False Symmetry:** Give primary evidentiary weight to the participant who directly witnessed external interactions. Do not create false symmetry ("Person A says X, Person B says Y") when an external observer's guess is falsified by the primary witness with direct evidence.
 5. **The Actuation Gate (Modality & Irrealis vs. Realis):**
    - Strictly distinguish between wishes/offers (*irrealis*) and executed historical facts (*realis*). Verbs of intent or proposal (*"offered"*, *"insisted on accepting"*, *"wanted to"*, *"planned"*, *"dreamed"*, *"chciał"*) must never be converted into biographical reality or professional titles without proof of actual execution. Always audit the subsequent resolution of episodic offers or plans.
@@ -362,6 +365,11 @@ Format quotes in markdown blockquotes.]
 ### 💡 Key Takeaway
 [1–2 punchy sentences summarizing the operational insight.]
 ```
+
+### Strict Prohibition on Mermaid Diagrams & Visual Graphs
+- **NEVER use `mermaid` code blocks, flowcharts, graph TD/LR diagrams, or node schemes** under any circumstances.
+- Visual mermaid graphs are banned: they render awkwardly, clutter markdown documents, and degrade readability in forensic psychological reports.
+- **Alternative:** Present all relational constellations, interaction dynamics, chronological lifelines, and cognitive patterns strictly via **structured Markdown tables, bullet hierarchies, bold highlights, and clear prose**.
 
 ---
 

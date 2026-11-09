@@ -166,11 +166,22 @@ Before reading individual quotes or forming premature psychological conclusions:
 ## 5. Disentanglement & Contextual Integrity
 - Always respect the **thread anchor**: When analyzing a quote, check whether it was an answer to an explicit question or an unquoted continuation of a thought burst.
 - **Never cite an isolated message in a vacuum:** Always inspect surrounding context using `query_chat.py --thread <thread_id>` or `--from-msg <id> -w 5`. Verify the stimulus, the reaction, and the aftermath.
-- **Bidirectional Verification & Next-Turn Proof Procedure:**
-  - **Never evaluate a message in isolation or unidirectionally.** For any pivotal claim, statement, or conflict in message $N$, the agent must execute a two-way context audit:
-    1. **Antecedent Traceback (Look Back):** Query prior messages to verify whether the assertion is grounded in previously established facts, or if it is an ungrounded inference, speculation, rhetorical exaggeration, or fresh provocation.
-    2. **Next-Turn Proof Procedure (Look Ahead):** Inspect subsequent turns ($N+1$ to $N+5$) to determine how the dialogue partner actually received and treated the statement. Did they confirm, accept, laugh it off, or explicitly refute it?
-    3. **Immediate Rebuttal Invalidation:** If a proposition in message $N$ is immediately contradicted, corrected, or rejected by the interlocutor in turns $N+1 \dots N+5$ (e.g., *"No"*, *"Who said that"*, *"Nope, not ready"*), the agent is **strictly forbidden** from adopting the proposition in message $N$ as an established objective fact.
+- **Mandatory Bidirectional Context Audit (Unconditional $N-5$ to $N+5$ Rule):**
+  - **Zero-Loophole Requirement:** This audit applies to **EVERY** message from which the agent derives an analytical conclusion, infers a personality trait, or plans to cite in the report. It applies unconditionally, regardless of message length (from 1 word or 1 sentence to multi-paragraph essays) or domain (routine lifestyle habits, domestic chores, emotional confessions, ideological debates, and conflicts alike).
+  - Before utilizing message $N$ as analytical evidence, the agent **MUST** inspect an operational window of at least 5 messages backward ($N-5$ to $N$) and 5 messages forward ($N+1$ to $N+5$):
+    1. **Antecedent Traceback (Look Back $N-5 \dots N$):**
+       - **Stimulus & Topic Anchor:** Determine what question, event, or conversational prompt triggered the message.
+       - **Lead-In & Pasted Text Detection:** Check whether preceding messages announced pasted or quoted third-party content (e.g., *"look what he wrote"*, *"his answers"*, *"us guy"*, *"he sent me this"*, *"forwarding"*).
+       - **Sarcasm & Irony Verification:** Actively verify whether the statement is genuine or represents sarcasm, dry humor, mocking mimicry, or banter established in prior turns.
+    2. **Next-Turn Proof Procedure (Look Ahead $N+1 \dots N+5$):**
+       - Inspect how the interlocutor received and treated the statement. Did they validate it, accept it, laugh it off, expose it as a joke, or explicitly correct/rebut it?
+       - **Immediate Rebuttal Invalidation:** If a proposition in message $N$ is immediately contradicted, corrected, or rejected by the interlocutor in turns $N+1 \dots N+5$ (e.g., *"No"*, *"Who said that"*, *"Nope, not ready"*), the agent is **strictly forbidden** from adopting the proposition in message $N$ as an established objective fact.
+- **Semantic Author vs. Transport Sender (Caution & Authorship Verification):**
+  - **Transport Channel Principle:** The `sender` field in the chat database indicates strictly who **physically pressed Enter** on their device, NOT necessarily the author of the text.
+  - **Mandatory Authorship Verification:** The agent must exercise heightened caution and verify that the sender is genuinely speaking about their own personal life, habits, and views, rather than forwarding, pasting, or quoting third-party texts (e.g., ex-partners' messages, questionnaires, emails, articles).
+- **Thesis Corroboration & Anti-"Eureka!" Sanity Check:**
+  - **Prohibition of Premature Closure:** Discovering a single matching quote that aligns with a desired report category or trait (e.g., domestic order, cleanliness, neuroticism) is merely a preliminary hypothesis, never a proven conclusion.
+  - **Active Search for Corroboration & Baseline Consistency:** The agent must attempt to find additional evidence in the text and verify that the proposed thesis does not contradict the subject's overall documented lifestyle and baseline demeanor (e.g., asserting a "pedantic domestic cleanliness rage" based on a single quote when the subject's overarching baseline is documented as slow-living and actively avoiding troublesome chores).
 - **Epistemic Authority & Anti-Bothsidesism (Primary Witness vs. External Observer):**
   - **Direct Participant vs. External Spectator:** For external events occurring outside the chat (e.g., romantic encounters, third-party conflicts, family arguments), the participant who was physically present or directly involved holds primary epistemic authority over what transpired, unless contradicted by their own prior direct statements.
   - **Interlocutor as Catalyst / Stimulus:** Statements made by an external observer/interlocutor (who did not witness the event) are conversational stimuli, hypotheses, or external impressions—not empirical evidence of third-party behavior.
@@ -216,6 +227,9 @@ Before reading individual quotes or forming premature psychological conclusions:
   - Mandatory Big Five (OCEAN) profile estimation (Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism/Emotional Stability). Do not assign MBTI types.
   - Mandatory **Operational User Manual** (Blind spots, triggers, unspoken need, communication protocols, statement reliability).
   - Conclude with the standard **Summary Matrix** table (including Big Five and Attachment Style).
+- **Strict Prohibition on Mermaid Diagrams & Graphs:**
+  - **NEVER** generate mermaid code blocks (````mermaid```), flowcharts, or graphical node diagrams. They produce awkward, cluttered, and poorly readable outputs in psychological and behavioral reports.
+  - Represent all relational networks, timelines, cognitive architectures, and behavioral loops strictly using **clean Markdown tables, structured bullet hierarchies, and analytical prose**.
 - Benchmark quality against reference profiles in `przykłądoweAnalizy/`.
 
 ---

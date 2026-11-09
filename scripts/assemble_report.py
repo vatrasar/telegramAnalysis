@@ -41,6 +41,10 @@ def validate_markdown_integrity(filepath: str, content: str) -> List[str]:
     if len(fences) % 2 != 0:
         warnings.append(f"Unclosed code fence (```) detected in: {os.path.basename(filepath)}")
 
+    # Check for prohibited mermaid diagrams
+    if re.search(r"^```mermaid", content, re.MULTILINE | re.IGNORECASE):
+        warnings.append(f"Prohibited mermaid diagram detected in: {os.path.basename(filepath)}. Use markdown tables or lists instead.")
+
     # Check for empty content
     if not content.strip():
         warnings.append(f"Section file is empty: {os.path.basename(filepath)}")
