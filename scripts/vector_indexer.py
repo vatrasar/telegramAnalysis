@@ -58,9 +58,15 @@ def init_vector_table(conn: sqlite3.Connection):
         start_date TEXT,
         participants TEXT,
         dialogue_text TEXT,
+        content_hash TEXT,
         embedding BLOB
     );
     """)
+    cur.execute("PRAGMA table_info(thread_embeddings);")
+    cols = {c[1] for c in cur.fetchall()}
+    if "content_hash" not in cols:
+        cur.execute("ALTER TABLE thread_embeddings ADD COLUMN content_hash TEXT;")
+
     cur.execute("CREATE INDEX IF NOT EXISTS idx_embeddings_chat ON thread_embeddings(chat_id);")
     conn.commit()
 
@@ -139,14 +145,21 @@ def index_threads(
     init_vector_table(conn)
     cur = conn.cursor()
 
+    # 1. Clean orphaned embeddings (threads that no longer exist or whose ID changed)
+    cur.execute("DELETE FROM thread_embeddings WHERE thread_id NOT IN (SELECT thread_id FROM threads);")
+    conn.commit()
+
     query = """
-    SELECT t.thread_id, t.chat_id, t.start_date, t.participants, t.dialogue_text
+    SELECT t.thread_id, t.chat_id, t.start_date, t.participants, t.dialogue_text, t.content_hash
     FROM threads t
     """
     params: List[Any] = []
 
     if not force:
-        query += " LEFT JOIN thread_embeddings te ON t.thread_id = te.thread_id WHERE te.thread_id IS NULL "
+        query += """
+        LEFT JOIN thread_embeddings te ON t.thread_id = te.thread_id 
+        WHERE (te.thread_id IS NULL OR te.content_hash IS NULL OR te.content_hash != t.content_hash)
+        """
     else:
         query += " WHERE 1=1 "
 
@@ -158,19 +171,19 @@ def index_threads(
     rows = cur.fetchall()
 
     if not rows:
-        print("[+] All selected conversation threads are already embedded. (Use --force to re-embed).")
+        print("[+] All selected conversation threads are already embedded and up to date. (Use --force to re-embed).")
         conn.close()
         return True
 
-    print(f"[*] Found {len(rows)} new/unindexed threads to embed.")
+    print(f"[*] Found {len(rows)} new or modified threads to embed (unchanged threads skipped).")
     batch_metadata = []
     batch_texts = []
 
     for r in rows:
-        t_id, c_id, s_date, parts, text = r
+        t_id, c_id, s_date, parts, text, c_hash = r
         clean_text = text[:4000]  # Respect token limits for embedding models
         batch_texts.append(clean_text)
-        batch_metadata.append((t_id, c_id, s_date, parts, text))
+        batch_metadata.append((t_id, c_id, s_date, parts, text, c_hash))
 
     # Mode 1: OpenRouter API
     if provider in ("openrouter", "api", "openai"):
@@ -218,13 +231,13 @@ def index_threads(
 
     # Insert embeddings
     insert_rows = []
-    for (t_id, c_id, s_date, parts, text), emb in zip(batch_metadata, all_embeddings):
+    for (t_id, c_id, s_date, parts, text, c_hash), emb in zip(batch_metadata, all_embeddings):
         blob = serialize_vector(emb)
-        insert_rows.append((t_id, c_id, s_date, parts, text, blob))
+        insert_rows.append((t_id, c_id, s_date, parts, text, c_hash, blob))
 
     cur.executemany("""
-    INSERT OR REPLACE INTO thread_embeddings (thread_id, chat_id, start_date, participants, dialogue_text, embedding)
-    VALUES (?, ?, ?, ?, ?, ?);
+    INSERT OR REPLACE INTO thread_embeddings (thread_id, chat_id, start_date, participants, dialogue_text, content_hash, embedding)
+    VALUES (?, ?, ?, ?, ?, ?, ?);
     """, insert_rows)
 
     conn.commit()

@@ -43,26 +43,32 @@ If `setup_config.py` returns **ANY exit code other than 0** (e.g., Code 2, 3, 4,
 - **NEVER load raw chat logs (>1,000 messages) directly into the model context.**
 - The ingestion and indexing pipeline follows a strict 3-step sequence that must be completed before any analysis starts:
 
-### Step 3.1: Database Ingestion (SQLite + FTS5) & Clean Slate Protocol
-- **Zero Cross-Subject Contamination (Clean Slate Rule):**
-  When starting an analysis for a new or different person, previous database records must **NEVER** contaminate the new analysis. The agent must:
-  - **Rebuild with `--clean` (Default clean slate):**
-    ```bash
-    python3 project/scripts/db_builder.py rozmowy/<person>.json -o chat.db --clean
-    ```
-    This completely purges existing messages, threads, silence gaps, and vector embeddings, guaranteeing zero noise or historical bleed from previous subjects.
-  - **OR create an isolated database per person (Preservation mode):**
-    ```bash
-    python3 project/scripts/db_builder.py rozmowy/<person>.json -o chat_<person>.db
-    python3 project/scripts/vector_indexer.py --db chat_<person>.db --index
-    ```
-    And subsequently pass `--db chat_<person>.db` to all queries.
-  - **Multi-File Ingestion for the Same Subject:**
-    If the subject has multiple split export files (e.g., `part1.json`, `part2.json`), ingest them together in one command:
-    ```bash
-    python3 project/scripts/db_builder.py rozmowy/person_part1.json rozmowy/person_part2.json -o chat.db --clean
-    ```
-  - **STRICT PROHIBITION:** Never run single-subject psychological profiling against an uncleaned `chat.db` containing data from a different person without `--clean` or isolated database naming. Uncleaned databases pollute statistical baselines (`--stats`, `--timeline`, `--gaps`) and inject false semantic matches.
+### Step 3.1: Database Ingestion (SQLite + FTS5) & Smart Incremental Synchronization
+- **Smart Incremental Protocol (Default Mode):**
+  By default, `db_builder.py` manages incremental synchronization with automatic delta detection and zero-overhead caching:
+  ```bash
+  python3 project/scripts/db_builder.py rozmowy/*.json -o chat.db
+  ```
+  - **Manifest Delta Check:** The engine verifies file SHA-256 hashes against `source_files_manifest`. Unchanged files are skipped entirely in 0 seconds.
+  - **Granular Scoped Ingestion:** If a file has new or modified messages, only that specific chat (`chat_id`) is refreshed. Unmodified chats in the database are left 100% untouched.
+  - **Content-Hash Caching (`content_hash`):** Every reconstructed thread receives a SHA-256 fingerprint.
+  - **Automated Orphan & Stale Purge (Garbage Collection):** Any vectors or triage records belonging to deleted threads or threads whose `content_hash` changed are automatically purged. Unchanged threads retain their existing embeddings and triage verdicts, incurring **0 API token cost**.
+- **Multi-File & Multi-Chat Ingestion:**
+  If a subject has split export files or multiple chats, ingest them together:
+  ```bash
+  python3 project/scripts/db_builder.py rozmowy/person_part1.json rozmowy/person_part2.json -o chat.db
+  ```
+- **Isolated Database Per Person (Recommended for Independent Profiling):**
+  When analyzing distinct individuals where total database separation is desired:
+  ```bash
+  python3 project/scripts/db_builder.py rozmowy/<person>.json -o chat_<person>.db
+  python3 project/scripts/vector_indexer.py --db chat_<person>.db --index
+  ```
+- **Explicit Hard Reset (`--clean`):**
+  Use `--clean` ONLY when the user explicitly asks for a complete wipe from scratch or when a total database rebuild is required:
+  ```bash
+  python3 project/scripts/db_builder.py rozmowy/<person>.json -o chat.db --clean
+  ```
 
 ### Step 3.2: Semantic Vector Indexing (MANDATORY PREREQUISITE)
 Immediately after building the database, generate vector embeddings for all conversation threads:

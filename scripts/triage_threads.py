@@ -69,6 +69,8 @@ def init_triage_table(conn: sqlite3.Connection):
         cur.execute("ALTER TABLE thread_triage ADD COLUMN interlocutor_surprised INTEGER DEFAULT 0")
     if "anomaly_notes" not in existing_cols:
         cur.execute("ALTER TABLE thread_triage ADD COLUMN anomaly_notes TEXT")
+    if "content_hash" not in existing_cols:
+        cur.execute("ALTER TABLE thread_triage ADD COLUMN content_hash TEXT")
 
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_escalate ON thread_triage(escalate);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_score ON thread_triage(salience_score);")
@@ -362,6 +364,7 @@ def evaluate_single_thread(
 
     res["thread_id"] = thread_data["thread_id"]
     res["chat_id"] = thread_data["chat_id"]
+    res["content_hash"] = thread_data.get("content_hash")
     return res
 
 
@@ -532,20 +535,30 @@ def run_triage(
     init_triage_table(conn)
     cur = conn.cursor()
 
-    sql = "SELECT thread_id, chat_id, start_date, duration_seconds, message_count, participants, initiator, dialogue_text FROM threads"
+    # 1. Clean orphaned triage records (threads that no longer exist or changed ID)
+    cur.execute("DELETE FROM thread_triage WHERE thread_id NOT IN (SELECT thread_id FROM threads);")
+    conn.commit()
+
+    sql = "SELECT t.thread_id, t.chat_id, t.start_date, t.duration_seconds, t.message_count, t.participants, t.initiator, t.dialogue_text, t.content_hash FROM threads t"
     where_clauses = []
     params = []
 
     if not force:
-        where_clauses.append("thread_id NOT IN (SELECT thread_id FROM thread_triage)")
+        where_clauses.append("""
+        t.thread_id NOT IN (
+            SELECT tr.thread_id 
+            FROM thread_triage tr 
+            WHERE tr.content_hash IS NOT NULL AND tr.content_hash = t.content_hash
+        )
+        """)
     if chat_id:
-        where_clauses.append("chat_id = ?")
+        where_clauses.append("t.chat_id = ?")
         params.append(chat_id)
 
     if where_clauses:
         sql += " WHERE " + " AND ".join(where_clauses)
 
-    sql += " ORDER BY start_timestamp ASC"
+    sql += " ORDER BY t.start_timestamp ASC"
     if limit:
         sql += f" LIMIT {int(limit)}"
 
@@ -553,7 +566,7 @@ def run_triage(
     rows = cur.fetchall()
 
     if not rows:
-        print("[*] All threads in database have already been triaged! (Use --force to re-evaluate).")
+        print("[*] All threads in database have already been triaged with current content hashes! (Use --force to re-evaluate).")
         print_reduction_report(conn)
         conn.close()
         return 0
@@ -568,7 +581,8 @@ def run_triage(
             "message_count": r[4],
             "participants": r[5],
             "initiator": r[6],
-            "dialogue_text": r[7]
+            "dialogue_text": r[7],
+            "content_hash": r[8]
         })
 
     total_to_process = len(thread_items)
@@ -603,8 +617,8 @@ def run_triage(
                 cur.execute("""
                 INSERT OR REPLACE INTO thread_triage
                 (thread_id, chat_id, salience_score, escalate, primary_category, confidence, reason,
-                 is_atypical, interlocutor_surprised, anomaly_notes, raw_response, triaged_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 is_atypical, interlocutor_surprised, anomaly_notes, raw_response, content_hash, triaged_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     result["thread_id"],
                     result["chat_id"],
@@ -617,6 +631,7 @@ def run_triage(
                     result.get("interlocutor_surprised", 0),
                     result.get("anomaly_notes", ""),
                     result.get("raw_response", ""),
+                    result.get("content_hash"),
                     now_iso
                 ))
                 conn.commit()

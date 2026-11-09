@@ -16,6 +16,7 @@ import sys
 import glob
 import json
 import re
+import hashlib
 import sqlite3
 import argparse
 from datetime import datetime
@@ -52,6 +53,15 @@ def parse_iso_date(date_str: str) -> Tuple[datetime, int]:
     return dt, int(dt.timestamp())
 
 
+def compute_file_sha256(filepath: str) -> str:
+    """Compute SHA-256 hash of a file efficiently in 64KB chunks."""
+    h = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        while chunk := f.read(65536):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def derive_chat_id(data: Dict[str, Any], filepath: str, explicit_id: Optional[str] = None) -> str:
     """Generate a clean, collision-free chat identifier."""
     if explicit_id:
@@ -86,6 +96,21 @@ def create_schema(conn: sqlite3.Connection):
         end_date TEXT
     );
     """)
+
+    # Source files manifest for delta tracking & caching
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS source_files_manifest (
+        file_path TEXT PRIMARY KEY,
+        chat_id TEXT NOT NULL,
+        file_hash TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        last_modified TEXT NOT NULL,
+        message_count INTEGER NOT NULL,
+        max_message_id INTEGER,
+        ingested_at TEXT NOT NULL
+    );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_manifest_chat ON source_files_manifest(chat_id);")
 
     # Metadata table
     cur.execute("""
@@ -136,9 +161,16 @@ def create_schema(conn: sqlite3.Connection):
         participants TEXT NOT NULL,
         initiator TEXT NOT NULL,
         gap_before_seconds INTEGER,
-        dialogue_text TEXT NOT NULL
+        dialogue_text TEXT NOT NULL,
+        content_hash TEXT
     );
     """)
+    # Migration check for threads table
+    cur.execute("PRAGMA table_info(threads);")
+    t_cols = {col[1] for col in cur.fetchall()}
+    if "content_hash" not in t_cols:
+        cur.execute("ALTER TABLE threads ADD COLUMN content_hash TEXT;")
+
     cur.execute("CREATE INDEX IF NOT EXISTS idx_threads_chat ON threads(chat_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_threads_start ON threads(start_timestamp);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_threads_gap ON threads(gap_before_seconds);")
@@ -347,23 +379,13 @@ def insert_chat_data(
 
     cur = conn.cursor()
 
-    # Clean existing data for this chat_id to ensure clean idempotency
+    # Clean existing relational & FTS data for this chat_id to ensure clean idempotency
     cur.execute("DELETE FROM chats WHERE chat_id = ?;", (chat_id,))
     cur.execute("DELETE FROM messages WHERE chat_id = ?;", (chat_id,))
     cur.execute("DELETE FROM threads WHERE chat_id = ?;", (chat_id,))
     cur.execute("DELETE FROM silence_gaps WHERE chat_id = ?;", (chat_id,))
     cur.execute("DELETE FROM messages_fts WHERE chat_id = ?;", (chat_id,))
     cur.execute("DELETE FROM threads_fts WHERE chat_id = ?;", (chat_id,))
-
-    # If vector table exists, clean old embeddings for this chat
-    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_embeddings';")
-    if cur.fetchone()[0] > 0:
-        cur.execute("DELETE FROM thread_embeddings WHERE chat_id = ?;", (chat_id,))
-
-    # If triage table exists, clean old triage entries for this chat
-    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
-    if cur.fetchone()[0] > 0:
-        cur.execute("DELETE FROM thread_triage WHERE chat_id = ?;", (chat_id,))
 
     msg_dict = {m["id"]: m for m in processed_msgs}
     start_date = processed_msgs[0]["date"]
@@ -452,11 +474,12 @@ def insert_chat_data(
             dialogue_lines.append(f"[{m['date'][:16]}] {m['sender']}: {prefix}{m['text']}")
 
         dialogue_text = "\n".join(dialogue_lines)
+        content_hash = hashlib.sha256(dialogue_text.encode("utf-8")).hexdigest()
 
         thread_rows.append((
             t_id, chat_id, anchor_id, t_start_date, t_end_date, t_start_ts, t_end_ts,
             duration, len(msgs), ",".join(participants), initiator,
-            gap_before, dialogue_text
+            gap_before, dialogue_text, content_hash
         ))
 
         thread_fts_rows.append((
@@ -467,8 +490,8 @@ def insert_chat_data(
         prev_thread_last_sender = last_msg["sender"]
 
     cur.executemany("""
-    INSERT INTO threads (thread_id, chat_id, anchor_message_id, start_date, end_date, start_timestamp, end_timestamp, duration_seconds, message_count, participants, initiator, gap_before_seconds, dialogue_text)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    INSERT INTO threads (thread_id, chat_id, anchor_message_id, start_date, end_date, start_timestamp, end_timestamp, duration_seconds, message_count, participants, initiator, gap_before_seconds, dialogue_text, content_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, thread_rows)
 
     cur.executemany("""
@@ -481,7 +504,55 @@ def insert_chat_data(
     VALUES (?, ?, ?, ?, ?, ?, ?, ?);
     """, gap_rows)
 
-    # 3. Insert or update chats catalog
+    # 3. Garbage Collection & Stale Invalidation for thread_embeddings (chat-scoped)
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_embeddings';")
+    if cur.fetchone()[0] > 0:
+        # Purge orphaned embeddings (threads that were deleted or changed thread_id)
+        cur.execute("""
+        DELETE FROM thread_embeddings 
+        WHERE chat_id = ? 
+          AND thread_id NOT IN (SELECT thread_id FROM threads WHERE chat_id = ?);
+        """, (chat_id, chat_id))
+        # Purge stale embeddings whose content_hash no longer matches updated thread text
+        cur.execute("PRAGMA table_info(thread_embeddings);")
+        te_cols = {c[1] for c in cur.fetchall()}
+        if "content_hash" in te_cols:
+            cur.execute("""
+            DELETE FROM thread_embeddings
+            WHERE chat_id = ?
+              AND thread_id IN (
+                  SELECT te.thread_id
+                  FROM thread_embeddings te
+                  JOIN threads t ON te.thread_id = t.thread_id
+                  WHERE te.chat_id = ? AND (te.content_hash IS NULL OR te.content_hash != t.content_hash)
+              );
+            """, (chat_id, chat_id))
+
+    # 4. Garbage Collection & Stale Invalidation for thread_triage (chat-scoped)
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
+    if cur.fetchone()[0] > 0:
+        # Purge orphaned triage records
+        cur.execute("""
+        DELETE FROM thread_triage 
+        WHERE chat_id = ? 
+          AND thread_id NOT IN (SELECT thread_id FROM threads WHERE chat_id = ?);
+        """, (chat_id, chat_id))
+        # Purge stale triage records whose content_hash changed
+        cur.execute("PRAGMA table_info(thread_triage);")
+        tr_cols = {c[1] for c in cur.fetchall()}
+        if "content_hash" in tr_cols:
+            cur.execute("""
+            DELETE FROM thread_triage
+            WHERE chat_id = ?
+              AND thread_id IN (
+                  SELECT tr.thread_id
+                  FROM thread_triage tr
+                  JOIN threads t ON tr.thread_id = t.thread_id
+                  WHERE tr.chat_id = ? AND (tr.content_hash IS NULL OR tr.content_hash != t.content_hash)
+              );
+            """, (chat_id, chat_id))
+
+    # 5. Insert or update chats catalog
     cur.execute("""
     INSERT INTO chats (chat_id, chat_name, chat_type, source_files, total_messages, total_threads, start_date, end_date)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?);
@@ -489,6 +560,21 @@ def insert_chat_data(
         chat_id, chat_name, chat_type, ", ".join(source_files),
         len(processed_msgs), len(threads_data), start_date, end_date
     ))
+
+    # 6. Update source_files_manifest
+    max_id = max([m["id"] for m in processed_msgs]) if processed_msgs else None
+    now_iso = datetime.now().isoformat()
+    for sf in source_files:
+        abs_sf = os.path.abspath(sf)
+        if os.path.exists(abs_sf):
+            f_size = os.path.getsize(abs_sf)
+            f_mtime = datetime.fromtimestamp(os.path.getmtime(abs_sf)).isoformat()
+            f_hash = compute_file_sha256(abs_sf)
+            cur.execute("""
+            INSERT OR REPLACE INTO source_files_manifest 
+            (file_path, chat_id, file_hash, file_size, last_modified, message_count, max_message_id, ingested_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            """, (abs_sf, chat_id, f_hash, f_size, f_mtime, len(processed_msgs), max_id, now_iso))
 
     return len(processed_msgs), len(threads_data), len(gap_rows)
 
@@ -577,6 +663,49 @@ def build_databases(
     print(f"[*] Grouped into {len(chats_grouped)} distinct chat stream(s). Disentangling...")
 
     for c_id, chat_info in chats_grouped.items():
+        # Check delta against manifest: Can we skip re-ingestion for this chat?
+        can_skip = False
+        if not clean:
+            cur = conn.cursor()
+            cur.execute("SELECT total_messages, total_threads FROM chats WHERE chat_id = ?;", (c_id,))
+            c_row = cur.fetchone()
+            if c_row and c_row[0] > 0:
+                all_files_match = True
+                cur.execute("SELECT count(*) FROM source_files_manifest WHERE chat_id = ?;", (c_id,))
+                manifest_count = cur.fetchone()[0]
+                if manifest_count == len(chat_info["source_files"]):
+                    for sf in chat_info["source_files"]:
+                        abs_sf = os.path.abspath(sf)
+                        if not os.path.exists(abs_sf):
+                            all_files_match = False
+                            break
+                        cur.execute(
+                            "SELECT file_hash, file_size FROM source_files_manifest WHERE file_path = ? AND chat_id = ?;",
+                            (abs_sf, c_id)
+                        )
+                        mf = cur.fetchone()
+                        if not mf:
+                            all_files_match = False
+                            break
+                        expected_hash, expected_size = mf
+                        current_size = os.path.getsize(abs_sf)
+                        if current_size != expected_size:
+                            all_files_match = False
+                            break
+                        current_hash = compute_file_sha256(abs_sf)
+                        if current_hash != expected_hash:
+                            all_files_match = False
+                            break
+                    if all_files_match:
+                        can_skip = True
+
+        if can_skip:
+            print(f"\n---> [UNCHANGED] Chat '{chat_info['chat_name']}' (ID: {c_id})")
+            print(f"     Source files match manifest. Skipping re-ingestion.")
+            total_all_msgs += c_row[0]
+            total_all_threads += c_row[1]
+            continue
+
         # Deduplicate messages by ID within the same chat (handles multi-part exports)
         raw_msgs = chat_info["messages"]
         seen_msg_ids: Set[Any] = set()
@@ -590,7 +719,7 @@ def build_databases(
             else:
                 deduped_msgs.append(m)
 
-        print(f"\n---> Ingesting Chat '{chat_info['chat_name']}' (ID: {c_id})")
+        print(f"\n---> [INGESTING] Chat '{chat_info['chat_name']}' (ID: {c_id})")
         print(f"     Source files: {', '.join(chat_info['source_files'])}")
         print(f"     Raw items: {len(raw_msgs)} (Deduped: {len(deduped_msgs)})")
 
