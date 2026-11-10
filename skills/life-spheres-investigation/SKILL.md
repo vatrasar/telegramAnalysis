@@ -68,7 +68,9 @@ Use these detailed criteria when probing the archive across foundational domains
 - **Authority Relations:** Respect for meritocratic leadership vs. knee-jerk defiance, submissiveness, cynical contempt for hierarchy, or impostor syndrome.
 - **Financial Psychology & Spending Habits:**
   - *Attitude Toward Money:* Is money viewed as existential safety, scorecard of self-worth, an instrument of autonomy, or an object of chronic anxiety?
-  - *Spending vs. Frugality:* Frugal/calculated vs. impulsive spender, status-conscious luxury buyer, or generous gift-giver? How do they handle everyday budgeting, luxury purchases, debts, investments, or treating others?
+  - *Frugality vs. Lavishness / Extravagance (Oszczędność vs. Rozrzutność):* Calculated, restrictive saver vs. impulsive, lavish spender. Do they indulge in higher-end lifestyle spending or show extreme frugality, guilt, or anxiety when spending money?
+  - *Appetite for Premium vs. Budget Goods:* Preference for expensive, flagship consumer electronics and branded items (e.g. desire for flagship smartphones, premium gadgets, designer goods) vs. deliberate satisfaction with economical, functional, cheaper alternatives.
+  - *Everyday Budgeting & Financial Dynamics:* How do they handle everyday budgeting, luxury purchases, debts, investments, or treating others?
 
 ---
 
@@ -77,11 +79,13 @@ Use these detailed criteria when probing the archive across foundational domains
   - *Doctrinal & Partisan Orientation:* Explicit political stance (conservative, liberal, libertarian, left-wing, centrist, or apolitical/disillusioned), stance on governance, civic duties, and societal order.
   - *Sympathies Toward Political Figures & Movements:* Stance toward specific political leaders, candidates, or political movements discussed in the archive (admiration, revulsion, or reflective neutrality).
   - *Civic & Electoral Motivations:* What drives their voting decisions or civic behavior? (Programmatic ideology vs. affective/emotional impulses, e.g. voting out of sympathy or pity vs. civic duty vs. cynical disengagement).
+  - *Stance Toward Nations & Nationalities:* Attitudes toward specific countries, foreign cultures, and nationalities (curiosity, warmth, cosmopolitanism vs. prejudice, skepticism, or ethnocentric distance).
+  - *Ethical Stance on Discrimination & Racism:* Evaluation of prejudice, discrimination, xenophobia, or racism (does the subject express or tolerate ethnic stereotyping, or actively uphold egalitarianism, fairness, and cultural tolerance?).
   - *Geopolitical & Cultural Alignments:* Positioning regarding international conflicts, cultural sovereignty, and religious/ethnic solidarity.
   - *Boundary Maintenance in Political Debates:* Tolerance when interlocutors express opposing political or ideological views (collaborative pluralism vs. rigid boundary setting, e.g. demanding mutual respect and non-imposition vs. relational rupture).
 - **Attitude Toward Artificial Intelligence & Modern Technology:**
-  - *AI & Tech Posture:* Are they enthusiastic early adopters, pragmatic utilitarians, philosophical skeptics, or apprehensive/apathetic toward modern tech (automation, cognitive offloading, dehumanization)?
-  - *Interlocutor Stimulus Reaction (The Non-Engagement Test):* When an interlocutor introduces, recommends, or urges them to adopt modern software, generative digital tools, or AI assistants, how do they react? (Immediate curiosity and trial vs. skepticism vs. passive evasion, apathy, laughter, or preference for retreating into low-friction leisure).
+  - *AI & Tech Posture:* Are they enthusiastic early adopters, pragmatic utilitarians, philosophical skeptics, or indifferent/uninterested in modern tech trends?
+  - *Reaction to Introduced Tools & Innovations:* When an interlocutor recommends or introduces a new digital tool, software, or technology, does the subject show curiosity and try it, or do they simply show a lack of interest, shrug it off, or prefer familiar routines? (Avoid forcing far-fetched psychological diagnoses when a reaction simply reflects standard disinterest in the subject matter).
   - *Practical Digital Tool Usage:* How do they actually utilize digital infrastructure? (Advanced workflows and intellectual exploration vs. purely basic communication, administrative utilities, and low-friction mobile games).
 - **Cognitive Style in Debate:** Do they lean on empirical evidence and formal logic, or emotional appeal and moral superiority? Do they respect ideological opponents or dehumanize them?
 

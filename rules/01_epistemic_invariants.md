@@ -151,13 +151,11 @@ The agent must strictly distinguish between two fundamentally different evidenti
 1. **True Non-Existence / Absence of Mention:**
    - If a specific life sphere or lifestyle dimension (e.g. domestic cleaning habits, extreme sports, financial investments) was **never mentioned or introduced anywhere in the chat archive**, the agent MUST completely omit that sub-topic from the report.
    - **Strict Prohibition on Placeholder Disclaimers:** NEVER write placeholder sections or disclaimers such as *"Brak danych na temat sportu"*, *"Temat ten nie był poruszany"*, or *"No information available"*.
-2. **Stimulus Exposure, Apathy, Disregard or Resistance as Positive Empirical Evidence:**
-   - When an interlocutor or conversational trigger explicitly introduces a topic, tool, lifestyle activity, political dilemma, or cultural phenomenon, and the primary subject demonstrates:
-     - lack of interest, disengagement, or apathy,
-     - passive avoidance, procrastination, or changing the subject,
-     - active skepticism, refusal, or evasive behavior (e.g. retreating into sleep, humor, or silence instead of engaging),
-   - **This is NOT an absence of evidence.** It constitutes **critical positive empirical evidence** regarding the subject's behavioral boundaries, cognitive openness, ideological flexibility, or digital habits.
-   - The agent is **strictly prohibited from omitting** such occurrences under the pretext of "lack of data". The agent MUST synthesize the subject's disinterest, passive avoidance, or non-engagement as a verified trait within the relevant life sphere.
+2. **Stimulus Exposure vs. Simple Disinterest (Grounding Analytical Inferences):**
+   - When an interlocutor introduces a topic, tool, lifestyle activity, political dilemma, or cultural phenomenon, and the primary subject demonstrates disengagement, changes the subject, or reacts with indifference:
+   - This should not be automatically dismissed as "no data", but the agent must also avoid forcing far-fetched or over-pathologized interpretations.
+   - Often the most realistic, objective analytical finding is simply that the subject is **uninterested in, indifferent to, or unenthusiastic about that particular topic or tool** (e.g. lack of interest in sports, indifference toward new digital tools, disengagement from partisan debates).
+   - Where relevant to the life sphere under investigation, record this disinterest or low priority as an empirical finding, rather than omitting the area under the pretext that "nothing was discussed".
 
 ---
 
