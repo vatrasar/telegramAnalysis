@@ -36,7 +36,9 @@ def init_and_load_config() -> Dict[str, Any]:
             default_conf = {
                 "api_key": "YOUR_OPENROUTER_API_KEY_HERE",
                 "model": "qwen/qwen3-embedding-8b",
-                "triage_model": "perplexity/pplx-decider-v1.2"
+                "triage_model": "perplexity/pplx-decider-v1.2",
+                "summary_model": "scaledown/summarize",
+                "extraction_model": "scaledown/extract"
             }
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
                 json.dump(default_conf, f, indent=2)

@@ -70,14 +70,19 @@ python3 project/scripts/vector_indexer.py --db chat.db --index
 python3 project/scripts/vector_indexer.py --db chat.db --search "fear of intimacy and avoidance"
 ```
 
-### Step 4.3: System-1 Dialogue Thread Triage (`triage_threads.py`)
-Pre-screens 100% of conversation threads, populating the `thread_triage` table with Diagnostic Radars:
+### Step 4.3: System-1 Dialogue Thread Triage & Enrichment (`triage_threads.py`)
+Pre-screens conversation threads, populating the `thread_triage` table with Diagnostic Radars and optional LLM summaries/extractions:
 ```bash
+# Standard System-1 triage across all threads:
 python3 project/scripts/triage_threads.py --db chat.db
+
+# Enrich salient threads with summaries and entity candidates using configured models:
+python3 project/scripts/triage_threads.py --db chat.db --enrich
 ```
 - **Radar 1 (Behavioral Anomalies):** Flags deviant actions (`is_atypical`) and conversational dissonance (`interlocutor_surprised`).
 - **Radar 2 (Acute Emotional Peaks):** Flags affective amplitude (`profound_sadness`, `euphoric_joy`, `intense_rage`).
 - **Radar 3 (Advice-Seeking Dilemmas):** Flags intimate confessions, existential crises, and advice requests (`is_advice_seeking`).
+- **Batch Enrichment (`--enrich`):** Uses `summary_model` and `extraction_model` configured in `config/embeddings_config.json` to generate concise summaries (`summary_short`) and third-party entity candidates (`candidate_entities`).
 
 ---
 
