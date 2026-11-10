@@ -20,7 +20,7 @@ import math
 import sqlite3
 import argparse
 import datetime as dt_module
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple, Set
 
 try:
@@ -1667,6 +1667,19 @@ def ensure_entities_tables(conn: sqlite3.Connection):
     );
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_desc_chat ON chat_descriptors(chat_id);")
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS thread_entity_audit (
+        thread_id TEXT PRIMARY KEY,
+        chat_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        last_known_count INTEGER DEFAULT 0,
+        probability REAL,
+        notes TEXT,
+        audited_at TEXT NOT NULL
+    );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_thread_entity_audit_chat ON thread_entity_audit(chat_id);")
     conn.commit()
 
 
@@ -2089,7 +2102,7 @@ def run_watchdog_check(
     with open(config_path, "r", encoding="utf-8") as f:
         cfg = json.load(f)
 
-    api_key = cfg.get("openrouter_api_key", "").strip()
+    api_key = (cfg.get("api_key") or cfg.get("openrouter_api_key", "")).strip()
     model = cfg.get("triage_model", "openrouter/auto")
 
     has_unregistered, prob = verify_unregistered_entities_decider(
@@ -2098,6 +2111,21 @@ def run_watchdog_check(
         model=model,
         api_key=api_key
     )
+
+    # Persist audit status to thread_entity_audit table
+    try:
+        w_conn = sqlite3.connect(db_path)
+        ensure_entities_tables(w_conn)
+        w_cur = w_conn.cursor()
+        w_status = "unregistered_detected" if has_unregistered else "cleared"
+        w_cur.execute("""
+        INSERT OR REPLACE INTO thread_entity_audit (thread_id, chat_id, status, last_known_count, probability, audited_at)
+        VALUES (?, ?, ?, ?, ?, ?);
+        """, (actual_thread_id, actual_chat_id, w_status, len(known_names), round(prob, 3), datetime.now(timezone.utc).isoformat()))
+        w_conn.commit()
+        w_conn.close()
+    except Exception:
+        pass
 
     return {
         "thread_id": actual_thread_id,
@@ -2126,6 +2154,234 @@ def print_watchdog_result(res: Dict[str, Any]):
         print(f"✅ PASSED: No unregistered third-party entities detected. (Confidence: {(1.0 - res['probability']) * 100:.1f}%)")
         print("   All discussed individuals are accounted for in the registered entities set.")
     print("=" * 80)
+
+
+def skip_watchdog_thread(db_path: str, thread_id: str, chat_id: Optional[str] = None, reason: str = "agent_cleared_false_alarm"):
+    """Mark a thread as skipped/false-positive in entity scan to resume scanning."""
+    conn = sqlite3.connect(db_path)
+    ensure_entities_tables(conn)
+    cur = conn.cursor()
+    if not chat_id:
+        cur.execute("SELECT chat_id FROM threads WHERE thread_id = ?;", (thread_id,))
+        r = cur.fetchone()
+        if r:
+            chat_id = r[0]
+        else:
+            conn.close()
+            raise ValueError(f"Thread '{thread_id}' not found.")
+
+    cur.execute("""
+    INSERT OR REPLACE INTO thread_entity_audit (thread_id, chat_id, status, notes, audited_at)
+    VALUES (?, ?, 'skipped', ?, ?);
+    """, (thread_id, chat_id, reason, datetime.now(timezone.utc).isoformat()))
+    conn.commit()
+    conn.close()
+    print(f"\n[✓] Thread '{thread_id}' marked as SKIPPED (Reason: {reason}).")
+    print(f"    You can now resume scanning with: python3 project/scripts/query_chat.py -C {chat_id} --watchdog-scan\n")
+
+
+def print_watchdog_status(db_path: str, chat_id: str):
+    """Print overall summary status of entity watchdog audit for the chat."""
+    conn = sqlite3.connect(db_path)
+    ensure_entities_tables(conn)
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT COUNT(*) FROM threads t
+    JOIN thread_triage tt ON t.thread_id = tt.thread_id
+    WHERE t.chat_id = ? AND tt.mentions_third_party = 1;
+    """, (chat_id,))
+    total_third_party = cur.fetchone()[0]
+
+    cur.execute("""
+    SELECT status, COUNT(*) FROM thread_entity_audit
+    WHERE chat_id = ?
+    GROUP BY status;
+    """, (chat_id,))
+    counts = dict(cur.fetchall())
+    cleared = counts.get("cleared", 0)
+    skipped = counts.get("skipped", 0)
+    detected = counts.get("unregistered_detected", 0)
+    resolved = cleared + skipped
+    pending = max(0, total_third_party - resolved)
+
+    cur.execute("SELECT name_or_alias, verified_role FROM chat_entities WHERE chat_id = ? ORDER BY created_at ASC;", (chat_id,))
+    entities = cur.fetchall()
+    conn.close()
+
+    print("\n" + "=" * 80)
+    print(f"📊 SEQUENTIAL ENTITY WATCHDOG STATUS [Chat: {chat_id}]")
+    print("=" * 80)
+    print(f"Total Third-Party Threads: {total_third_party}")
+    print(f"  ✓ Cleared (Only Known Entities):    {cleared}")
+    print(f"  ⏭️  Skipped (False Alarm / Bystander): {skipped}")
+    print(f"  🚨 Blocked at New Entity:           {detected}")
+    print(f"  ⏳ Pending Audit:                    {pending}")
+    pct = (resolved / total_third_party * 100) if total_third_party > 0 else 100.0
+    print(f"Audit Progress: [{resolved}/{total_third_party}] ({pct:.1f}%)")
+    print("-" * 80)
+    print(f"Registered Entities in Chat ({len(entities)}):")
+    if entities:
+        for name, role in entities:
+            print(f"  • {name}: {role or 'No role specified'}")
+    else:
+        print("  (None registered yet)")
+    print("=" * 80 + "\n")
+
+
+def run_sequential_watchdog_scan(
+    db_path: str,
+    chat_id: str,
+    limit: Optional[int] = None,
+    reset: bool = False
+) -> Dict[str, Any]:
+    """
+    Run sequential System-1 entity watchdog scan on third-party threads.
+    Iterates thread-by-thread:
+    1. Checks if thread contains any entity NOT in currently registered list S.
+    2. If NO -> thread is marked 'cleared' and scan automatically advances.
+    3. If YES -> stops immediately at this thread, prints dialogue excerpt and profiler directives.
+    4. Profiler identifies/registers new entity, then re-runs --watchdog-check on same thread.
+    5. If all entities in thread are registered, System-1 returns NO and scan resumes.
+    """
+    conn = sqlite3.connect(db_path)
+    ensure_entities_tables(conn)
+    cur = conn.cursor()
+
+    if reset:
+        cur.execute("DELETE FROM thread_entity_audit WHERE chat_id = ?;", (chat_id,))
+        conn.commit()
+        print(f"[✓] Reset watchdog scan audit progress for chat '{chat_id}'.")
+
+    # Get all threads with mentions_third_party = 1
+    cur.execute("""
+    SELECT t.thread_id, t.start_date, t.dialogue_text, t.participants,
+           COALESCE(a.status, 'pending') as audit_status
+    FROM threads t
+    JOIN thread_triage tt ON t.thread_id = tt.thread_id
+    LEFT JOIN thread_entity_audit a ON t.thread_id = a.thread_id
+    WHERE t.chat_id = ? AND tt.mentions_third_party = 1
+    ORDER BY t.start_date ASC;
+    """, (chat_id,))
+    rows = cur.fetchall()
+
+    if not rows:
+        conn.close()
+        print(f"[*] No threads flagged with mentions_third_party = 1 for chat '{chat_id}'.")
+        return {"status": "empty"}
+
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "embeddings_config.json")
+    if not os.path.exists(config_path):
+        root_cfg = os.path.join(os.getcwd(), "config", "embeddings_config.json")
+        if os.path.exists(root_cfg):
+            config_path = root_cfg
+
+    if not os.path.exists(config_path):
+        conn.close()
+        raise FileNotFoundError(f"Configuration file not found at {config_path}")
+
+    with open(config_path, "r", encoding="utf-8") as f:
+        cfg = json.load(f)
+
+    api_key = (cfg.get("api_key") or cfg.get("openrouter_api_key", "")).strip()
+    model = cfg.get("triage_model", "perplexity/pplx-decider-v1.2")
+
+    total_threads = len(rows)
+    cleared_count = sum(1 for r in rows if r[4] in ('cleared', 'skipped'))
+    print("\n" + "=" * 80)
+    print(f"🔍 SEQUENTIAL ENTITY WATCHDOG SCANNER [Chat: {chat_id}]")
+    print(f"   Total Third-Party Threads: {total_threads}")
+    print(f"   Already Cleared / Skipped: {cleared_count}")
+    print(f"   Model (System-1 Decider):  {model}")
+    print("=" * 80)
+
+    processed_in_this_run = 0
+
+    for idx, (tid, sdate, diag_text, participants, audit_status) in enumerate(rows, 1):
+        if audit_status in ('cleared', 'skipped'):
+            continue
+
+        if limit is not None and processed_in_this_run >= limit:
+            print(f"\n[*] Scan limit ({limit}) reached for this execution.")
+            break
+
+        # Load currently registered entities fresh from DB
+        cur.execute("SELECT name_or_alias FROM chat_entities WHERE chat_id = ?;", (chat_id,))
+        known_names = [r[0] for r in cur.fetchall()]
+        if participants:
+            for p in participants.split(","):
+                p_clean = p.strip()
+                if p_clean and p_clean not in known_names:
+                    known_names.append(p_clean)
+
+        print(f"[{idx}/{total_threads}] Checking thread {tid} ({sdate}) against {len(known_names)} known entities...", end="", flush=True)
+
+        try:
+            has_unregistered, prob = verify_unregistered_entities_decider(
+                dialogue_text=diag_text,
+                known_names=known_names,
+                model=model,
+                api_key=api_key
+            )
+        except Exception as e:
+            print(f" [ERROR: {e}]")
+            break
+
+        processed_in_this_run += 1
+
+        now_str = datetime.now(timezone.utc).isoformat()
+        if not has_unregistered:
+            cur.execute("""
+            INSERT OR REPLACE INTO thread_entity_audit (thread_id, chat_id, status, last_known_count, probability, audited_at)
+            VALUES (?, ?, 'cleared', ?, ?, ?);
+            """, (tid, chat_id, len(known_names), prob, now_str))
+            conn.commit()
+            print(f" [✓ CLEARED] (p={prob:.2f})")
+        else:
+            cur.execute("""
+            INSERT OR REPLACE INTO thread_entity_audit (thread_id, chat_id, status, last_known_count, probability, audited_at)
+            VALUES (?, ?, 'unregistered_detected', ?, ?, ?);
+            """, (tid, chat_id, len(known_names), prob, now_str))
+            conn.commit()
+            print(f" [🚨 NEW ENTITY DETECTED] (p={prob:.2f})\n")
+
+            print("-" * 80)
+            print(f"🚨 UNREGISTERED THIRD-PARTY DETECTED IN THREAD: {tid}")
+            print(f"   Date:              {sdate}")
+            print(f"   Known Entities S:  [{', '.join(known_names)}]")
+            print(f"   Confidence / Prob: {prob:.2f}")
+            print("-" * 80)
+            print("📜 DIALOGUE TRANSCRIPT EXCERPT:")
+            lines = diag_text.strip().split("\n")
+            preview_lines = lines[:20] if len(lines) > 20 else lines
+            for l in preview_lines:
+                print(f"   {l}")
+            if len(lines) > 20:
+                print(f"   ... [{len(lines)-20} more messages in thread]")
+            print("-" * 80)
+            print("👉 PROFILER / AGENT ACTION REQUIRED:")
+            print(f"   1. Identify the new entity name/role in thread {tid}.")
+            print(f"   2. Register the new entity:")
+            print(f"      python3 project/scripts/query_chat.py -C {chat_id} --register-entity \"<Name>\" --role \"<Role>\"")
+            print(f"   3. Re-verify this thread to ensure no secondary entities were missed:")
+            print(f"      python3 project/scripts/query_chat.py -C {chat_id} --watchdog-check {tid}")
+            print(f"   4. If cleared, resume scan with:")
+            print(f"      python3 project/scripts/query_chat.py -C {chat_id} --watchdog-scan")
+            print(f"   5. If this is a false alarm or bystander to skip, run:")
+            print(f"      python3 project/scripts/query_chat.py -C {chat_id} --skip-thread {tid}")
+            print("=" * 80 + "\n")
+            conn.close()
+            return {
+                "status": "stopped_at_new_entity",
+                "thread_id": tid,
+                "date": sdate,
+                "known_entities": known_names,
+                "probability": prob
+            }
+
+    conn.close()
+    print("\n[✓] Sequential Watchdog Scan iteration complete.")
+    return {"status": "completed", "processed": processed_in_this_run}
 
 
 # ==============================================================================
@@ -2195,6 +2451,10 @@ def main():
     parser.add_argument("--confidence", type=str, default="verified", help="Confidence status for entity ('verified', 'unverified', 'hypothetical')")
     parser.add_argument("--watchdog-check", type=str, help="Run adversarial System-1 watchdog on a thread_id against registered entities")
     parser.add_argument("--known", action="append", help="Explicit list of known entities for --watchdog-check (can be repeated)")
+    parser.add_argument("--watchdog-scan", action="store_true", help="Run sequential System-1 watchdog scan on third-party threads")
+    parser.add_argument("--watchdog-status", action="store_true", help="Display summary progress of sequential entity watchdog scan")
+    parser.add_argument("--skip-thread", type=str, help="Mark thread as skipped/false-positive in entity scan to resume progress")
+    parser.add_argument("--reset-watchdog-scan", action="store_true", help="Reset watchdog scan progress for the target chat")
 
     args = parser.parse_args()
 
@@ -2305,6 +2565,31 @@ def main():
             print(json.dumps(watchdog_res, indent=2, ensure_ascii=False))
         else:
             print_watchdog_result(watchdog_res)
+        return
+
+    if args.watchdog_status:
+        if not resolved_chat_id:
+            print("[!] Error: Please specify target chat via -C <chat_id> for --watchdog-status.")
+            sys.exit(1)
+        print_watchdog_status(args.db, resolved_chat_id)
+        return
+
+    if args.skip_thread:
+        skip_watchdog_thread(args.db, args.skip_thread, resolved_chat_id)
+        return
+
+    if args.watchdog_scan:
+        if not resolved_chat_id:
+            print("[!] Error: Please specify target chat via -C <chat_id> for --watchdog-scan.")
+            sys.exit(1)
+        scan_res = run_sequential_watchdog_scan(
+            db_path=args.db,
+            chat_id=resolved_chat_id,
+            limit=args.limit,
+            reset=args.reset_watchdog_scan
+        )
+        if args.json:
+            print(json.dumps(scan_res, indent=2, ensure_ascii=False))
         return
 
     # 6. Life Spheres Investigation Checklist Status / Waiver

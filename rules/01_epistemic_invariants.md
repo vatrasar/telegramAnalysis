@@ -184,14 +184,36 @@ The agent is strictly prohibited from synthesizing continuous multi-year spans (
 
 ---
 
-## 12. The System-1 Watchdog Entity Verification Loop (Adversarial Double-Check Gate)
+## 12. The Sequential System-1 Watchdog Entity Verification Loop (Sekwencyjny Kursor Strażnika Encji)
 
-To prevent Single-Entity Blindness (stopping entity search after finding the first obvious character in a thread), the pipeline employs an adversarial double-check loop between the Agent (System-2) and the Decision Router (System-1):
+Aby zapobiec pomijaniu wątków z osobami trzecimi oraz zjawisku ślepoty na pojedynczą encję (*Single-Entity Blindness* – zadowolenie się znalezieniem pierwszej oczywistej postaci w wątku z pominięciem kolejnych), proces identyfikacji postaci trzecich opiera się na sekwencyjnym kursorze wątek po wątku ($T_1 \to T_2 \to \dots \to T_N$) z wykorzystaniem Systemu-1 jako bramkarza i strażnika w pętli:
 
-1. **Third-Party Radar Hit:** In threads flagged with `mentions_third_party_person = 1`, the Agent examines the dialogue and extracts the initial set of third-party names/entities: $S = \{\text{Name}_1, \dots\}$.
-2. **Adversarial Watchdog Query:** System-1 evaluates the thread binarially (`type: noul` via Decisions API):
-   - *"Does this dialogue mention, discuss, or quote any external third-party person, suitor, friend, or coworker other than the known entities: S?"*
-3. **Loop Convergence:**
-   - **Odpowiedź NIE (0):** 100% coverage achieved. Thread investigation completes cleanly.
-   - **Odpowiedź TAK (1):** Alert raised: an uncaptured third-party entity is present. The Agent is forced to re-examine the thread turn-by-turn to locate the omitted entity (e.g. spotting `CJ` after initially recording only `Dustin`).
-   - If after strict re-examination the Agent confirms no other entity exists (System-1 false positive), the Agent logs the verification and closes the loop without infinite recursion.
+1. **Bramka Selekcyjna Systemu-1 (Gatekeeper Check):**
+   - Dla każdego kolejnego wątku $T_i$ oflagowanego `mentions_third_party = 1`, zanim Agent (System-2) załaduje jego treść do okna kontekstowego, System-1 ocenia dialog binarnie (`type: noul` via OpenRouter Decisions API) względem aktualnej listy znanych encji $S$:
+     *„Mamy zarejestrowane osoby: [S]. Czy w tym dialogu pojawia się jakakolwiek INNA osoba trzecia, sufler, znajomy, członek rodziny lub adorator spoza tej listy?”*
+   - **Odpowiedź NIE (0):** Wątek zawiera wyłącznie znane postacie. Zostaje oznaczony jako `cleared` i natychmiast pominięty. Agent nie spala ani jednego tokena kontekstu.
+   - **Odpowiedź TAK (1):** Wykryto nową, niezarejestrowaną postać. Kursor zatrzymuje się na wątku $T_i$ i eskaluje go do Agenta.
+
+2. **Ekstrakcja i Rejestracja przez Agenta (System-2):**
+   - Agent wchodzi do wskazanego wątku $T_i$, analizuje dialog, identyfikuje nową postać/imię i rejestruje ją w bazie:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --register-entity "<Name>" --role "<Role>"
+     ```
+   - Lista znanych encji ulega powiększeniu: $S \gets S \cup \{\text{Name}\}$.
+
+3. **Pętla Kontrolna i Zabezpieczenie przed Przeoczeniem (Adversarial Double-Check on Same Thread):**
+   - Po zarejestrowaniu nowej postaci, Agent **nie przechodzi od razu do następnego wątku**, lecz ponownie odpytuje System-1 o ten sam wątek $T_i$ z rozszerzoną listą $S$:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --watchdog-check <thread_id>
+     ```
+   - Jeśli System-1 zwróci **NIE (0)**: Wszystkie postacie w $T_i$ zostały zidentyfikowane. Wątek zostaje oznaczony jako `cleared`, a skaner (`--watchdog-scan`) automatycznie przechodzi do kolejnego wątku $T_{i+1}$.
+   - Jeśli System-1 zwróci **TAK (1)**: Wątek zawiera jeszcze kolejną pominiętą postać (np. wspólnika lub krewnego). Agent powtarza ekstrakcję dla $T_i$.
+   - **Bezpiecznik Fałszywego Alarmu (Breakout Guard):** Jeśli po ponownej analizie Agent upewni się, że w tekście nie ma już żadnych innych osób (np. System-1 wziął za imię nazwę leku, miasta lub slang), Agent oznacza wątek jako pominięty/fałszywy alarm i odblokowuje kursor:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --skip-thread <thread_id> --reason "false_positive_bystander"
+     ```
+
+4. **Narzędzia CLI Wspierające Protokół:**
+   - `query_chat.py -C <chat_id> --watchdog-scan` – sekwencyjny skan wątków z osobami trzecimi, zatrzymujący się wyłącznie na wątkach z nowymi encjami.
+   - `query_chat.py -C <chat_id> --watchdog-check <thread_id>` – weryfikacja pojedynczego wątku względem zarejestrowanych encji.
+   - `query_chat.py -C <chat_id> --watchdog-status` – podsumowanie postępu audytu encji (cleared, blocked, skipped, pending).

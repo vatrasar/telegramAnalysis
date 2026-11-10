@@ -129,7 +129,17 @@ python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --audi
 python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --register-entity "Dustin" --role "Chat friend from Oregon" --desc "pothead, mushroom farmer" --non-romantic
 
 # Execute System-1 Watchdog Double-Check on a thread to detect overlooked entities
-python3 project/scripts/query_chat.py --db chat.db --watchdog-check <thread_id> --known "Dustin"
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --watchdog-check <thread_id> --known "Dustin"
+
+# Sequential Entity Watchdog Scanner (thread-by-thread gatekeeper & cursor):
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --watchdog-scan
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --watchdog-scan --limit 10
+
+# Display progress of sequential entity watchdog audit:
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --watchdog-status
+
+# Skip a thread in watchdog scan (false positive / bystander):
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --skip-thread <thread_id>
 ```
 
 ---
