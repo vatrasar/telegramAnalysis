@@ -76,6 +76,7 @@ Triggered **ONLY** when the user explicitly requests an in-depth personality pro
 - Audit items via primary vector search (`query_chat.py --semantic`) and targeted lexical queries (`-s`).
 - Record findings: `python3 project/scripts/checklist.py -C <chat_id> --update <id> --set-status completed --notes "..." --queries "..." --semantic-queries "..."`
 - **Ban on Keyword-Only `no_data`:** Concluding absence requires documented semantic vector search.
+- **Subagent Delegation for Sphere Clusters:** To avoid coordinator context exhaustion across 46 spheres, delegate thematic clusters to `life-sphere-investigator` subagents (`Model: "flash"`), which execute probes and update `checklist.py` in isolated sandboxes.
 - Completing the 46 spheres establishes the core psychological baseline.
 
 #### Step B.4: Subagent Thread Delta Audit & Forensic Deep Dives (`thread_checklist.py`)
@@ -103,7 +104,8 @@ python3 project/scripts/thread_checklist.py -C <chat_id> --export-evidence
 
 #### Step B.6: Diagnostic Frameworks & Modular Dossier Assembly
 - Activate `forensic-personality-frameworks` skill for Big Five (OCEAN) and Attachment Style rubrics.
-- Activate `dossier-report-assembly` skill for the 8-component report blueprint and compilation:
+- Activate `dossier-report-assembly` skill for the 8-component report blueprint and compilation.
+- **Subagent Drafting Delegation:** Delegate drafting of substantive profile chapters to `chapter-drafter` (`Model: "flash"`), and Chapter 7 (Operational Playbook) to `operational-playbook-architect` (`Model: "flash"`). The Main Agent reviews drafts against epistemic invariants, synthesizes the Summary Matrix, and compiles via:
   ```bash
   python3 project/scripts/assemble_report.py --sections-dir reports/<subject>_sections/ -o reports/<subject>_profile.md
   ```
