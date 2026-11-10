@@ -10,154 +10,87 @@ These rules define the technical pipeline boundaries, pre-flight configuration g
 
 ## 1. Architectural Boundary & Stateless Agent Principle
 
-- The `project/` (or `.agents/`) directory represents the **Agent Package** (skills, rules, scripts).
+- The `project/` directory represents the **Agent Package** (skills, rules, scripts).
 - **NEVER create runtime databases (`*.db`), user secrets, or runtime artifacts inside `project/`.**
 - All runtime user configuration lives in `config/` in the workspace root (e.g. `config/embeddings_config.json`).
 - All analytical databases and runtime data live in the workspace root (e.g. `chat.db` or `data/chat.db`).
 - All processing scripts in `project/scripts/` read and write runtime state in the parent workspace root.
 
-### 1.1 Prohibition on Ad-Hoc Python/SQLite Querying Scripts (Zakaz Pisania Doraźnych Skryptów)
+### 1.1 Prohibition on Ad-Hoc Python/SQLite Querying Scripts
 - **Absolute Prohibition:** The agent is strictly forbidden from writing or executing ad-hoc Python one-liners (`python3 -c "import sqlite3..."`), temporary scrapers, or raw SQL scripts to query, search, or slice chat messages.
-- **Sanctioned Toolchain Invariant:** All chat exploration, keyword searching, sender filtering, thread reading, and context audits MUST be conducted exclusively via the sanctioned CLI toolchain (`project/scripts/query_chat.py`, `checklist.py`, `assemble_report.py`).
-- **Failure Mode Defense:** Ad-hoc scripting leads to silent string slicing (`[:140]`), uncalibrated truncation, context blindness, and epistemic misattributions. The CLI toolchain enforces uniform context protection, boundary traversal, and pagination.
-
-### 1.2 Tool Capability Feedback & Escalation Protocol
-- **Blocking Tool Gap:** If an essential analytical capability is truly absent from the sanctioned tools and prevents completing the user's task accurately:
-  - The agent **MUST stop and escalate immediately**: explain the exact technical limitation to the user in chat and request permission or instructions before improvising custom scripts.
-- **Non-Blocking Enhancement Suggestions:** If the task can be completed cleanly with available flags, but the agent identified a feature or optimization that would make future analysis easier:
-  - The agent must state this tool suggestion **exclusively in the final conversational chat response** to the user.
-  - **Strict Delivery Hygiene:** NEVER contaminate final deliverables, profile files, or dossiers (`reports/*.md`) with tool improvement suggestions, agent introspection, or execution meta-commentary. Deliverables must contain purely forensic psychological analysis.
+- **Sanctioned Toolchain:** All exploration, searching, sender filtering, thread reading, and context audits MUST be conducted exclusively via the sanctioned CLI toolchain (`project/scripts/query_chat.py`, `checklist.py`, `thread_checklist.py`, `assemble_report.py`).
 
 ---
 
-## 2. Pre-Flight Configuration & Mandatory Startup Gate
+## 2. Pre-Flight Configuration & Startup Gate
 
 Before performing any ingestion, indexing, or chat analysis, the agent **MUST** run:
 ```bash
 python3 project/scripts/setup_config.py
 ```
-
-### Hard Stop Blocking Gate (Zero-Assumption Rule):
-If `setup_config.py` returns **ANY exit code other than 0** (e.g., Code 2, 3, 4, 5, 6):
-- **Absolute Prohibition on Downstream Actions:** You are strictly forbidden from calling ANY further scripts (`db_builder.py`, `query_chat.py`, `vector_indexer.py`, or reading chat logs).
-- **No Silent Downgrade:** You MUST NOT rationalize using FTS5 while waiting for a key. Semantic indexing is mandatory unless user explicitly opts out in plain text.
-- **Immediate User Prompt Only:** Halt execution immediately. Request configuration/API key from the user.
-
-### Action Protocols:
-- **Code 2 (`ACTION_REQUIRED`):** Halt and ask user to fill in `config/embeddings_config.json` with their OpenRouter API key and preferred embedding model.
-- **Codes 3, 4, 5, 6 (`ERROR`):** Report exact diagnostic (401 invalid key, 402 credits empty, 404 model not found, 6 network failure) and halt.
-- **Code 0 (`SUCCESS`):** Verified. Proceed with analysis.
+- **Exit Code 0 (`SUCCESS`):** Verified. Proceed with analysis.
+- **Exit Code 2 (`ACTION_REQUIRED`):** Halt immediately and prompt the user to configure `config/embeddings_config.json` with their OpenRouter API key.
+- **Exit Codes 3–6 (`ERROR`):** Report exact diagnostic (401 auth, 402 credits, 404 model, 6 network) and halt.
+- **Prohibition on Downstream Execution:** If exit code is non-zero, you are strictly forbidden from calling downstream analysis scripts or attempting raw data inspection.
 
 ---
 
-## 3. Operational Modes: Ad-Hoc Q&A vs. Comprehensive Profiling
+## 3. Operational Modes: Mode A (Ad-Hoc) vs. Mode B (Full Profiling)
 
-### 3.1 Mode A: Ad-Hoc Questions, Fact-Checking & Targeted Inquiries (Default)
-When the user asks a specific question about the chat (e.g. *"What did X say about Y?"*, *"When did they discuss Z?"*, *"Verify if event W actually happened"*, *"Compare communication volume"*):
-1. **Targeted Query Execution:** Execute relevant `query_chat.py` calls (`-s`, `--semantic`, `--stats`, `--gaps`).
-2. **Universal Epistemic Audit:** Audit retrieved messages in context ($N-5 \dots N+5$ via `--around <msg_id> -n 5` or `-c <msg_id>`). Apply the Anti-Snippet Ingestion Rule and the Thread Boundary Fallback Protocol. Disambiguate pronouns, check third-party boundaries, and verify intent.
-3. **Direct & Concise Response:** Answer directly with exact dates and verbatim message anchors (`[#ID | YYYY-MM-DD]`).
-4. **Prohibitions in Mode A:**
-   - **DO NOT** initialize the research scratchpad (`export_scratchpad.py`).
-   - **DO NOT** create chapter drafts or section files (`reports/<subject>_sections/`).
-   - **DO NOT** initialize or enforce the life spheres checklist (`checklist.py`).
-   - **DO NOT** force an 8-part psychological dossier, Big Five ratings, or life spheres audits unless the user specifically asks for personality profiling.
-5. **Safety Waiver Mechanism for Ad-Hoc / Partial Tasks:**
-   If the database already contains an active checklist (e.g. from a prior session or ingestion) and the task does not require life spheres or full thread profiling, the agent can explicitly waive/disable the checklists for safety:
+### 3.1 Mode A: Ad-Hoc Inquiries & Fact-Checking (Default)
+Triggered when the user asks specific factual questions (e.g. *"What did X say about Y?"*, *"When did event Z happen?"*, *"Compare message volume"*):
+1. **Targeted Query Execution:** Run relevant `query_chat.py` calls (`-s`, `--semantic`, `--stats`, `--gaps`).
+2. **Context Audit:** Audit retrieved turns ($N-5 \dots N+5$ via `--around <msg_id> -n 5` or `-c <msg_id>`).
+3. **Direct Response:** Answer concisely with exact dates and message anchors (`[#ID | YYYY-MM-DD]`).
+4. **Prohibitions in Mode A:** Do NOT initialize the research scratchpad, section drafts, life spheres checklist, or 8-part dossier templates.
+5. **Safety Waiver Mechanism:** If an active checklist from prior sessions blocks execution, safely exempt it:
    ```bash
-   python3 project/scripts/checklist.py -C <chat_id> --waive --reason "Ad-hoc task: Q&A inquiry"
-   python3 project/scripts/thread_checklist.py -C <chat_id> --waive --reason "Ad-hoc task: Q&A inquiry"
-   # or via query_chat:
-   python3 project/scripts/query_chat.py -C <chat_id> --waive-checklist --reason "Ad-hoc task: Q&A inquiry"
-   python3 project/scripts/query_chat.py -C <chat_id> --waive-threads-checklist --reason "Ad-hoc task: Q&A inquiry"
+   python3 project/scripts/query_chat.py -C <chat_id> --waive-checklist --reason "Ad-hoc Q&A inquiry"
+   python3 project/scripts/query_chat.py -C <chat_id> --waive-threads-checklist --reason "Ad-hoc Q&A inquiry"
    ```
-   This immediately marks all pending items as `not_applicable` and records the exemption in SQLite metadata, ensuring the agent is not blocked by pipeline gates.
 
 ---
 
 ### 3.2 Mode B: Comprehensive Personality Profiling (Explicit Request Only)
-Triggered **ONLY** when the user explicitly requests an in-depth personality profile, psychological analysis, or full behavioral dossier. Execute this systematic 5-step workflow:
+Triggered **ONLY** when the user explicitly requests an in-depth personality profile, psychological portrait, or behavioral dossier.
 
-#### Step B.1: Research Scratchpad & Evidence Ledger Initialization
+#### Step B.1: Scratchpad Initialization
+Initialize the persistent evidence ledger and hypothesis board:
 ```bash
 python3 project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_scratchpad/
 ```
-- Exports all triaged threads into a persistent Markdown ledger (`evidence_ledger.md`) and synthesis board (`hypothesis_matrix.md`) to prevent context window saturation.
 
 #### Step B.2: Macro-Reconnaissance & Anomaly Detection
-1. Quantitative balance: `query_chat.py --stats`, `--gaps`, `--timeline`, `--burning-days`.
-2. Inspect diagnostic radars: `--anomalies-only`, `--emotional-peaks`, `--advice-seeking`, `--triaged-threads`.
-3. **Anti-Snippet Ingestion Guard:** Treat all radar hits strictly as hypothesis cues. Never cite or draft from a triage preview without full contextual audit via `query_chat.py -t <id>` or `query_chat.py --around <msg_id> -n 5`.
-4. **Anti-Simpson Relational Protocol:** In multi-chat archives, always audit metrics per individual dyad via `Per-Chat Relational Breakdown` in `--gaps` (`query_chat.py -C <chat_id> --gaps`).
-5. **Entity & Role Baseline Inspection:** Inspect registered entities and descriptors for the target chat via `query_chat.py -C <chat_id> --entities` and `--descriptors`. If a chat file was refreshed or modified, review any descriptors flagged with `needs_recheck = 1`.
+- Quantitative baselines: `query_chat.py --stats`, `--gaps`, `--timeline`, `--burning-days`.
+- Salience radars: `--anomalies-only`, `--emotional-peaks`, `--advice-seeking`, `--triaged-threads`.
+- Always audit metrics per dyad via `-C <chat_id>`. Inspect entity baselines via `--entities` and `--descriptors`.
 
-#### Step B.3: Forensic Scratchpad Ingestion & Hypothesis Synthesis
-- Audit threads in small batches (10–15 threads at a time) in `evidence_ledger.md` or via `query_chat.py -t <id>`.
-- **Thread Boundary Fallback Protocol:** If an analyzed message is near thread start/end or in a single-message thread, invoke `query_chat.py --around <id> -n 5` to inspect chronological before/after turns across thread lines.
-- **Bare-Pronoun Search Attribution Ban:** Never attribute an action/trait from a search hit with a bare pronoun without checking $N-5 \dots N$ for the proper noun antecedent.
-- **Lazy On-Demand Cardinality Audit:** When encountering any relational role or descriptor (*"sister"*, *"ex"*, *"US guy"*), perform an on-demand cardinality check (`query_chat.py -C <chat_id> --audit-descriptor "<term>"`) before assigning traits.
-- **Third-Party Watchdog Verification:** For complex multi-party threads, apply the System-1 Watchdog loop to ensure no secondary entities were overlooked.
+#### Step B.3: Forensic Thread & Entity Ingestion
+- Audit threads in small batches (10–15 threads at a time) via `query_chat.py -t <id>`.
 - Cross-examine words vs. actions across the longitudinal timeline.
+- Enforce the Bare-Pronoun ban and Lazy On-Demand Cardinality checks (`--audit-descriptor "<term>"`).
+- Activate `entity-watchdog-audit` skill for sequential multi-party entity verification.
 
-#### Step B.4: Intensive Discussions, Substantive Threads & Life Spheres Audit
+#### Step B.4: Substantive Threads & Life Spheres Dual Audit
+1. **Thread Forensic Checklist (`thread_checklist.py`):**
+   - Initialize: `python3 project/scripts/thread_checklist.py --init -C <chat_id>`
+   - Audit next pending thread: `python3 project/scripts/thread_checklist.py -C <chat_id> --next`
+   - Record findings: `python3 project/scripts/thread_checklist.py -C <chat_id> --update <id> --set-status completed --findings "..." --quotes "..." --tags "..."`
+2. **Life Spheres 46-Item Audit (`checklist.py`):**
+   - Activate `life-spheres-investigation` skill for diagnostic criteria and bilingual search lexicon.
+   - Initialize: `python3 project/scripts/checklist.py --init -C <chat_id>`
+   - Update audited dimensions as `completed` (with findings) or `no_data` (with executed queries).
 
-##### B.4a: Substantive Threads Forensic Audit (`thread_checklist.py`)
-To prevent the agent from skipping triaged psychological moments or relying only on superficial keyword searches, all high-salience and intensive threads are tracked in a dedicated SQLite checklist table (`thread_audit_checklist`):
-1. **Initialize the Thread Audit Checklist:**
-   Enrolls Radars 1, 2, 3, high-salience (score $\ge 2.0$), and top intensive discussions into SQLite:
-   ```bash
-   python3 project/scripts/thread_checklist.py --init -C <chat_id>
-   ```
-   *(Note: Pure Radar 4 third-party name threads are excluded here; they are handled via the Watchdog entity scanner).*
-2. **Audit Threads Turn-by-Turn:**
-   Inspect the next pending thread and record detailed psychological findings, defenses, and verbatim quote anchors:
-   ```bash
-   python3 project/scripts/thread_checklist.py -C <chat_id> --next
-   # Read transcript:
-   python3 project/scripts/query_chat.py -t <thread_id>
-   # Record findings:
-   python3 project/scripts/thread_checklist.py -C <chat_id> --update <thread_id> --set-status completed \
-     --findings "Demonstrates dismissive attachment: stonewalls upon partner's emotional demand" \
-     --quotes "[#1234 | 2024-11-08] \"I don't need anyone's help\"" \
-     --tags "#attachment #stonewalling"
-   ```
-
-##### B.4b: Life Spheres 46-Item Systematic Probing (`checklist.py`)
-- **Mandatory Skill Activation:** Activate the `life-spheres-investigation` skill to retrieve forensic probing criteria and the master bilingual lexicon across all 6 life spheres.
-- **Mandatory Database Checklist Initialization:**
-  Initialize the complete 46-item forensic life spheres checklist in SQLite:
-  ```bash
-  python3 project/scripts/checklist.py --init -C <chat_id>
-  ```
-- **Systematic Probing & Status Resolution Protocol:**
-  The agent must audit every item across all 6 spheres and record the investigative outcome in `chat.db`:
-  - *Evidence Found:* Mark as `completed` with findings and citation anchors:
-    ```bash
-    python3 project/scripts/checklist.py -C <chat_id> --update <item_id> --set-status completed --notes "Identified uncompleted IT pivot [#1234 | 2021-03-04]" --queries "marzenie OR rzuciłem OR startup"
-    ```
-  - *Probed but Absent (No Data):* If lexical and semantic searches yield no relevant mentions, **the agent MUST explicitly record the probe attempt** in the database as `no_data`:
-    ```bash
-    python3 project/scripts/checklist.py -C <chat_id> --update <item_id> --set-status no_data --notes "Queried -s 'sport OR siłownia' --semantic 'exercise': 0 mentions found" --queries "sport OR siłownia"
-    ```
-  - *Batch Updates:* Rapidly reconcile multiple audited dimensions via:
-    ```bash
-    python3 project/scripts/checklist.py -C <chat_id> --batch-update item1 item2 --set-status completed --notes "..."
-    ```
-
-#### The Dual Hard-Stop Blocking Gate before Step B.5 (100% Resolution Rule):
-The agent is **STRICTLY FORBIDDEN** from moving to Step B.5 (Dossier Assembly) or drafting final profile chapters until **BOTH** checklists are 100% resolved (0 `pending` items and 0 `pending` threads remaining):
+#### Mandatory Dual Hard-Stop Gate before Step B.5 (100% Resolution Rule):
+Drafting final profile chapters is **STRICTLY FORBIDDEN** until both checklists are 100% resolved (0 pending):
 ```bash
-# Gate 1: Substantive Threads Audit Gate
 python3 project/scripts/thread_checklist.py --check -C <chat_id>
-
-# Gate 2: Life Spheres 46-Item Checklist Gate
 python3 project/scripts/checklist.py --check -C <chat_id>
 ```
-If either gate exits with code 1 (`PENDING_REMAIN`), the agent must inspect remaining pending items/threads and resolve their status before proceeding.
 
 #### Step B.5: Diagnostic Frameworks & Modular Dossier Assembly
-- **Mandatory Skill Activation:** Activate `forensic-personality-frameworks` for Big Five (OCEAN) conversational markers and Attachment Style classification.
-- **Mandatory Skill Activation:** Activate `dossier-report-assembly` for the 8-component report blueprint, Cast of Characters schema, Operational Playbook, Summary Matrix template, and compilation using:
+- Activate `forensic-personality-frameworks` skill for Big Five (OCEAN) and Attachment Style rubrics.
+- Activate `dossier-report-assembly` skill for the 8-component report blueprint and compilation:
   ```bash
   python3 project/scripts/assemble_report.py --sections-dir reports/<subject>_sections/ -o reports/<subject>_profile.md
   ```

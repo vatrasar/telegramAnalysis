@@ -1,10 +1,8 @@
 ---
 name: forensic-personality-frameworks
 description: >-
-  Taxonomies, empirical conversational markers, and diagnostic criteria for the Big Five personality model
-  (OCEAN), Attachment Theory (Secure, Anxious, Dismissive, Fearful), deactivating intimacy strategies,
-  and narrative self-presentation archetypes. Use during Phase 5 personality evaluations, attachment
-  diagnoses, or when mapping behavioral markers to psychological traits.
+  Diagnostic markers and taxonomies for Big Five (OCEAN) traits, Attachment styles, and narrative
+  archetypes. Use during deep personality evaluation and trait classification.
 ---
 
 # Forensic Personality Frameworks & Diagnostic Taxonomies

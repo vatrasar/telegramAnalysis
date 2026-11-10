@@ -8,212 +8,111 @@ These rules establish non-negotiable epistemic invariants, evidence validation g
 
 > [!IMPORTANT]
 > **Universal Epistemic Scope:**
-> These invariants (bidirectional context verification $N-5 \dots N+5$, pronoun disambiguation, third-party entity boundary protection, irrealis vs. realis, timeline bridging ban) are **universal and non-negotiable**.
-> They apply to **EVERY** task involving chat logs—from answering a single ad-hoc factual question to generating a multi-chapter psychological dossier. Factual rigor, anti-hallucination verification, and strict quote anchoring are required across all operational modes.
+> These invariants (bidirectional context verification $N-5 \dots N+5$, pronoun disambiguation, third-party entity boundary protection, irrealis vs. realis, timeline bridging ban, and cardinality audits) are universal and non-negotiable across ALL tasks.
 
 ---
 
 ## 1. Mandatory Bidirectional Context Audit (Unconditional $N-5$ to $N+5$ Rule)
 
 The agent is strictly forbidden from deriving analytical conclusions, biographical traits, or psychodynamic claims from an isolated message in a vacuum.
-- **Zero-Loophole Scope:** Applies to EVERY cited message or inference, regardless of length (from 1 word to essays) or domain.
 - **Antecedent Traceback (Look Back $N-5 \dots N$):**
   1. *Stimulus & Anchor:* Determine what question, event, or conversational prompt triggered the message.
-  2. *Lead-In & Pasted Text Detection:* Check whether preceding turns announced forwarded or pasted third-party content (e.g. *"look what he wrote"*, *"answers"*, *"forwarding"*).
-  3. *Sarcasm & Banter:* Actively verify whether the statement is genuine or represents dry humor, mocking mimicry, or inside jokes established in prior turns.
+  2. *Lead-In & Pasted Text:* Check whether preceding turns announced forwarded or pasted third-party content (*"look what he wrote"*, *"forwarding"*).
+  3. *Sarcasm & Banter:* Verify whether the statement represents dry humor, mocking mimicry, or inside jokes.
 - **Next-Turn Proof Procedure (Look Ahead $N+1 \dots N+5$):**
-  1. Inspect how the interlocutor received and treated message $N$. Did they validate it, accept it, laugh it off, or correct/rebut it?
-  2. *Immediate Rebuttal Invalidation:* If a proposition in message $N$ is immediately contradicted, corrected, or rejected by the interlocutor in turns $N+1 \dots N+5$ (e.g., *"No"*, *"Who said that"*, *"Nope"*), the agent is strictly forbidden from adopting it as an objective fact.
+  1. Inspect how the interlocutor received message $N$ (validation, mockery, or challenge).
+  2. *Immediate Rebuttal Invalidation:* If a proposition in message $N$ is contradicted or rejected in turns $N+1 \dots N+5$ (*"No"*, *"Who said that"*), the agent is strictly forbidden from adopting it as fact.
 
-### 1.1 The Anti-Snippet Ingestion Rule (Triage & Search Previews are Pointers, NEVER Evidence)
-- **Zero-Trust for CLI Previews:** Text teasers, search previews, or snippet outputs produced by `triage_threads.py` or `query_chat.py` (e.g. `Teaser: ...` or search match previews) are strictly discovery pointers and preliminary screening hypotheses.
-- **Absolute Citation Prohibition:** The agent is unconditionally forbidden from quoting or extracting facts, traits, or conclusions directly from CLI teasers or triage summaries without retrieving and inspecting the complete context (`query_chat.py -t <thread_id>` or `query_chat.py --around <msg_id> -n 5`).
-- **Audit Verification Invariant:** Every verbatim quote or factual attribution in any report or thesis must correspond to a verified message whose full contextual window was explicitly audited in the conversation trajectory. Citing a triage snippet without prior contextual retrieval is a critical procedural failure (*Heuristic Shortcut Violation*).
+### 1.1 Anti-Snippet Ingestion Rule
+- Text teasers or search match previews from CLI outputs are discovery pointers, NEVER admissible evidence.
+- The agent is unconditionally forbidden from quoting or extracting facts directly from search previews without inspecting full context via `query_chat.py --around <msg_id> -n 5` or `-t <thread_id>`.
 
-### 1.2 The Thread Boundary & Parent-Child Lineage Protocol (Boundary $N-5 \dots N+5$ Rule)
-- **Thread Partitioning & 50-Message Limit Invariant:**
-  To prevent unmanageable context blobs and preserve semantic vector precision, all conversation threads in the database are strictly capped at a maximum of **50 messages** (`MAX_THREAD_MESSAGES = 50`). When an extended conversation exceeds 50 messages, it is automatically partitioned into sequentially linked segments connected via `parent_thread_id` (e.g. `t_123` $\to$ `t_123_p2` $\to$ `t_123_p3`).
-- **Mandatory Boundary Audit Protocol ($\pm 5$ Rule Across Lineage Boundaries):**
-  Whenever an audited message $N$ carries analytical weight—i.e., the agent intends to draw a psychological conclusion, attribute a trait, or establish a relational dynamic—and that message is situated near a thread boundary:
-  1. **Thread Start Boundary (First 5 Messages of Thread):**
-     - If message $N$ is within the first 5 messages of the thread, the agent is strictly prohibited from drawing inferences without inspecting the preceding 5 messages ($N-5 \dots N-1$).
-     - **Parent Thread Traversal:** If the thread has a `parent_thread_id` (i.e. it is a child thread resulting from an extended conversation split), the agent **MUST** inspect the tail of the parent thread via:
-       ```bash
-       python3 project/scripts/query_chat.py --db chat.db -t <parent_thread_id>
-       ```
-       or inspect the seamless chronological boundary via `query_chat.py --around <msg_id> -n 5`.
-  2. **Thread End Boundary (Last 5 Messages of Thread):**
-     - If message $N$ is within the last 5 messages of the thread, the agent **MUST** inspect the subsequent 5 messages ($N+1 \dots N+5$) to verify the interlocutor's reaction, counter-arguments, validation, or topic closure.
-     - **Child Thread Traversal:** If child thread(s) exist for the current thread (`parent_thread_id` points to this thread), the agent **MUST** inspect the head of the child thread via:
-       ```bash
-       python3 project/scripts/query_chat.py --db chat.db -t <child_thread_id>
-       ```
-  3. **Single-Message Threads:** If a thread contains only 1 message, the agent is strictly prohibited from drawing conclusions without auditing BOTH $\pm 5$ chronological messages around it via `query_chat.py --around <msg_id> -n 5`.
-- **Vectorization vs. Epistemic Separation Principle:**
-  Partitioning threads at 50 messages keeps vector search embeddings tight, focused, and free of topical pollution. The parent-child traversal and chronological inspection are **epistemic reasoning protocols executed by the agent at query time**, ensuring full continuity without diluting database vector embeddings.
+### 1.2 Thread Boundary & Parent-Child Lineage Protocol
+- Dialogue threads are partitioned at 50 messages (`MAX_THREAD_MESSAGES = 50`) and linked via `parent_thread_id`.
+- If an analyzed message carries analytical weight and is within the first 5 or last 5 messages of a thread, the agent MUST audit adjacent turns across the boundary using `query_chat.py --around <msg_id> -n 5` or traversing parent/child threads (`-t <parent_or_child_thread_id>`).
+- Single-message threads require auditing $\pm 5$ chronological messages around them via `--around <msg_id> -n 5`.
 
-### 1.3 The Bare-Pronoun Search Attribution Ban (Zakaz Atrybucji z Wyników Zaimkowych)
-- **The Heuristic Trap:** When a lexical keyword search (`-s`, `-st`) returns a matching message describing a biographical trait, habit, medical condition, hobby, pet, or lifestyle fact starting with or dominated by a bare third-person pronoun (*"He farm mushroom"*, *"She works at"*, *"On ma kota"*, *"Ona studiuje"*), the agent is **STRICTLY PROHIBITED** from attributing that trait to an established character based on conversational inertia.
-- **Mandatory Antecedent Audit:** The agent MUST invoke `query_chat.py -f <msg_id> -w 5` or `query_chat.py --around <msg_id> -n 5` to locate the explicit grammatical antecedent (proper noun or role descriptor) in preceding turns ($N-5 \dots N$). Attribution without an audited proper noun antecedent is a critical protocol breach.
+### 1.3 Bare-Pronoun Search Attribution Ban
+- When a keyword search returns a message dominated by a bare third-person pronoun (*"He works at"*, *"On ma kota"*, *"Ona studiuje"*), the agent is STRICTLY PROHIBITED from attributing that trait to a subject based on conversational inertia.
+- The agent MUST inspect $N-5 \dots N$ via `--around <msg_id> -n 5` to locate the explicit proper noun antecedent.
 
-### 1.4 The Sender-vs-Author Disambiguation Principle (Metadana Transportowa vs. Autorstwo Intelektualne)
-- **Transport Sender vs. Intellectual Author:** In chat archives and SQLite databases (`messages.sender`), the `sender` field denotes the network transport account that dispatched the message, **NOT** proof of intellectual authorship.
-- **Pasted & Forwarded Content Guard:** Chat participants frequently paste external text (questionnaire answers from romantic partners, messages from friends/coworkers, forwarded emails, articles, or social media clips) directly from their own account.
-- **Verification Invariant:** The agent is strictly prohibited from treating an utterance under `sender == Subject` as the Subject's personal self-disclosure, motto, or inner psychological stance without auditing the preceding turns ($N-5 \dots N$). If preceding messages reveal a prompt (e.g. *"I asked him 3 questions, look what he answered"*), the text belongs to the external respondent, not the Subject.
+### 1.4 Sender-vs-Author Disambiguation Principle
+- The `sender` field indicates the transport account, NOT intellectual authorship.
+- Pasted external questionnaires, forwarded emails, articles, or partner text sent from the subject's account must never be attributed to the subject's inner psychology without antecedent audit ($N-5 \dots N$).
 
-### 1.5 The Zero-Unverified-Quote Invariant (Bezwzględny Wymóg Audytu Każdego Cytatu w Raporcie)
-- **Zero-Unverified-Quote Mandate:** Every verbatim quote, biographical claim, or psychological marker incorporated into a deliverable report (`reports/*.md`), dossier section, or Cast of Characters table **MUST undergo a full contextual audit ($N-5 \dots N+5$)**.
-- **Prohibition of Heuristic Quote Harvesting:** It is strictly forbidden to grab a plausible or evocative quote directly from keyword search outputs (`-s`), triage teasers, or an isolated single message without executing `query_chat.py --around <msg_id> -n 5` or `query_chat.py -t <thread_id>`.
-- **Three-Point Verification Standard:** The audit trajectory must explicitly confirm:
-  1. *Authorship Origin:* Did the subject personally author this statement, or is it pasted/forwarded third-party text?
-  2. *Conversational Tone:* Is it authentic, dry sarcasm, playful exaggeration, or an inside joke?
-  3. *Interlocutor Reception:* How did the interlocutor react in turns $N+1 \dots N+5$ (acceptance, correction, mockery, or challenge)? Any quote that fails this three-point audit is inadmissible as primary evidence.
+### 1.5 Zero-Unverified-Quote Invariant
+- Every verbatim quote and biographical claim in reports or dossiers MUST undergo a 3-point contextual audit ($N-5 \dots N+5$):
+  1. *Authorship Origin:* Personally authored vs. pasted/forwarded text.
+  2. *Conversational Tone:* Sincere vs. sarcasm, playful exaggeration, or banter.
+  3. *Interlocutor Reception:* Verified reception in turns $N+1 \dots N+5$.
 
 ---
 
-## 2. The Vocative & Left-Dislocation Protocol (Chat Syntax Disambiguation)
+## 2. Vocative & Left-Dislocation Protocol (Chat Syntax Disambiguation)
 
-In informal chat transcripts and non-native English (especially ESL influenced by topic-prominent Asian languages like Indonesian), utterances beginning with a proper name followed by a noun phrase:
-`"[Name], [descriptor/noun phrase], [clause with pronoun/predicate]"`
-MUST NOT be automatically parsed as an apposition (e.g. misinterpreting *"Szymon, the diabetic guy, he is so kind..."* as *"Szymon, who is the diabetic guy"*).
-
-### Mandatory Parsing Rules:
-1. **Default Assumption (Vocative + Left-Dislocation):**
-   In informal messaging, this syntax represents direct address followed by a topicalized subject:
-   $$\text{[Vocative Salutation: Name]} + \text{[Topic NP: Descriptor]} + \text{[Comment: he/she is \dots]}$$
-   *(e.g., "Szymon [salutation], [about] the diabetic guy [topic], he is so kind [comment]...")*.
-2. **Mandatory Next-Turn Proof:**
-   The agent MUST inspect the interlocutor's subsequent turns ($N+1 \dots N+3$). If the named interlocutor refers to the subject in the third person (*"Why do you like him so much?"*, *"Is he okay?"*), treating the descriptor as an attribute of the interlocutor is strictly prohibited.
-3. **Punctuation Blindness Warning:**
-   Commas in chat logs frequently represent conversational breathing pauses or mobile swipe delimiters, NOT formal syntactic parenthetical clauses.
+In informal chats and ESL communication, utterances beginning with a proper name followed by a descriptor:
+`"[Name], [descriptor/noun phrase], [predicate]"` (e.g. *"Szymon, the diabetic guy, he is so kind..."*)
+MUST NOT be parsed as an appositive clause attributing the descriptor to the named person.
+1. **Default Parse:** Direct address followed by a topicalized third party:
+   $$\text{[Vocative: Name]} + \text{[Topic NP: Descriptor]} + \text{[Comment: he/she is \dots]}$$
+2. **Next-Turn Lookahead:** Inspect interlocutor turns ($N+1 \dots N+3$). If the named interlocutor refers to the subject in the third person (*"Why do you like him?"*), the descriptor belongs strictly to the third party.
 
 ---
 
-## 3. The Medical & Somatic Grounding Gate (Chronic Illness & Diagnosis Ban)
+## 3. Medical & Somatic Grounding Gate
 
-Chronic illnesses (e.g., Type 1/2 diabetes, epilepsy, autoimmune disorders, heart disease), somatic conditions, or formal psychiatric diagnoses drastically alter a psychological profile.
-1. **Absolute Ban on Third-Party Hearsay:**
-   An agent MUST NEVER assign a chronic illness or medical condition to the Primary Subject based on ambiguous references, jokes, or passing remarks made by an interlocutor.
-2. **First-Person Self-Declaration Requirement:**
-   A medical condition can only be attributed to a subject if there is a direct first-person self-declaration by the subject (`sender == subject`).
+- **Ban on Third-Party Hearsay:** Chronic illnesses (diabetes, epilepsy, heart disease) or formal psychiatric diagnoses must NEVER be attributed to a subject based on interlocutor jokes, teasing, or passing remarks.
+- **First-Person Self-Declaration:** Attributable only via direct, serious first-person self-declaration by the subject (`sender == subject`).
 
 ---
 
-## 4. Third-Party Entity Boundary (Disentanglement of Discussed Third Parties from Conversation Participants)
+## 4. Third-Party Entity Boundary
 
-When participants in a conversation discuss external third parties (e.g. coworkers, bosses, acquaintances, romantic prospects/suitors, family members, or rivals), the agent must actively verify and ensure that traits, attributes, and events belonging to the discussed third party are NEVER accidentally attributed to either of the conversation participants:
-1. **Third-Party Attribute Isolation:**
-   All nicknames, physical traits, occupations, behaviors, life events, and medical/demographic descriptors (*"the diabetic guy"*, *"the boss who yelled"*, *"the police guy"*, *"the short guy"*) belong strictly to the external entity being discussed.
-2. **Participant Attribution Protection & Verification:**
-   Before assigning any trait, condition, or narrative to a conversation participant, the agent MUST explicitly verify whether the text is merely discussing or gossiping about an external third party.
+- When chat participants discuss coworkers, bosses, acquaintances, suitors, or family members, all nicknames, physical traits, occupations, and medical/demographic descriptors belong strictly to the external entity.
+- The agent must actively verify that traits of discussed third parties never leak onto conversation participants.
 
 ---
 
 ## 5. The Actuation Gate (Modality & Irrealis vs. Realis)
 
-Verbs of modality, aspirations, job offers, proposals, or desires (*"offered"*, *"wanted to"*, *"insisted on accepting"*, *"applied"*, *"planned"*, *"dreamed"*, *"almost"*, *"chciał"*, *"miał zamiar"*) must **NEVER** be converted into established biographical facts, professions, degrees, or marital statuses.
-- A status is an objective biographical fact **only** if supported by verifiable evidence of execution, duration, or ongoing practice (*"worked there for 2 years"*, *"signed the contract"*, *"graduated"*).
-- **Resolution Check Protocol:** Whenever an episodic life offer or intention appears (job offer, engagement, planned relocation), the agent MUST audit the aftermath: Did it actually take place, or was it rejected, abandoned, or derailed?
+- Verbs of modality, aspirations, job offers, or desires (*"offered"*, *"wanted to"*, *"applied"*, *"planned"*, *"dreamed"*, *"chciał"*) must NEVER be converted into established biographical facts or completed professions.
+- An event or title is a biographical fact only if verified by evidence of execution or duration (*"worked there 2 years"*, *"graduated"*).
+- Always audit the resolution: Was the offer accepted, rejected, or abandoned?
 
 ---
 
-## 6. The Span Claim Gate & Timeline Bridging Ban
+## 6. Span Claim Gate & Timeline Bridging Ban
 
-The agent is strictly prohibited from synthesizing continuous multi-year spans (e.g. *"2020–2023"*) from disjointed mentions across distant years.
-- When claiming a relationship duration or start year in a dossier, the agent MUST run targeted queries to verify continuity across intervening years or cite a direct duration quote.
-- Distinguish between *"known casually since [Year]"* vs. *"actively dated during [Year]"*.
-- Isolated mentions of distant years in later logs are potential retrospective flashbacks (*Outliers*), requiring inspection of that specific anchor message before linking it to an ongoing entity.
+- Strictly prohibited from synthesizing continuous multi-year spans (e.g. *"2020–2023"*) from disjointed mentions in distant years.
+- Verify continuity across intervening years or cite a direct statement of duration. Distinguish between *"known casually since [Year]"* vs. *"actively dated during [Year]"*.
 
 ---
 
-## 7. Entity Disambiguation Engine (Anti-Conflation Rules)
+## 7. Entity Disambiguation Engine & Cardinality Invariants
 
-1. **Principle A: Relational Roles vs. Demographic Attributes (The NPC Filter):**
-   - Relational roles (*"sister"*, *"ex"*, *"boss"*) denote verified bonds with the subject.
-   - Demographic attributes (*"indian guy"*, *"policeman"*, *"blonde girl"*) are surface descriptors. Never promote an episodic demographic encounter to the Cast of Characters. Categorize as **Episodic Bystander / NPC**.
-2. **Principle B: Action/Behavioral Signature & Conversational Inertia:**
-   - Within an active relational era, generic labels sharing a romantic/partner behavioral signature inherit the dominant partner via Conversational Inertia. Interactions lacking this signature constitute Lack of Evidentiary Proof.
-3. **Principle C: Generalized Role & Descriptor Cardinality ($K=1$ vs. $K \ge 2$):**
-   - **Scope:** Applies universally to ANY relational role, kinship label, demographic container, or geographic tag (*"sister"*, *"brother"*, *"ex"*, *"US guy"*, *"Oregon"*, *"doctor"*, *"boss"*, *"roommate"*).
-   - **Lazy On-Demand Cardinality Audit:** When the agent first encounters a role or descriptor during investigation, it is strictly forbidden from assuming uniqueness ($K=1$). The agent MUST execute a targeted lexical query (e.g. `query_chat.py -C <chat_id> -s "sister OR sisters OR siblings"`) to establish cardinality within this specific conversation:
-     - **$K=1$ (Singleton):** Proven single entity across the entire chat (e.g. father, mother). Direct role mapping is permitted.
-     - **$K \ge 2$ (Polysemous / Multi-Entity):** Plural mentions, multiple individuals, or ambiguous references detected (e.g. multiple sisters, two distinct US contacts). A bare role mention (*"my sister"*, *"the US guy"*) CANNOT be mapped to any entity without an audited distinguishing anchor (e.g. `Sister_2_Epilepsy`, `US_Caleb_Ex`, `US_Dustin_ChatFriend`).
-   - **One-Time Registry Persistence:** Once audited for a specific `chat_id`, the cardinality status is recorded in `chat_descriptors` or the research scratchpad so it is never re-audited redundantly.
-4. **Principle D: Proportional Verification (The Materiality Principle):**
-   - *Low-Stakes:* Ambient background activities (*"watching a movie with friend"*). If identity has zero bearing on the psychological insight, do not launch identity searches.
-   - *High-Stakes (Mandatory Verification Gate):* Required for biographical milestones, relationship spans, crimes/violence, major financial transactions, and core relational pathology/trauma.
-5. **Principle E: Strict Multi-Entity Pronoun & Anaphora Resolution:**
-   - In threads where two or more third parties are discussed, personal pronouns (*he*, *she*, *they*, *on*, *ona*) must NEVER be attributed to a character without verifying the antecedent noun/proper name in preceding turns ($N-5 \dots N$).
-6. **Principle F: Collective-to-Individual Attribute Leakage Ban:**
-   - Political alignments, religious beliefs, or pathologies of a social unit (family, ethnic group, partner circle) must NEVER be transposed onto an individual character without explicit personal affirmation.
-7. **Principle G: Hermetic Chat-Level Scoping (`chat_id` Boundary Protection):**
-   - Every role descriptor, cardinality mapping, and third-party entity is strictly scoped to its individual conversation (`chat_id` / source file).
-   - Descriptors and entities must **NEVER leak across chat boundaries**: *„sister”* or *„ex”* in `ismi.json` has zero relation to *„sister”* or *„ex”* in `silvi.json` or `katia.json`. Cross-chat pollution is a critical architectural violation.
-8. **Principle H: Anti-Interlocutor Memory Bias & Speculative Prompt Invalidation:**
-   - Interlocutors in longitudinal chats frequently confuse third parties, misremember names, or conflate distinct individuals across distant months.
-   - Statements or questions made by the interlocutor (e.g. *"I thought it was the US guy"*, *"Is Caleb your ex?"*, *"Didn't your sister have that job?"*) have **ZERO evidentiary authority**. They are treated strictly as unverified stimuli.
-   - The Subject's next-turn reaction ($N+1 \dots N+5$) holds primary authority. If the subject corrects, refutes, or clarifies (*"not my ex"*, *"to nie ten"*, *"different guy"*), the agent is unconditionally prohibited from adopting the interlocutor's conflation.
+1. **Relational Roles vs. NPC Filter:** Distinct relational roles (*"sister"*, *"ex"*, *"boss"*) denote verified bonds. Generic demographic labels (*"indian guy"*, *"policeman"*) are surface descriptors; categorize as Episodic Bystander / NPC.
+2. **Cardinality Protocol ($K=1$ vs. $K \ge 2$):**
+   - Applies to ANY relational role, kinship label, or geographic tag (*"sister"*, *"brother"*, *"ex"*, *"US guy"*, *"boss"*).
+   - Never assume uniqueness ($K=1$). Execute a targeted query (e.g. `query_chat.py -C <chat_id> -s "sister OR sisters"`) to determine cardinality:
+     - **$K=1$ (Singleton):** Proven single entity across entire chat. Direct mapping permitted.
+     - **$K \ge 2$ (Multi-Entity):** Plural mentions or distinct individuals exist. A bare role mention CANNOT be mapped without an audited distinguishing anchor (e.g. `Sister_Epilepsy` vs. `Sister_Older`).
+   - Cardinality status must be recorded in descriptors to avoid redundant auditing.
+3. **Proportional Verification:** Ambient low-stakes activities need no identity resolution. Mandatory identity verification is required for biographical milestones, relationship spans, violence, financial deals, and core trauma.
+4. **Pronoun Resolution in Multi-Entity Threads:** In threads discussing multiple third parties, personal pronouns (*he*, *she*, *on*, *ona*) must never be mapped to a character without verifying the antecedent proper name in $N-5 \dots N$.
+5. **No Collective-to-Individual Leakage:** Beliefs or traits of a social unit (family, ethnic group) must never be attributed to an individual without explicit personal affirmation.
+6. **Hermetic Chat-Level Scoping:** Role descriptors and third-party entities are strictly scoped to their conversation (`chat_id`). Entities never cross chat boundaries (*"sister"* in chat A has zero relation to *"sister"* in chat B).
+7. **Anti-Interlocutor Memory Bias:** Interlocutor misremembering or speculation has ZERO evidentiary authority. If the subject clarifies or refutes (*"not my ex"*, *"to nie ten"*), the interlocutor's statement is invalid.
 
 ---
 
-## 8. Thesis Corroboration & Anti-"Eureka!" Sanity Check
+## 8. Evidentiary Pruning & Anti-Eureka Checks
 
-- **Prohibition of Premature Closure:** Discovering a single matching quote that aligns with a desired trait or diagnosis is merely a preliminary hypothesis, never a proven conclusion.
-- **Baseline Consistency Audit:** The agent must actively search for corroborating evidence across the archive and verify that the thesis does not contradict the subject's overall documented lifestyle and baseline demeanor.
-
----
-
-## 9. Epistemic Authority & Anti-Bothsidesism
-
-- **Primary Witness vs. External Spectator:** For external events occurring outside the chat (dating encounters, third-party conflicts), the direct participant holds primary epistemic authority.
-- **No False Symmetry:** When an external observer makes a speculative claim about a third party and the direct participant refutes it with specific facts, do NOT present this as an unresolved dispute. Mark the observer's claim as an unverified stimulus refuted by the primary witness.
+- **Anti-"Eureka!" Check:** A single matching quote is merely a preliminary hypothesis. Check baseline consistency across the archive before concluding.
+- **Evidentiary Pruning Rule:** If a life sphere or habit (sports, pets, cleaning) was never mentioned, omit it entirely from reports. NEVER write placeholder disclaimers (*"Brak danych"*, *"No information available"*).
+- **Fact-Pinning:** Every factual descriptor, milestone, or occupation in profiles and character tables must be pinned to a message anchor (`[#ID | YYYY-MM-DD]`).
 
 ---
 
-## 10. Evidentiary Pruning Rule & Ban on Placeholder Boilerplate
+## 9. Multi-Party Entity Audit & Watchdog Loop Gate
 
-- If a life sphere, lifestyle habit, or sub-topic (e.g. sports, pets, domestic cleaning habits, vacation style) was never mentioned in the chat archive, the agent MUST completely omit that topic from the report.
-- **Strict Prohibition on Placeholder Disclaimers:** NEVER write placeholder sections or disclaimers such as *"Brak danych na temat sportu"*, *"Temat ten nie był poruszany"*, or *"No information available"*.
-
----
-
-## 11. Fact-Pinning & Atomic Attribute Grounding
-
-- In dossiers and Cast of Characters tables, every factual descriptor, biographical milestone, occupation, or ideological label MUST be pinned to a verifiable message ID (`[#ID | YYYY-MM-DD]`).
-- Synthetic filler, narrative embellishments, or unverified guesswork are strictly forbidden. If an attribute lacks direct primary proof, omit it entirely.
-
----
-
-## 12. The Sequential System-1 Watchdog Entity Verification Loop (Sekwencyjny Kursor Strażnika Encji)
-
-Aby zapobiec pomijaniu wątków z osobami trzecimi oraz zjawisku ślepoty na pojedynczą encję (*Single-Entity Blindness* – zadowolenie się znalezieniem pierwszej oczywistej postaci w wątku z pominięciem kolejnych), proces identyfikacji postaci trzecich opiera się na sekwencyjnym kursorze wątek po wątku ($T_1 \to T_2 \to \dots \to T_N$) z wykorzystaniem Systemu-1 jako bramkarza i strażnika w pętli:
-
-1. **Bramka Selekcyjna Systemu-1 (Gatekeeper Check):**
-   - Dla każdego kolejnego wątku $T_i$ oflagowanego `mentions_third_party = 1`, zanim Agent (System-2) załaduje jego treść do okna kontekstowego, System-1 ocenia dialog binarnie (`type: noul` via OpenRouter Decisions API) względem aktualnej listy znanych encji $S$:
-     *„Mamy zarejestrowane osoby: [S]. Czy w tym dialogu pojawia się jakakolwiek INNA osoba trzecia, sufler, znajomy, członek rodziny lub adorator spoza tej listy?”*
-   - **Odpowiedź NIE (0):** Wątek zawiera wyłącznie znane postacie. Zostaje oznaczony jako `cleared` i natychmiast pominięty. Agent nie spala ani jednego tokena kontekstu.
-   - **Odpowiedź TAK (1):** Wykryto nową, niezarejestrowaną postać. Kursor zatrzymuje się na wątku $T_i$ i eskaluje go do Agenta.
-
-2. **Ekstrakcja i Rejestracja przez Agenta (System-2):**
-   - Agent wchodzi do wskazanego wątku $T_i$, analizuje dialog, identyfikuje nową postać/imię i rejestruje ją w bazie:
-     ```bash
-     python3 project/scripts/query_chat.py -C <chat_id> --register-entity "<Name>" --role "<Role>"
-     ```
-   - Lista znanych encji ulega powiększeniu: $S \gets S \cup \{\text{Name}\}$.
-
-3. **Pętla Kontrolna i Zabezpieczenie przed Przeoczeniem (Adversarial Double-Check on Same Thread):**
-   - Po zarejestrowaniu nowej postaci, Agent **nie przechodzi od razu do następnego wątku**, lecz ponownie odpytuje System-1 o ten sam wątek $T_i$ z rozszerzoną listą $S$:
-     ```bash
-     python3 project/scripts/query_chat.py -C <chat_id> --watchdog-check <thread_id>
-     ```
-   - Jeśli System-1 zwróci **NIE (0)**: Wszystkie postacie w $T_i$ zostały zidentyfikowane. Wątek zostaje oznaczony jako `cleared`, a skaner (`--watchdog-scan`) automatycznie przechodzi do kolejnego wątku $T_{i+1}$.
-   - Jeśli System-1 zwróci **TAK (1)**: Wątek zawiera jeszcze kolejną pominiętą postać (np. wspólnika lub krewnego). Agent powtarza ekstrakcję dla $T_i$.
-   - **Bezpiecznik Fałszywego Alarmu (Breakout Guard):** Jeśli po ponownej analizie Agent upewni się, że w tekście nie ma już żadnych innych osób (np. System-1 wziął za imię nazwę leku, miasta lub slang), Agent oznacza wątek jako pominięty/fałszywy alarm i odblokowuje kursor:
-     ```bash
-     python3 project/scripts/query_chat.py -C <chat_id> --skip-thread <thread_id> --reason "false_positive_bystander"
-     ```
-
-4. **Narzędzia CLI Wspierające Protokół:**
-   - `query_chat.py -C <chat_id> --watchdog-scan` – sekwencyjny skan wątków z osobami trzecimi, zatrzymujący się wyłącznie na wątkach z nowymi encjami.
-   - `query_chat.py -C <chat_id> --watchdog-check <thread_id>` – weryfikacja pojedynczego wątku względem zarejestrowanych encji.
-   - `query_chat.py -C <chat_id> --watchdog-status` – podsumowanie postępu audytu encji (cleared, blocked, skipped, pending).
+When auditing multi-party chat archives for third parties, suitors, and acquaintances, the agent must prevent Single-Entity Blindness. Activate the `entity-watchdog-audit` skill to execute the sequential System-1 gatekeeper check and double-check cursor protocol before concluding entity identification.

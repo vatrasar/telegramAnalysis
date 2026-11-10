@@ -1,10 +1,8 @@
 ---
 name: dossier-report-assembly
 description: >-
-  Blueprint, templates, and modular assembly protocols for producing comprehensive psychological personality
-  profiles and behavioral dossiers. Provides the 8-component report architecture, markdown schemas for
-  Cast of Characters and Summary Matrix, the Operational User Manual (Playbook), and assemble_report.py
-  workflow. Use when generating, formatting, or assembling final personality dossiers and reports.
+  Blueprint, section templates, and assembly tools (assemble_report.py) for final psychological personality
+  profiles. Use when drafting or compiling final dossiers.
 ---
 
 # Dossier Report Blueprint & Assembly Skill

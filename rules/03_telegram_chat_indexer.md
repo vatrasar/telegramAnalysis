@@ -10,180 +10,91 @@ These rules govern database querying, CLI exploration tools, diagnostic radars, 
 
 ## 1. Zero-Context-Pollution & Database Location Standard
 
-1. **Context Protection Mandate:**
-   - **NEVER load raw chat logs (>1,000 messages) directly into the agent context.** All exploration, fact-checking, and psychological analysis operate via CLI queries against analytical SQLite databases.
-2. **Standard Database Location:**
-   - The primary analytical database lives in the workspace root: `chat.db` (or `data/chat.db`).
+1. **Context Protection Mandate:** NEVER load raw chat files (>1,000 messages) directly into context. All exploration operates via CLI queries against analytical SQLite databases.
+2. **Standard Database Location:** Workspace root: `chat.db` (or `data/chat.db`).
+3. **One-Off Database Setup:** For initial ingestion (`db_builder.py`), database rebuilding, and vector index generation (`vector_indexer.py --index`), activate the `chat-data-ingestion` skill.
 
 ---
 
-## 2. Master Analytical CLI Capabilities Matrix (`query_chat.py`)
+## 2. Daily Driver Analytical CLI Matrix (`query_chat.py`)
 
-The agent interacts with the analytical database via `project/scripts/query_chat.py` (or `.agents/scripts/query_chat.py`). Use these diagnostic flags to mine evidence:
+Execute all analysis via `python3 project/scripts/query_chat.py --db chat.db`:
 
-### 2.1 Diagnostic Radars & Triage Hunters (System-1 Screened Salience)
-Scan pre-filtered psychological high-salience moments without manual keyword guessing:
+### 2.1 Qualitative Search & Context Inspection (Primary Evidence Tools)
 ```bash
-# Radar 1: Behavioral anomalies & interlocutor shock (unusual reactions, call-outs)
-python3 project/scripts/query_chat.py --db chat.db --anomalies-only
+# Lexical FTS5 Search (messages):
+python3 project/scripts/query_chat.py -s "keyword1 OR keyword2" -s "must_have"
+python3 project/scripts/query_chat.py -s "keyword" -S "<SenderName>"
 
-# Radar 2: Acute emotional peaks (profound sadness, euphoric joy, intense rage)
-python3 project/scripts/query_chat.py --db chat.db --emotional-peaks
+# Thread FTS5 Search & Semantic Vector Search:
+python3 project/scripts/query_chat.py -st "topic keyword"
+python3 project/scripts/query_chat.py --semantic "fear of vulnerability and emotional avoidance"
 
-# Radar 3: Advice-seeking dilemmas & intimate disclosures (existential life questions)
-python3 project/scripts/query_chat.py --db chat.db --advice-seeking
+# Context Verification (Mandatory N-5 ... N+5 Audit):
+python3 project/scripts/query_chat.py --around <msg_id> -n 5      # Chronological window across thread lines
+python3 project/scripts/query_chat.py -t <thread_id_or_msg_id>    # Full dialogue thread transcript
+python3 project/scripts/query_chat.py -c <msg_id>                 # Vertical parent quote & reply tree
+python3 project/scripts/query_chat.py -f <msg_id> -n 10 -w 5      # In-thread window with preceding turns
 
-# Priority ranking: Top triaged threads sorted by salience score (0–100)
-python3 project/scripts/query_chat.py --db chat.db --triaged-threads --limit 25
-
-# Triage system status and radar hit summary
-python3 project/scripts/query_chat.py --db chat.db --triage-status
+# Dedicated Long Message Inspection (Avoids context truncation):
+python3 project/scripts/query_chat.py -m <msg_id> --part 1        # Paginated viewing
+python3 project/scripts/query_chat.py -m <msg_id> --all           # Complete uninterrupted text
+python3 project/scripts/query_chat.py --stats -s "keyword" --json # Machine-readable JSON output
 ```
-
----
 
 ### 2.2 Quantitative Relational Mining & Time Metrics
-Extract empirical baselines, attachment initiative balances, and crisis periods:
 ```bash
-# Global overview: message volume, word counts, per-chat shares, active dates
-python3 project/scripts/query_chat.py --db chat.db --stats
+# Global baselines & dyadic breakdown:
+python3 project/scripts/query_chat.py --stats
+python3 project/scripts/query_chat.py -C "<chat_id>" --stats --gaps
 
-# Silence analysis: gaps >= 24h, duration, who broke the silence (initiative %)
-python3 project/scripts/query_chat.py --db chat.db --gaps
+# Silence gaps (>= 24h) & initiative tracking (% who broke silence):
+python3 project/scripts/query_chat.py --gaps
 
-# Longitudinal density: monthly message counts to track relationship trajectory
-python3 project/scripts/query_chat.py --db chat.db --timeline
-
-# Anomaly detection: days with statistically extreme message volume (crisis spikes)
-python3 project/scripts/query_chat.py --db chat.db --burning-days
-
-# Dyadic focus: isolate all metrics to a specific contact / interlocutor
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --stats --gaps
+# Longitudinal density & crisis spike detection:
+python3 project/scripts/query_chat.py --timeline
+python3 project/scripts/query_chat.py --burning-days
 ```
 
----
-
-### 2.3 Qualitative Retrieval, Semantic Search & Context Window Inspection
-Retrieve specific verbatim evidence, inspect single messages, and perform mandatory context audits:
+### 2.3 Diagnostic Salience Radars (System-1 Triage)
 ```bash
-# FTS5 Lexical Search: multi-keyword boolean search on messages
-python3 project/scripts/query_chat.py --db chat.db -s "przepraszam OR wybacz" -s "wina"
-
-# Filter Lexical Search by Sender:
-python3 project/scripts/query_chat.py --db chat.db -s "work" -S "Ismi"
-
-# Dedicated Single Message Inspection with Pagination:
-python3 project/scripts/query_chat.py --db chat.db -m <msg_id> --part 1
-python3 project/scripts/query_chat.py --db chat.db -m <msg_id> --part 2
-# Full message display without pagination:
-python3 project/scripts/query_chat.py --db chat.db -m <msg_id> --all
-
-# FTS5 Thread Search: search reconstructed dialogue threads by topic
-python3 project/scripts/query_chat.py --db chat.db -st "kredyt OR mieszkanie OR kupno"
-
-# Semantic Vector Search: retrieve threads by psychological concept / abstract behavior
-python3 project/scripts/query_chat.py --db chat.db --semantic "fear of vulnerability and emotional avoidance"
-
-# Full Thread Transcript (with parent & child lineage headers):
-python3 project/scripts/query_chat.py --db chat.db -t <thread_id_or_msg_id>
-
-# Vertical Causal Quote Chain: trace exact parent quotes and replies (N-5 ... N+5)
-python3 project/scripts/query_chat.py --db chat.db -c <msg_id>
-
-# Local Context Window: display N messages surrounding target message within the same thread
-python3 project/scripts/query_chat.py --db chat.db -f <msg_id> -n 10 -w 5
-
-# Horizontal Chronological Audit Window (N-5 ... N+5 across thread boundaries):
-python3 project/scripts/query_chat.py --db chat.db --around <msg_id> -n 5
-
-# Machine-Readable JSON: emit structured JSON output for agent parsing
-python3 project/scripts/query_chat.py --db chat.db --stats -s "awans" --json
+python3 project/scripts/query_chat.py --anomalies-only   # Interlocutor shock, call-outs, friction
+python3 project/scripts/query_chat.py --emotional-peaks  # Intense sadness, joy, rage
+python3 project/scripts/query_chat.py --advice-seeking   # Existential dilemmas, intimate confessions
+python3 project/scripts/query_chat.py --triaged-threads --limit 25  # Top scored salience threads
+python3 project/scripts/query_chat.py --triage-status   # Summary of radar hits
 ```
 
-#### 2.3.1 Per-Message Context Protection Guard
-- All print functions (`print_search_messages`, `print_chronological_around`, `print_thread`, `print_thread_slice`, `print_quote_chain`) enforce a **per-message character limit** (default: 1500 chars).
-- Normal conversational turns (short dialog flow) are displayed completely without artificial cumulative caps.
-- When an individual message exceeds 1500 chars (long pasted articles, forwarded messages, or partners' essays), it is cleanly truncated on a word boundary, followed by an explicit notice:
-  ```text
-  ... [⚠️ WIADOMOŚĆ UCIĘTA: Wyświetlono 1497 z 3059 znaków (Część 1/3).
-      Aby przeczytać pełną treść lub kolejne części, użyj:
-      python3 project/scripts/query_chat.py -m <msg_id> --part 2 (lub --all)]
-  ```
-- To read the full text safely without flooding the context window, use `-m <msg_id> --part <N>` or `--all`.
-
----
-
-### 2.4 Entity Disambiguation, Role Cardinality & Watchdog Verification
-Inspect and manage third-party entities and scoped role descriptors:
+### 2.4 Entity Disambiguation & Role Cardinality
 ```bash
-# Display registered third-party entities for a specific conversation
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --entities
+# Inspect registered entities and role descriptors:
+python3 project/scripts/query_chat.py -C "<chat_id>" --entities
+python3 project/scripts/query_chat.py -C "<chat_id>" --descriptors
 
-# Display registered role descriptors and their cardinality (K=1 vs K>1)
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --descriptors
+# Lazy On-Demand Cardinality Audit (K=1 vs K>=2):
+python3 project/scripts/query_chat.py -C "<chat_id>" --audit-descriptor "<role_or_descriptor>"
 
-# Perform Lazy On-Demand Cardinality Audit on a newly encountered role or descriptor
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --audit-descriptor "sister"
-
-# Register or update a verified third-party entity under chat scope
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --register-entity "Dustin" --role "Chat friend from Oregon" --desc "pothead, mushroom farmer" --non-romantic
-
-# Execute System-1 Watchdog Double-Check on a thread to detect overlooked entities
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --watchdog-check <thread_id> --known "Dustin"
-
-# Sequential Entity Watchdog Scanner (thread-by-thread gatekeeper & cursor):
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --watchdog-scan
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --watchdog-scan --limit 10
-
-# Display progress of sequential entity watchdog audit:
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --watchdog-status
-
-# Skip a thread in watchdog scan (false positive / bystander):
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --skip-thread <thread_id>
+# Register verified third-party entity:
+python3 project/scripts/query_chat.py -C "<chat_id>" --register-entity "<Name>" --role "<Role>" --desc "<Notes>"
 ```
 
----
-
-### 2.5 Dual Checklist Gating & Progress Tracking
-Track and enforce 100% resolution of investigative dimensions and substantive threads before report compilation:
+### 2.5 Investigation Checklists & Progress Gates
 ```bash
-# Life Spheres 46-Item Investigation Status:
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id>" --checklist
+# Life Spheres Status:
+python3 project/scripts/query_chat.py -C "<chat_id>" --checklist
 python3 project/scripts/checklist.py -C "<chat_id>" --status
-python3 project/scripts/checklist.py -C "<chat_id>" --check
 
-# Thread Forensic Audit Checklist (Track B - Radars 1-3 + Intensive Threads):
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id>" --threads-checklist
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id>" --next-thread
+# Thread Forensic Checklist (Next pending thread to audit):
+python3 project/scripts/query_chat.py -C "<chat_id>" --next-thread
 python3 project/scripts/thread_checklist.py -C "<chat_id>" --status
-python3 project/scripts/thread_checklist.py -C "<chat_id>" --next
-python3 project/scripts/thread_checklist.py -C "<chat_id>" --check
-
-# Updating a Thread Audit Record:
-python3 project/scripts/thread_checklist.py -C "<chat_id>" --update <thread_id> \
-  --set-status completed \
-  --findings "Analytical takeaways..." \
-  --quotes "[#ID | YYYY-MM-DD] \"Quote\"" \
-  --tags "#defense #attachment"
-
-# Safety Waivers for Ad-Hoc / Q&A Tasks:
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id>" --waive-checklist --reason "Ad-hoc task"
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id>" --waive-threads-checklist --reason "Ad-hoc task"
 ```
 
 ---
 
-## 3. Mandatory Chat Data Ingestion Skill Activation Gate
+## 3. Per-Message Context Protection Guard
 
-To preserve system context, data engineering pipelines, database parsing tools, vectorization scripts, and SQLite schemas are maintained in a specialized skill:
-
-> [!IMPORTANT]
-> **Activation Requirement:**
-> When ingesting raw chat exports (`rozmowy/*.json`), running clean database rebuilds, generating vector embeddings, executing `triage_threads.py`, or writing custom direct SQL queries, the agent **MUST activate the `chat-data-ingestion` skill**.
->
-> The skill provides:
-> - Pre-flight environment check (`setup_config.py`).
-> - Database generation and incremental refresh (`db_builder.py`).
-> - Dense vector generation (`vector_indexer.py --index`).
-> - Thread disentanglement algorithm mechanics (RAT-FBP).
-> - Full SQLite database schema reference (`chats`, `messages`, `threads`, `silence_gaps`, `thread_triage`).
+- All CLI display functions enforce a per-message truncation limit of **1,500 characters**.
+- Messages exceeding 1,500 characters display a truncation notice:
+  `[⚠️ WIADOMOŚĆ UCIĘTA: Wyświetlono 1497 z 3059 znaków (Część 1/3)]`
+- To safely inspect long messages without context pollution, execute:
+  `python3 project/scripts/query_chat.py -m <msg_id> --part <N>` (or `--all`).

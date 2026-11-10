@@ -1,11 +1,8 @@
 ---
 name: life-spheres-investigation
 description: >-
-  Investigative probing criteria, forensic diagnostic questions, database checklist toolchain (checklist.py),
-  and bilingual search lexicon (Polish FTS5 keywords and English semantic queries) for auditing the 6 foundational
-  life spheres (Social Matrix, Work & Ambitions, Worldview & Tech, Family Roots & Domestic Order, Romantic Attachment,
-  Leisure & Animals). Use during Phase 4 life spheres audits, behavioral probing, managing the investigation checklist,
-  or running targeted queries via query_chat.py.
+  Forensic diagnostic criteria, bilingual search lexicons, and checklist management (checklist.py)
+  for the 6 core life spheres. Use during life spheres investigation and behavioral probing.
 ---
 
 # Life Spheres Investigation, Database Checklist & Behavioral Probing Skill

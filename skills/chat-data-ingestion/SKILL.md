@@ -1,10 +1,8 @@
 ---
 name: chat-data-ingestion
 description: >-
-  Data pipeline for ingesting, parsing, vectorizing, and indexing raw Telegram chat exports into SQLite.
-  Provides RAT-FBP thread disentanglement algorithm mechanics, setup_config.py pre-flight validation,
-  db_builder.py commands, vector_indexer.py, triage_threads.py, and full SQLite schema reference.
-  Use when processing new chat files, rebuilding databases, running embeddings, or executing custom SQL queries.
+  Ingests, parses, and vectorizes raw Telegram chat exports into SQLite using RAT-FBP threading.
+  Use when setting up new chats, building databases, or creating vector embeddings.
 ---
 
 # Chat Data Ingestion, Indexing & SQLite Architecture Skill
