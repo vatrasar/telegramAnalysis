@@ -77,16 +77,27 @@ python3 project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_s
    - Audit next pending thread: `python3 project/scripts/thread_checklist.py -C <chat_id> --next`
    - Record findings: `python3 project/scripts/thread_checklist.py -C <chat_id> --update <id> --set-status completed --findings "..." --quotes "..." --tags "..."`
 2. **Life Spheres 46-Item Audit (`checklist.py`):**
-   - Activate `life-spheres-investigation` skill for diagnostic criteria and bilingual search lexicon.
+   - Activate `life-spheres-investigation` skill for diagnostic criteria, bilingual search lexicon, and semantic vector query recipes.
    - Initialize: `python3 project/scripts/checklist.py --init -C <chat_id>`
-   - Update audited dimensions as `completed` (with findings) or `no_data` (with executed queries).
+   - **Mandatory Semantic Vector Probing:** Dense vector search (`query_chat.py --semantic "<concept>"`) is the primary discovery engine for human attitudes (politics, ways of saving/frugality, ambitions, defenses, relational patterns).
+   - Record audited dimensions with both lexical terms and semantic vector queries:
+     ```bash
+     python3 project/scripts/checklist.py -C <chat_id> --update <item_id> \
+       --set-status completed --notes "Findings [#ID | YYYY-MM-DD]" \
+       --queries "<lexical_terms>" --semantic-queries "<vector_concepts>"
+     ```
+   - **Absolute Prohibition on Keyword-Only `no_data`:** The agent is strictly forbidden from marking any life sphere as `no_data` based solely on 0 hits from lexical keywords (`-s`). Concluding absence requires executing and documenting at least one semantic vector search probe (`--semantic-queries`).
 
-#### Mandatory Dual Hard-Stop Gate before Step B.5 (100% Resolution Rule):
-Drafting final profile chapters is **STRICTLY FORBIDDEN** until both checklists are 100% resolved (0 pending):
+#### Mandatory Dual Hard-Stop Gate before Step B.5 (100% Resolution & Semantic Vector Gate):
+Drafting final profile chapters is **STRICTLY FORBIDDEN** until both checklists pass verification (exit code 0):
 ```bash
 python3 project/scripts/thread_checklist.py --check -C <chat_id>
 python3 project/scripts/checklist.py --check -C <chat_id>
 ```
+`checklist.py --check` strictly verifies that:
+1. 100% of the 46 items are resolved (0 pending).
+2. Every item marked `no_data` has documented semantic vector search probing.
+3. All core abstract, attitudinal, and psychological items (Spheres B, C, E, key items in A, D) have documented semantic vector queries.
 
 #### Step B.5: Diagnostic Frameworks & Modular Dossier Assembly
 - Activate `forensic-personality-frameworks` skill for Big Five (OCEAN) and Attachment Style rubrics.

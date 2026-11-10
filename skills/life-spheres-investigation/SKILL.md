@@ -11,16 +11,25 @@ This skill defines the operational workflow, forensic probing criteria, database
 
 ---
 
-## 1. Overview
+## 1. Overview & The Primacy of Semantic Vector Search ("Turbo Fajne")
 
-Longitudinal chat archives contain rich behavioral evidence, but critical lifestyle indicators (e.g. domestic order, work ethic, unfulfilled ambitions, financial psychology, altruism, relationship with animals) are dispersed across thousands of messages.
+Longitudinal chat archives contain rich behavioral evidence, but critical lifestyle indicators (e.g. political orientation, ways of saving money, work ethic, unfulfilled ambitions, financial psychology, altruism, relationship with animals) are dispersed across thousands of messages and almost **never appear under formal, textbook terminology**.
+
+### Why Semantic Vector Search is Superior & Indispensable:
+- **The Epistemic Limitation of Lexical Search (`-s`):**
+  BM25 lexical search matches exact words or stems. It works well for concrete named entities (e.g., *"Kraków"*, *"Google"*, *"Reksio"*), but **fails catastrophically for human psychology, attitudes, and emotional defenses**:
+  1. *Politics:* No one writes *"Reprezentuję doktrynę konserwatywną"*. Interlocutors debate local road taxes, welfare subsidies, election candidates, Ukrainian refugees, or bureaucracy. FTS5 on `-s "polityka"` yields 0 hits or misses 90% of actual worldview stances.
+  2. *Ways of Saving & Frugality:* No one writes *"Stosuję strategię oszczędnościową i minimalizm finansowy"*. Instead, they hunt for second-hand deals on OLX, complain that a restaurant bill was robbery, refuse to take a bank loan (*"pętla na szyję"*), or feel guilty buying new clothes. FTS5 on `-s "oszczędzanie"` misses everyday financial psychology.
+  3. *Attachment & Defenses:* No one writes *"Odczuwam lęk przed bliskością i deaktywuję relację"*. An avoidant subject deflects vulnerability with jokes, changes the topic to work, or stops replying for two days.
+- **Dense Vector Search (`query_chat.py --semantic`):**
+  Embeds reconstructed dialogue threads into high-dimensional semantic space. It locates conceptual proximity, emotional tone, and behavioral posture **even if not a single query word appears in the literal chat**.
 
 This skill equips the agent with:
 1. **The 6 Core Life Spheres Probing Framework:** Concrete forensic questions and 46 standardized item IDs across all lifestyle domains.
-2. **The Life Spheres Database Checklist Manager (`checklist.py`):** SQLite persistence layer in `chat.db` enforcing exhaustive auditing of every dimension (tracking evidence found vs. unmentioned/absent data).
-3. **The Master Bilingual Search Lexicon:** Curated Polish lexical terms for SQLite FTS5 queries (`-s`, `-st`) and English semantic queries for vector search (`--semantic`).
+2. **The Life Spheres Database Checklist Manager (`checklist.py`):** SQLite persistence layer in `chat.db` enforcing exhaustive auditing of every dimension (tracking evidence found vs. unmentioned/absent data) and **strictly verifying semantic vector search compliance**.
+3. **The Master Bilingual Search Lexicon:** Curated Polish lexical terms for SQLite FTS5 queries (`-s`, `-st`) and descriptive English semantic queries for vector search (`--semantic`).
 4. **Query Toolchain Recipes:** Concrete CLI commands via `query_chat.py` to retrieve messages, inspect dialogue threads, and trace causal chains.
-5. **Dual-Layer Evidentiary Protocol:** 100% database tracking rigor (logging `completed` or `no_data` for all items) combined with clean narrative report delivery (omitting unmentioned topics without hollow boilerplates).
+5. **Dual-Layer Evidentiary Protocol:** 100% database tracking rigor (logging `completed` or `no_data` for all items with documented semantic vector probes) combined with clean narrative report delivery (omitting unmentioned topics without hollow boilerplates).
 
 ---
 
@@ -28,9 +37,9 @@ This skill equips the agent with:
 
 Activate this skill whenever:
 - Auditing the **6 Core Life Spheres** during Phase 4 of an in-depth psychological investigation (Mode B).
+- Executing semantic vector searches (`--semantic`) or lexical searches (`-s` / `-st`) with `query_chat.py` on `chat.db`.
+- Investigating human attitudes: socio-political beliefs, financial psychology and ways of saving, unfulfilled ambitions, and domestic order.
 - Initializing, updating, or verifying the investigation database checklist via `checklist.py`.
-- Searching for specific behavioral indicators, unfulfilled ambitions, work ethic, domestic order, or spending patterns.
-- Executing lexical (`-s` / `-st`) or semantic (`--semantic`) searches with `query_chat.py` on `chat.db`.
 - Fact-checking or verifying specific lifestyle claims against the chat record.
 
 ---
@@ -121,8 +130,8 @@ During comprehensive profiling (Mode B), every dimension in the database must tr
 
 ### Valid Item Statuses:
 - `pending`: Unexamined / audit in progress (initial state).
-- `completed`: Audited, evidence found, analyzed and documented with citations.
-- `no_data`: Audited via lexical and semantic queries, but unmentioned / absent in archive (the agent explicitly records probe attempts).
+- `completed`: Audited, evidence found, analyzed and documented with citations (`[#ID | YYYY-MM-DD]`). For core psychological/attitudinal items (Spheres B, C, E, key items in A, D), semantic vector search (`--semantic-queries`) is strictly mandatory.
+- `no_data`: Audited via both lexical and semantic vector queries, but unmentioned / absent in archive. **MANDATORY:** Must document executed semantic vector probes in `--semantic-queries`. (A failed keyword search alone NEVER justifies `no_data`).
 - `not_applicable`: Explicitly outside the scope of analysis.
 
 ### Command Toolchain:
@@ -130,7 +139,7 @@ During comprehensive profiling (Mode B), every dimension in the database must tr
 # Initialize checklist in chat.db for the chat:
 python3 project/scripts/checklist.py --init -C <chat_id>
 
-# View overall progress and breakdown across spheres:
+# View overall progress, breakdown across spheres, and semantic vector probe coverage:
 python3 project/scripts/checklist.py --status -C <chat_id>
 # Or via query_chat:
 python3 project/scripts/query_chat.py --checklist -C <chat_id>
@@ -139,23 +148,27 @@ python3 project/scripts/query_chat.py --checklist -C <chat_id>
 python3 project/scripts/checklist.py --list -C <chat_id> --filter-status pending
 python3 project/scripts/checklist.py --list -C <chat_id> --sphere B --detailed
 
-# Mark an item as COMPLETED (evidence found):
-python3 project/scripts/checklist.py -C <chat_id> --update prof_ambitions_unfulfilled \
+# Mark an item as COMPLETED (evidence found) with both lexical and semantic queries:
+python3 project/scripts/checklist.py -C <chat_id> --update prof_frugality_vs_lavishness \
   --set-status completed \
-  --notes "Identified uncompleted IT pivot [#1234 | 2021-03-04]" \
-  --queries "marzenie OR rzuciłem OR startup"
+  --notes "Documented extreme frugality, buying used tech on OLX, guilt after dining out [#1234 | 2021-03-04]" \
+  --queries "oszczędzać OR drogo OR tanio OR używane" \
+  --semantic-queries "saving money, frugal habits, buying second-hand, guilt when spending"
 
-# Mark an item as NO_DATA (attempted search, but unmentioned):
+# Mark an item as NO_DATA (attempted search, but unmentioned — REQUIRES semantic vector queries):
 python3 project/scripts/checklist.py -C <chat_id> --update leis_sports_exercise_habits \
   --set-status no_data \
-  --notes "Queried -s 'sport OR siłownia' --semantic 'exercise': 0 results" \
-  --queries "sport OR siłownia OR trening"
+  --notes "Queried lexical and semantic vector embeddings: 0 relevant discussions" \
+  --queries "sport OR siłownia OR trening OR bieganie" \
+  --semantic-queries "exercise habits, gym workout, athletic training, running, physical fitness"
 
 # Batch update multiple items:
 python3 project/scripts/checklist.py -C <chat_id> --batch-update item1 item2 \
-  --set-status no_data --notes "Queried terms: 0 mentions found"
+  --set-status no_data --notes "Queried concepts: 0 mentions found" \
+  --semantic-queries "concept 1, concept 2"
 
 # PIPELINE BLOCKING GATE CHECK (Exit 0 = Passed, Exit 1 = Blocked):
+# Verifies 100% resolution AND semantic vector search compliance!
 python3 project/scripts/checklist.py --check -C <chat_id>
 
 # SAFETY WAIVER / DISABLING (For ad-hoc queries, partial tasks, or Mode A):
@@ -173,25 +186,39 @@ python3 project/scripts/checklist.py -C <chat_id> --enable
 
 All searches operate against the analytical SQLite database (default: `chat.db` in workspace root):
 
-### 5.1 Lexical Keyword Search (`-s` / `-st`)
+### 5.1 Semantic Vector Search (`--semantic`) — The Primary Discovery Engine
+Dense vector search maps conceptual meaning regardless of wording. Execute individual or batch queries:
 ```bash
-# Search individual messages for domestic order keywords:
-python3 project/scripts/query_chat.py --db chat.db -s "sprzątanie OR bałagan OR porządek OR syf OR kurz OR sprzątać"
+# Probing Political & Socio-Civic Orientations:
+python3 project/scripts/query_chat.py --db chat.db \
+  --semantic "political opinions, voting, attitude towards government policies, taxes, civic duty"
 
-# Search full dialogue threads for work ethic and leadership:
-python3 project/scripts/query_chat.py --db chat.db -st "praca OR szef OR nadgodziny OR leniuchować OR obijać OR awans OR lider"
+# Probing Financial Psychology & Ways of Saving Money:
+python3 project/scripts/query_chat.py --db chat.db \
+  --semantic "saving money, frugal habits, buying second-hand, bargains, guilt when spending, avoiding debt"
 
-# Scope search to a specific interlocutor / chat:
-python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" -s "pieniądze OR oszczędzać OR kredyt"
+# Probing Attachment Style & Intimacy Defenses:
+python3 project/scripts/query_chat.py --db chat.db \
+  --semantic "fear of commitment, deflecting intimacy with humor, emotional avoidance, reluctance to plan future"
+
+# Batch Multi-Concept Semantic Vector Probing (Runs multiple vector queries simultaneously):
+python3 project/scripts/query_chat.py --db chat.db \
+  --semantic "unfulfilled ambitions, abandoned dreams, deferred projects, regret" \
+  --semantic "work ethic, diligence, working overtime vs slacking and procrastination" \
+  --semantic "domestic cleanliness, neatness, mess tolerance, cleaning apartment"
 ```
 
-### 5.2 Semantic Vector Search (`--semantic`)
+### 5.2 Lexical Keyword Search (`-s` / `-st`) — Reserved for Concrete Entities
+Use FTS5 lexical search for specific proper nouns, names, and concrete items:
 ```bash
-# Probe unfulfilled ambitions and abandoned dreams semantically:
-python3 project/scripts/query_chat.py --db chat.db --semantic "unfulfilled ambitions, abandoned dreams, deferred projects, regret"
+# Search individual messages for specific nouns:
+python3 project/scripts/query_chat.py --db chat.db -s "OLX OR Allegro OR iPhone"
 
-# Probe attitude toward AI and automation:
-python3 project/scripts/query_chat.py --db chat.db --semantic "attitude toward artificial intelligence, automation, machine learning"
+# Search within sender:
+python3 project/scripts/query_chat.py --db chat.db -s "studia OR uczelnia" -S "<SenderName>"
+
+# Search full reconstructed dialogue threads:
+python3 project/scripts/query_chat.py --db chat.db -st "kot OR pies OR schronisko"
 ```
 
 ### 5.3 Context Verification ($N-5 \dots N+5$)
@@ -209,39 +236,64 @@ python3 project/scripts/query_chat.py --db chat.db -f <message_id> -w 5
 
 ---
 
-## 6. The Master Bilingual Probing Lexicon
+## 6. The Master Bilingual Probing Lexicon & Case Studies
 
-Use this lookup table to target specific lifestyle, relational, and behavioral dimensions:
+### 6.1 Real-World Case Studies: Why Lexical Search Fails vs. Vector Search Wins
 
-| Analytical Target | Polish Query Keywords (`-s`, `-st`) | English / Semantic Query Keywords (`--semantic`) | Primary Focus & Diagnostic Questions |
+#### Case 1: Socio-Political Orientation (`world_political_orientation`, `world_civic_motivations`)
+- **Lexical FTS5 Failure:** Searching `-s "polityka OR doktryna OR konserwatyzm OR liberalizm"` returns **0 hits**. The agent falsely concludes *"no data on political views"*.
+- **Semantic Vector Win:** Running `--semantic "political opinions, voting, attitude towards government policies, elections, taxes, corruption, civic duty"` immediately retrieves:
+  - A thread where the subject complains bitterly about a municipal waste tax hike and bureaucratic incompetence.
+  - A thread discussing whether to vote in the presidential elections and expressing deep skepticism of all political parties.
+  - A debate where the subject defends individual economic freedom and criticizes social welfare programs.
+
+#### Case 2: Ways of Saving Money & Financial Psychology (`prof_frugality_vs_lavishness`, `prof_money_attitude`)
+- **Lexical FTS5 Failure:** Searching `-s "strategia finansowa OR awersja do ryzyka"` returns **0 hits**. Searching `-s "oszczędzanie"` returns 1 irrelevant message about saving a computer file.
+- **Semantic Vector Win:** Running `--semantic "saving money, frugal habits, hunting for bargains, buying used goods, guilt when spending, fear of debt"` immediately surfaces:
+  - Threads where the subject discusses searching for used electronics on OLX rather than buying new.
+  - Threads where the subject mentions feeling visceral guilt after spending money at an expensive restaurant.
+  - A discussion refusing an interlocutor's suggestion to take a bank loan (*"kredyt to niewolnictwo"*).
+
+#### Case 3: Intimacy Ceilings & Emotional Defenses (`rom_intimacy_ceilings`, `rom_conflict_resolution`)
+- **Lexical FTS5 Failure:** Searching `-s "lęk przed bliskością OR dewaluacja"` returns **0 hits**.
+- **Semantic Vector Win:** Running `--semantic "fear of vulnerability, deflecting emotional intimacy with humor, avoiding future plans, sudden withdrawal"` immediately retrieves:
+  - A dialogue where the partner asks where the relationship is going, and the subject deflects by making a joke about buying a dog and then goes silent for 24 hours.
+
+---
+
+### 6.2 Probing Lexicon Table
+
+| Analytical Target | Polish Query Keywords (`-s`, `-st`) | English / Semantic Vector Queries (`--semantic`) | Primary Focus & Diagnostic Questions |
 | :--- | :--- | :--- | :--- |
-| **Domestic Order & Cleanliness** | `sprzątanie OR bałagan OR porządek OR syf OR kurz OR sprzątać OR myć OR zmywać OR pranie OR czysto OR brudno` | `cleaning OR mess OR clutter OR tidy OR neat OR chores OR clean apartment OR dirty dishes` | Domestic orderliness vs. chaos/mess tolerance; cleaning as stress coping; environment as psychological mirror. |
-| **Altruism & Helping Others** | `pomoc OR pomóc OR pomagać OR przysługi OR wsparcie OR poradzić OR wolontariat OR bezinteresownie` | `helping others OR altruism OR favor OR assist OR support OR giving advice OR selfless` | Spontaneous prosocial helpfulness vs. transactional support, savior complex, or boundary avoidance. |
-| **Friendship Cadence & Outings** | `spotkanie OR spotkać OR piwo OR kawa OR wyjście OR znajomi OR przyjaciel OR impreza OR domówka` | `meeting friends OR hangout OR coffee OR drinks OR pub OR party OR socializing` | Cadence of offline social meetings; superficial contacts vs. intimate confidants; real-life vs. digital-only interaction. |
-| **Work Ethic & Diligence** | `praca OR pracować OR nadgodziny OR zapieprz OR harować OR obowiązki OR sumienny OR deadline OR awans` | `work ethic OR hardworking OR overtime OR diligent OR ambitious OR professional duty` | Conscientious grinder ("pracuś") vs. coasting, slacking ("obijanie"), or minimal viable effort. |
-| **Unfulfilled Ambitions & Dropped Goals** | `marzenie OR chciałem OR planowałem OR rzuciłem OR zrezygnowałem OR nie wyszło OR startup OR studia OR żałuję` | `unfulfilled ambition OR abandoned project OR dropped out OR regret OR deferred dream OR failed plan` | Catalogue of unrealized dreams; dropped degrees/startups; open psychic wounds vs. mature mourning and recalibration. |
-| **Team Player vs. Lone Wolf** | `zespół OR drużyna OR współpraca OR gracz zespołowy OR razem OR samotnik OR indywidualista` | `teamwork OR team player OR collaboration OR cooperative OR lone wolf` | Cooperative synergy and credit sharing vs. fierce autonomy, silo working, and distrust of collective efforts. |
-| **Sports & Physical Activity** | `sport OR siłownia OR bieganie OR biegam OR trening OR ćwiczyć OR rower OR basen OR mecz` | `sports OR gym OR workout OR running OR fitness OR exercise OR training` | Exercise habits and athletic discipline; body image driver vs. sedentary lifestyle and physical apathy. |
-| **Leisure & Hobbies** | `czas wolny OR hobby OR grać OR seriale OR czytać OR odpoczynek OR nudzi mi się` | `free time OR hobby OR gaming OR watching OR reading OR bored` | Discretionary restoration modes; passive consumption (scrolling, streaming) vs. active passions (gaming, arts, reading, tinkering). |
-| **Political & Societal Views** | `polityka OR wybory OR rząd OR podatki OR partia OR państwo OR wolność` | `politics OR elections OR government OR taxes OR freedom OR laws` | Socio-political orientation; stance on governance, civic duties, liberty, tradition; empirical debate style vs. moral superiority. |
-| **Vacations & Holidays** | `urlop OR wakacje OR wyjazd OR odpocząć OR plaża OR hotel OR wolne w pracy` | `vacation OR holiday OR summer trip OR resort OR time off` | Vacation structure (rigid planning vs. spontaneous drifting); psychological ability to unplug vs. persistent hyper-vigilance. |
-| **AI & Modern Technology** | `AI OR sztuczna inteligencja OR ChatGPT OR model OR robot OR technologia` | `AI OR artificial intelligence OR LLM OR automation OR tech` | Early adopter vs. skeptic vs. apprehensive; daily practical workflow integration vs. resistance to technological shifts. |
-| **Animals & Pets** | `pies OR piesek OR kot OR kotek OR zwierzak OR pupil OR schronisko` | `dog OR puppy OR cat OR kitten OR pet OR animal OR shelter` | Pet ownership; emotional warmth and empathy toward animals; sensory/cleanliness boundaries. |
-| **Travel (Motivations & Style)** | `podróż OR zwiedzać OR samolot OR lot OR zagranica OR walizka OR wycieczka` | `travel OR trip OR flight OR abroad OR sight-seeing OR journey` | Motivations (cultural curiosity, routine escape, wanderlust) vs. committed homebody; domestic vs. international travel. |
-| **Money Management & Spending** | `pieniądze OR oszczędzać OR wydać OR drogo OR tanio OR kupić OR finanse OR kredyt` | `money OR save OR spend OR budget OR splurge OR frugal OR debt` | Frugal planning and disciplined saving vs. impulsive spending and status buying; money as safety, autonomy, or guilt. |
+| **Ways of Saving & Financial Psychology** | `pieniądze OR oszczędzać OR wydać OR drogo OR tanio OR kupić OR finanse OR kredyt OR OLX OR Allegro` | `saving money, frugal habits, hunting for bargains, buying used goods, financial anxiety, guilt when spending, reluctance to take loans, debt aversion` | Restrictive saver vs. impulsive spender; money as existential security vs. guilt; reluctance to spend on self vs. treating others. |
+| **Political & Societal Worldview** | `polityka OR wybory OR rząd OR podatki OR partia OR państwo OR wolność OR urzędy OR inflacja` | `political opinions, voting decisions, attitude towards government policies, municipal taxes, societal order, state institutions, civic duty, skepticism of authority` | Socio-political orientation; stance on governance, civic duties, liberty, tradition; empirical debate style vs. moral superiority. |
+| **Unfulfilled Ambitions & Dropped Goals** | `marzenie OR chciałem OR planowałem OR rzuciłem OR zrezygnowałem OR nie wyszło OR startup OR studia OR żałuję` | `unfulfilled ambition, abandoned project, dropped out of university, career regret, deferred dreams, failed startup, unfinished creative work` | Catalogue of unrealized dreams; dropped degrees/startups; open psychic wounds vs. mature mourning and recalibration. |
+| **Work Ethic & Diligence** | `praca OR pracować OR nadgodziny OR zapieprz OR harować OR obowiązki OR sumienny OR deadline OR awans` | `work ethic, hardworking grinder, working overtime, professional diligence, conscientiousness, taking ownership vs slacking, coasting, procrastination` | Conscientious grinder ("pracuś") vs. coasting, slacking ("obijanie"), or minimal viable effort. |
+| **Domestic Order & Cleanliness** | `sprzątanie OR bałagan OR porządek OR syf OR kurz OR sprzątać OR myć OR zmywać OR pranie OR czysto OR brudno` | `domestic cleanliness, orderliness, cleaning apartment, doing dishes, messy room, clutter tolerance, household chores as stress coping` | Domestic orderliness vs. chaos/mess tolerance; cleaning as stress coping; environment as psychological mirror. |
+| **Altruism & Helping Others** | `pomoc OR pomóc OR pomagać OR przysługi OR wsparcie OR poradzić OR wolontariat OR bezinteresownie` | `helping others, spontaneous altruism, offering practical assistance, doing favors, giving advice, selfless support vs transactional expectations` | Spontaneous prosocial helpfulness vs. transactional support, savior complex, or boundary avoidance. |
+| **Friendship Cadence & Outings** | `spotkanie OR spotkać OR piwo OR kawa OR wyjście OR znajomi OR przyjaciel OR impreza OR domówka` | `meeting friends in person, offline social hangout, grabbing drinks, pub, coffee meetup, visiting friends, digital-only interaction` | Cadence of offline social meetings; superficial contacts vs. intimate confidants; real-life vs. digital-only interaction. |
+| **Team Player vs. Lone Wolf** | `zespół OR drużyna OR współpraca OR gracz zespołowy OR razem OR samotnik OR indywidualista` | `teamwork, team player, group collaboration, cooperative synergy, shared ownership vs lone wolf, fierce autonomy, working in silos` | Cooperative synergy and credit sharing vs. fierce autonomy, silo working, and distrust of collective efforts. |
+| **Sports & Physical Activity** | `sport OR siłownia OR bieganie OR biegam OR trening OR ćwiczyć OR rower OR basen OR mecz` | `exercise habits, regular gym workout, running, physical fitness discipline, athletic training, sedentary lifestyle, aversion to physical exertion` | Exercise habits and athletic discipline; body image driver vs. sedentary lifestyle and physical apathy. |
+| **Leisure & Hobbies** | `czas wolny OR hobby OR grać OR seriale OR czytać OR odpoczynek OR nudzi mi się` | `discretionary free time, hobbies, video gaming, streaming movies, reading books, creative arts, passive consumption vs active intellectual passions` | Discretionary restoration modes; passive consumption (scrolling, streaming) vs. active passions (gaming, arts, reading, tinkering). |
+| **Vacations & Holidays** | `urlop OR wakacje OR wyjazd OR odpocząć OR plaża OR hotel OR wolne w pracy` | `vacation style, holiday trips, travel planning, spontaneous getaway, ability to unplug from work, carrying anxiety on vacation, resort vs adventure` | Vacation structure (rigid planning vs. spontaneous drifting); psychological ability to unplug vs. persistent hyper-vigilance. |
+| **AI & Modern Technology** | `AI OR sztuczna inteligencja OR ChatGPT OR model OR robot OR technologia` | `attitude toward artificial intelligence, ChatGPT, adopting new technologies, automation, early adopter enthusiasm vs technological skepticism` | Early adopter vs. skeptic vs. apprehensive; daily practical workflow integration vs. resistance to technological shifts. |
+| **Animals & Pets** | `pies OR piesek OR kot OR kotek OR zwierzak OR pupil OR schronisko` | `pet ownership, affection for dogs and cats, emotional bond with animals, animal empathy, sensory boundaries with pets` | Pet ownership; emotional warmth and empathy toward animals; sensory/cleanliness boundaries. |
+| **Travel (Motivations & Style)** | `podróż OR zwiedzać OR samolot OR lot OR zagranica OR walizka OR wycieczka` | `travel motivations, cultural wanderlust, exploring foreign countries, international flights vs domestic weekend getaways, committed homebody` | Motivations (cultural curiosity, routine escape, wanderlust) vs. committed homebody; domestic vs. international travel. |
+| **Romantic Intimacy & Ceilings** | `związek OR randka OR dziewczyna OR chłopak OR miłość OR ślub OR rozstanie` | `romantic relationship, emotional vulnerability, intimacy ceilings, fear of commitment, relationship deactivation, conflict repair vs stonewalling` | Formative relational history; deactivating strategies; conflict resolution vs. dramatic exits. |
 
 ---
 
 ## 7. Probing Workflow & Step-by-Step Procedure
 
 1. **Initialize Checklist (Mode B only):** Run `python3 project/scripts/checklist.py --init -C <chat_id>`.
-2. **Execute Targeted Queries:** Run Polish lexical (`-s` / `-st`) and English semantic (`--semantic`) searches via `query_chat.py`.
-3. **Contextual Verification ($N-5 \dots N+5$):** Inspect candidate matches via `-c <id>` or `-f <id> -w 5`. Verify speaker identity and genuine intent (rule out sarcasm, pasted text, and immediate rebuttals).
-4. **Update Checklist State in Database:**
-   - If evidence is found: update item to `completed` with quote anchors `[#ID | YYYY-MM-DD]` and queries used.
-   - If unmentioned after exhaustive searches: update item to `no_data`, logging the probe queries.
-5. **Run Gate Verification:** Run `python3 project/scripts/checklist.py --check -C <chat_id>`. Ensure exit code 0 before proceeding to Step B.5.
-6. **Apply Evidentiary Inclusion / Omission in Final Report:** Synthesize confirmed dimensions into the narrative report. Completely omit `no_data` dimensions without placeholder text.
+2. **Execute Primary Semantic Vector Queries:** Run descriptive English semantic queries via `query_chat.py --semantic "<concept>"`. Use batch queries to probe related dimensions simultaneously.
+3. **Execute Targeted Lexical Searches:** If probing for specific named entities (colleges, employers, pet names, devices), execute Polish lexical searches (`-s` / `-st`).
+4. **Contextual Verification ($N-5 \dots N+5$):** Inspect candidate matches via `-c <id>` or `-f <id> -w 5`. Verify speaker identity and genuine intent (rule out sarcasm, pasted text, and immediate rebuttals).
+5. **Update Checklist State in Database:**
+   - If evidence is found: update item to `completed` with quote anchors `[#ID | YYYY-MM-DD]`, logging both `--queries` and `--semantic-queries`.
+   - If unmentioned after exhaustive searches: update item to `no_data`, **strictly documenting the executed semantic vector search in `--semantic-queries`**.
+6. **Run Gate Verification:** Run `python3 project/scripts/checklist.py --check -C <chat_id>`. Ensure exit code 0 before proceeding to Step B.5. The gate will block if any `no_data` or core psychological/attitudinal items lack semantic vector probe verification.
+7. **Apply Evidentiary Inclusion / Omission in Final Report:** Synthesize confirmed dimensions into the narrative report. Completely omit `no_data` dimensions without placeholder text.
 
 ---
 
@@ -249,9 +301,12 @@ Use this lookup table to target specific lifestyle, relational, and behavioral d
 
 Before completing an inquiry into lifestyle or behavioral spheres, verify:
 - [ ] Was `python3 project/scripts/checklist.py --init` executed (if Mode B)?
+- [ ] Were semantic vector queries (`--semantic`) executed for all investigated dimensions?
 - [ ] Were query terms executed in the appropriate language (Polish lexical `-s`/`-st`, English semantic `--semantic`)?
+- [ ] Did all items resolved as `no_data` have documented semantic vector queries in `--semantic-queries`?
+- [ ] Did all core psychological and attitudinal items (Spheres B, C, E, key items in A, D) have documented `--semantic-queries`?
 - [ ] Were candidate quotes verified in surrounding context ($N-5 \dots N+5$)?
 - [ ] Were speaker identities disambiguated (subject vs. interlocutor vs. quoted text)?
-- [ ] Were all 46 checklist items resolved (`completed` or `no_data`), and does `checklist.py --check` exit with code 0?
+- [ ] Does `python3 project/scripts/checklist.py --check -C <chat_id>` exit with code 0?
 - [ ] Are all reported observations grounded in concrete message IDs (`[#ID | YYYY-MM-DD]`)?
 - [ ] Were completely unmentioned life spheres (`no_data`) omitted from the final narrative report without placeholder boilerplates?
