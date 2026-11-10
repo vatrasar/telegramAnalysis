@@ -88,8 +88,8 @@ Invoke the custom Antigravity subagent using `invoke_subagent`:
   6. Return a concise (150-250 words) structured evidence summary to the coordinator.
   ```
 
-### Step 2.2: Main Agent Evidence Ingestion
-The Main Agent receives the returned evidence block, appends verified findings into the research scratchpad, and proceeds to subsequent chapters.
+### Step 2.2: Main Agent Evidence Ingestion & Synthesis
+The Main Agent receives the returned evidence block, evaluates its value-add for the dossier, and synthesizes valuable findings with anchored quotes into the corresponding report chapters.
 
 ---
 

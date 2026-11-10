@@ -42,7 +42,7 @@ Triggered when the user asks specific factual questions (e.g. *"What did X say a
 1. **Targeted Query Execution:** Run relevant `query_chat.py` calls (`-s`, `--semantic`, `--stats`, `--gaps`).
 2. **Context Audit:** Audit retrieved turns ($N-5 \dots N+5$ via `--around <msg_id> -n 5` or `-c <msg_id>`).
 3. **Direct Response:** Answer concisely with exact dates and message anchors (`[#ID | YYYY-MM-DD]`).
-4. **Prohibitions in Mode A:** Do NOT initialize the research scratchpad, section drafts, life spheres checklist, or 8-part dossier templates.
+4. **Prohibitions in Mode A:** Do NOT initialize section drafts, life spheres checklist, or 8-part dossier templates.
 5. **Safety Waiver Mechanism:** If an active checklist from prior sessions blocks execution, safely exempt it:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --waive-checklist --reason "Ad-hoc Q&A inquiry"
@@ -54,56 +54,54 @@ Triggered when the user asks specific factual questions (e.g. *"What did X say a
 ### 3.2 Mode B: Comprehensive Personality Profiling (Explicit Request Only)
 Triggered **ONLY** when the user explicitly requests an in-depth personality profile, psychological portrait, or behavioral dossier.
 
-#### Step B.1: Scratchpad Initialization
-Initialize the persistent evidence ledger and hypothesis board:
-```bash
-python3 project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_scratchpad/
-```
-
-#### Step B.2: Macro-Reconnaissance & Anomaly Detection
+#### Step B.1: Macro-Reconnaissance & Anomaly Detection
 - Quantitative baselines: `query_chat.py --stats`, `--gaps`, `--timeline`, `--burning-days`.
 - Salience radars: `--anomalies-only`, `--emotional-peaks`, `--advice-seeking`, `--triaged-threads`.
 - Always audit metrics per dyad via `-C <chat_id>`. Inspect entity baselines via `--entities` and `--descriptors`.
 
-#### Step B.3: Forensic Thread & Entity Ingestion (Sequential Watchdog Prerequisite)
-- Audit threads in small batches (10–15 threads at a time) via `query_chat.py -t <id>`.
+#### Step B.2: Entity Disambiguation & Watchdog Loop (Prerequisite)
+- Audit threads in small batches via `query_chat.py -t <id>`.
 - Cross-examine words vs. actions across the longitudinal timeline.
 - Enforce the Bare-Pronoun ban and Lazy On-Demand Cardinality checks (`--audit-descriptor "<term>"`).
 - **Mandatory Entity Watchdog Loop:** Activate `entity-watchdog-audit` skill. You MUST run:
   ```bash
   python3 project/scripts/query_chat.py -C <chat_id> --watchdog-scan
   ```
-  Iterate until 100% of third-party threads are resolved (`[✓ CLEARED]` or skipped).
-  *Note:* Step B.4 initialization (`thread_checklist.py --init` and `checklist.py --init`) is **programmatically blocked** until `query_chat.py -C <chat_id> --check-watchdog-gate` returns exit code 0.
+  Iterate until 100% of third-party threads are resolved (`[✓ CLEARED]` or skipped). When new entities are detected, delegate to the `entity-investigator` subagent.
+  *Note:* Step B.3 initialization (`checklist.py --init` and `thread_checklist.py --init`) is **programmatically blocked** until `query_chat.py -C <chat_id> --check-watchdog-gate` returns exit code 0.
 
-#### Step B.4: Life Spheres Baseline & Subagent Thread Delta Audit
-1. **Life Spheres 46-Item Audit (`checklist.py` - Primary Baseline):**
-   - Activate `life-spheres-investigation` skill for criteria, lexicons, and vector queries.
-   - Init: `python3 project/scripts/checklist.py --init -C <chat_id>` (Enforces completed Watchdog Gate)
-   - Audit items via primary vector search (`query_chat.py --semantic`) and targeted lexical queries (`-s`).
-   - Record findings: `python3 project/scripts/checklist.py -C <chat_id> --update <id> --set-status completed --notes "..." --queries "..." --semantic-queries "..."`
-   - **Ban on Keyword-Only `no_data`:** Concluding absence requires documented semantic vector search.
-   - Completing the 46 spheres establishes the core psychological baseline.
+#### Step B.3: Life Spheres Baseline Investigation (`checklist.py`)
+- Activate `life-spheres-investigation` skill for criteria, lexicons, and vector queries.
+- Init: `python3 project/scripts/checklist.py --init -C <chat_id>` (Enforces completed Watchdog Gate)
+- Audit items via primary vector search (`query_chat.py --semantic`) and targeted lexical queries (`-s`).
+- Record findings: `python3 project/scripts/checklist.py -C <chat_id> --update <id> --set-status completed --notes "..." --queries "..." --semantic-queries "..."`
+- **Ban on Keyword-Only `no_data`:** Concluding absence requires documented semantic vector search.
+- Completing the 46 spheres establishes the core psychological baseline.
 
-2. **Thread Delta Forensic Audit (`thread_checklist.py` - Secondary Depth):**
-   - Activate `subagent-thread-delta-audit` skill.
-   - Init: `python3 project/scripts/thread_checklist.py --init -C <chat_id>`
-   - **Absolute Ban on Main Agent Context Flooding:** The Main Agent must NEVER sequentially read 50+ raw thread transcripts into its primary context window.
-   - **Phase 1 (Delta Triage):** Export manifest (`--export-delta-manifest`) and delegate classification to an Antigravity subagent (`Model: "flash"`). Resolve redundant threads formally using:
-     `python3 project/scripts/thread_checklist.py -C <chat_id> --resolve-redundant <id1> <id2> ... --reason "<theme>"`
-   - **Anti-Fraud Invariant on Delta Triage:** The Main Agent is strictly forbidden from closing or resolving threads without delegating the manifest to `thread-delta-triage`. It is completely valid if the subagent classifies ALL threads as redundant; what is strictly forbidden (Investigative Fraud) is the Main Agent skipping subagent evaluation to close threads autonomously.
-   - **Phase 2 (Deep Dive):** For the remaining 5–12 novel/anomalous threads, invoke dedicated forensic subagents (`Model: "flash"`) to inspect raw text (`query_chat.py -t <id>`), extract anchored quotes, register novel entities, and update the checklist item.
+#### Step B.4: Subagent Thread Delta Audit & Forensic Deep Dives (`thread_checklist.py`)
+- Activate `subagent-thread-delta-audit` skill.
+- Init: `python3 project/scripts/thread_checklist.py --init -C <chat_id>`
+- **Absolute Ban on Main Agent Context Flooding:** The Main Agent must NEVER sequentially read 50+ raw thread transcripts into its primary context window.
+- **Phase 1 (Delta Triage):** Export manifest (`--export-delta-manifest`) and delegate classification to an Antigravity subagent (`Model: "flash"`, `TypeName: "thread-delta-triage"`). Resolve redundant threads formally using:
+  `python3 project/scripts/thread_checklist.py -C <chat_id> --resolve-redundant <id1> <id2> ... --reason "<theme>"`
+- **Anti-Fraud Invariant on Delta Triage:** The Main Agent is strictly forbidden from closing or resolving threads without delegating the manifest to `thread-delta-triage`.
+- **Phase 2 (Deep Dive):** For all novel/anomalous threads identified by triage, invoke dedicated forensic subagents (`Model: "flash"`, `TypeName: "forensic-thread-investigator"`) to inspect raw text (`query_chat.py -t <id>`), extract anchored quotes, register novel entities, and update the checklist item.
 
-#### Mandatory Triple Hard-Stop Gate before Step B.5 (100% Resolution across All Dimensions):
+#### Step B.5: Mandatory Triple Hard-Stop Gate & Evidence Ingestion
 Drafting final profile chapters is **STRICTLY FORBIDDEN** until all three investigative gates pass verification (exit code 0):
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
 python3 project/scripts/thread_checklist.py --check -C <chat_id>
 python3 project/scripts/checklist.py --check -C <chat_id>
 ```
-The assembly script (`assemble_report.py --check-gates`) automatically enforces all three gates before compilation.
+Once all gates pass, export the complete bank of verified evidence:
+```bash
+python3 project/scripts/thread_checklist.py -C <chat_id> --export-evidence
+```
+- **Evidentiary Value-Add Invariant:** The Main Agent evaluates all verified evidence items. Whenever an item introduces an unmapped historical event, unexpected relational dynamic, coping mechanism, or emotional turning point that enriches the profile, the agent synthesizes it with exact anchored quotes (`[#ID | YYYY-MM-DD]`) into the corresponding report chapter.
+- The assembly script (`assemble_report.py --check-gates`) automatically enforces all three gates before compilation.
 
-#### Step B.5: Diagnostic Frameworks & Modular Dossier Assembly
+#### Step B.6: Diagnostic Frameworks & Modular Dossier Assembly
 - Activate `forensic-personality-frameworks` skill for Big Five (OCEAN) and Attachment Style rubrics.
 - Activate `dossier-report-assembly` skill for the 8-component report blueprint and compilation:
   ```bash

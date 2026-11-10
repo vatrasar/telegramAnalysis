@@ -732,6 +732,172 @@ def resolve_redundant_threads(
     return updated
 
 
+def export_audited_evidence(
+    conn: sqlite3.Connection,
+    chat_id: str,
+    tag: Optional[str] = None,
+    category: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Export completed/audited threads and evidence from thread_audit_checklist with optional tag/category filtering."""
+    ensure_thread_checklist_table(conn)
+    cur = conn.cursor()
+
+    sql = """
+    SELECT thread_id, start_date, primary_category, radar_sources,
+           findings_summary, key_quotes, thematic_tags, notes, updated_at
+    FROM thread_audit_checklist
+    WHERE chat_id = ? AND status = 'completed'
+      AND (findings_summary IS NOT NULL AND findings_summary NOT LIKE 'Theoretical Saturation%'
+           OR key_quotes IS NOT NULL)
+    """
+    params = [chat_id]
+    if tag:
+        sql += " AND (thematic_tags LIKE ? OR notes LIKE ?) "
+        clean_tag = f"%{tag.strip()}%"
+        params.extend([clean_tag, clean_tag])
+    if category:
+        sql += " AND primary_category = ? "
+        params.append(category.strip())
+
+    sql += " ORDER BY start_date ASC;"
+    cur.execute(sql, params)
+    rows = cur.fetchall()
+
+    evidence = []
+    for r in rows:
+        evidence.append({
+            "thread_id": r[0],
+            "date": r[1],
+            "category": r[2],
+            "radars": r[3],
+            "findings": r[4] or "",
+            "quotes": r[5] or "",
+            "tags": r[6] or "",
+            "notes": r[7] or "",
+            "updated_at": r[8]
+        })
+    return evidence
+
+
+def print_audited_evidence(
+    evidence: List[Dict[str, Any]],
+    chat_id: str,
+    tag: Optional[str] = None,
+    category: Optional[str] = None,
+    part: int = 1,
+    part_size: int = 8,
+    show_all: bool = False
+):
+    """Print targeted bank of verified evidence with automatic pagination and context-safety guards."""
+    import math
+    total_items = len(evidence)
+    scope_str = []
+    if tag:
+        scope_str.append(f"Tag: '{tag}'")
+    if category:
+        scope_str.append(f"Category: '{category}'")
+    filter_label = f" [{', '.join(scope_str)}]" if scope_str else " [ALL THEMES]"
+
+    if total_items == 0:
+        print("=" * 80)
+        print(f"🏛️ AUDITED FORENSIC EVIDENCE BANK (0 VERIFIED THREADS){filter_label} FOR CHAT '{chat_id}'")
+        print("=" * 80)
+        print("No matching verified evidence found in thread_audit_checklist.")
+        print("-" * 80)
+        return
+
+    if show_all or total_items <= part_size:
+        items_to_show = evidence
+        part_badge = " [ALL ITEMS]" if show_all and total_items > part_size else ""
+        total_parts = 1
+        current_part = 1
+        start_num = 1
+        end_num = total_items
+    else:
+        total_parts = math.ceil(total_items / part_size)
+        current_part = max(1, min(part, total_parts))
+        start_idx = (current_part - 1) * part_size
+        end_idx = start_idx + part_size
+        items_to_show = evidence[start_idx:end_idx]
+        part_badge = f" [PART {current_part}/{total_parts}]"
+        start_num = start_idx + 1
+        end_num = min(end_idx, total_items)
+
+    print("=" * 80)
+    print(f"🏛️ AUDITED FORENSIC EVIDENCE BANK ({total_items} TOTAL VERIFIED THREADS){filter_label}{part_badge}")
+    print("=" * 80)
+    print("Instructions for Main Agent: Integrate these verified findings into the current report section.")
+    print("Cite exact [#ID | YYYY-MM-DD] anchors to substantiate the narrative.")
+    if not show_all and total_items > part_size:
+        print(f"📌 Showing items {start_num} to {end_num} of {total_items} (Context Safety Guard active).")
+    print("-" * 80)
+
+    start_counter = start_num if not show_all else 1
+    for i, e in enumerate(items_to_show, start_counter):
+        print(f"[{i:02d}] Thread `{e['thread_id']}` | Date: {e['date']} | Category: {e['category']} | Tags: {e['tags']}")
+        if e['findings']:
+            print(f"     Findings: {e['findings']}")
+        if e['quotes']:
+            print(f"     Quotes:   {e['quotes']}")
+        if e['notes']:
+            print(f"     Notes:    {e['notes']}")
+        print()
+
+    if not show_all and total_items > part_size:
+        print("-" * 80)
+        remaining = total_items - end_num
+        tag_flag = f" --tag {tag}" if tag else ""
+        cat_flag = f" --category {category}" if category else ""
+        if current_part < total_parts:
+            next_part = current_part + 1
+            print(f"⚠️ CONTEXT SAFETY GUARD: {remaining} additional evidence items remain on subsequent parts.")
+            print(f"   To inspect the next slice, run:")
+            print(f"     python3 project/scripts/thread_checklist.py -C {chat_id} --export-evidence{tag_flag}{cat_flag} --part {next_part}")
+            print(f"   Or pass '--all' to display all {total_items} items at once without pagination.")
+        else:
+            print(f"[✓] End of audited evidence for this query ({total_items} items across {total_parts} parts).")
+        print("=" * 80)
+
+
+def print_evidence_catalog(conn: sqlite3.Connection, chat_id: str):
+    """Print high-level thematic catalog of all verified evidence to guide modular chapter drafting."""
+    ensure_thread_checklist_table(conn)
+    cur = conn.cursor()
+    cur.execute("""
+    SELECT primary_category, count(*), group_concat(thematic_tags, ' ')
+    FROM thread_audit_checklist
+    WHERE chat_id = ? AND status = 'completed'
+      AND (findings_summary IS NOT NULL AND findings_summary NOT LIKE 'Theoretical Saturation%'
+           OR key_quotes IS NOT NULL)
+    GROUP BY primary_category;
+    """, (chat_id,))
+    rows = cur.fetchall()
+
+    print("=" * 80)
+    print(f"📚 AUDITED EVIDENCE THEMATIC CATALOG [Chat: {chat_id}]")
+    print("=" * 80)
+    if not rows:
+        print("No verified forensic evidence recorded yet.")
+        print("=" * 80)
+        return
+
+    print("Use these categories/tags to pull evidence modularly when drafting each chapter:")
+    print("Example: python3 project/scripts/thread_checklist.py -C <cid> --export-evidence --tag <tag>")
+    print("-" * 80)
+    for cat, count, all_tags in rows:
+        tags_set = set()
+        if all_tags:
+            for t in all_tags.split():
+                if t.startswith("#"):
+                    tags_set.add(t)
+        tags_str = ", ".join(sorted(tags_set)[:8]) if tags_set else "no specific tags"
+        print(f"  • Category: {cat:<22} | Threads: {count:>2} | Associated Tags: {tags_str}")
+    print("=" * 80)
+
+    conn.commit()
+    return updated
+
+
 def main():
     parser = argparse.ArgumentParser(description="Thread Forensic Audit Checklist & Gatekeeper")
     parser.add_argument("--db", type=str, default=DEFAULT_DB_PATH, help="Path to SQLite database")
@@ -747,6 +913,13 @@ def main():
     parser.add_argument("--tags", type=str, help="Thematic tags (e.g. #defense #attachment)")
     parser.add_argument("--notes", type=str, help="Additional notes")
     parser.add_argument("--export-delta-manifest", action="store_true", help="Export manifest of pending threads with summaries for Delta Triage Subagent")
+    parser.add_argument("--export-evidence", action="store_true", help="Export complete bank of audited forensic evidence and quotes for final report synthesis")
+    parser.add_argument("--evidence-catalog", action="store_true", help="Display thematic category/tag catalog of audited evidence to guide modular chapter drafting")
+    parser.add_argument("--tag", type=str, help="Filter --export-evidence by thematic tag (e.g. #family, #ex, #career, #defense)")
+    parser.add_argument("--category", type=str, help="Filter --export-evidence by primary category")
+    parser.add_argument("--part", type=int, default=1, help="Part/slice number to display for long evidence lists (default: 1)")
+    parser.add_argument("--part-size", type=int, default=8, help="Number of evidence items per part (default: 8)")
+    parser.add_argument("--all", action="store_true", help="Display all evidence items at once without pagination")
     parser.add_argument("--resolve-redundant", nargs="+", metavar="THREAD_ID", help="Mark redundant/corroborating threads as completed with saturation note")
     parser.add_argument("--limit", "-l", type=int, help="Limit number of items for export-delta-manifest")
     parser.add_argument("--check", action="store_true", help="Run hard-stop gatekeeper check (exit 0 if resolved, exit 1 if pending)")
@@ -821,6 +994,24 @@ def main():
             print(json.dumps(manifest, indent=2, ensure_ascii=False))
         else:
             print_delta_manifest(manifest, chat_id)
+        sys.exit(0)
+
+    if args.evidence_catalog:
+        print_evidence_catalog(conn, chat_id)
+        conn.close()
+        sys.exit(0)
+
+    if args.export_evidence:
+        evidence = export_audited_evidence(conn, chat_id, tag=args.tag, category=args.category)
+        conn.close()
+        if args.json:
+            print(json.dumps(evidence, indent=2, ensure_ascii=False))
+        else:
+            print_audited_evidence(
+                evidence, chat_id,
+                tag=args.tag, category=args.category,
+                part=args.part, part_size=args.part_size, show_all=args.all
+            )
         sys.exit(0)
 
     if args.resolve_redundant:
