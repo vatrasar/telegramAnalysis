@@ -17,13 +17,13 @@ The life spheres (Social Matrix, Professional/Finances, Worldview/Tech, Family/D
 4. **Stimulus Exposure & Disinterest as an Analytical Finding:**
    - When an interlocutor introduces any topic, activity, or suggestion and the subject exhibits disinterest, changes the subject, or avoids engaging:
    - This should not be treated merely as a complete absence of information, but the agent must also avoid forcing far-fetched or over-pathologized interpretations.
-   - Often the most realistic conclusion is simply that the subject is **uninterested in or indifferent to that specific domain**. If relevant to the sphere, this disinterest can be recorded as a valid observation of personal priorities or boundaries.
+   - If relevant to the sphere, this disinterest can be recorded as a valid observation of personal priorities or boundaries.
 
 ---
 
 ## 2. Mandatory Life Spheres Skill Activation Gate
 
-To preserve system context, detailed forensic diagnostic questions, concrete behavioral probing criteria across all life spheres (including civic/political attitudes, spending psychology, and interpersonal boundaries), and bilingual search lexicons are maintained in specialized skills:
+To preserve system context, detailed forensic diagnostic questions, concrete behavioral probing criteria across all life spheres, and bilingual search lexicons are maintained in specialized skills:
 
 > [!IMPORTANT]
 > **Activation Requirement:**
@@ -31,6 +31,6 @@ To preserve system context, detailed forensic diagnostic questions, concrete beh
 >
 > The skill provides:
 > - Concrete forensic probing criteria across all 6 core life spheres.
-> - Detailed operational checklists (political orientation, attitudes toward nations and discrimination, spending habits and premium goods, family dynamics, etc.).
+> - Detailed operational checklists and behavioral probing questions.
 > - The Master Bilingual Probing Lexicon (Polish FTS5 keywords and English semantic vector queries).
 > - Concrete CLI recipes for `query_chat.py` and step-by-step verification procedures.
