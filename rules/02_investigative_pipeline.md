@@ -91,6 +91,7 @@ python3 project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_s
    - **Absolute Ban on Main Agent Context Flooding:** The Main Agent must NEVER sequentially read 50+ raw thread transcripts into its primary context window.
    - **Phase 1 (Delta Triage):** Export manifest (`--export-delta-manifest`) and delegate classification to an Antigravity subagent (`Model: "flash"`). Resolve redundant threads formally using:
      `python3 project/scripts/thread_checklist.py -C <chat_id> --resolve-redundant <id1> <id2> ... --reason "<theme>"`
+   - **Anti-Fraud Invariant on Delta Triage:** The Main Agent is strictly forbidden from closing or resolving threads without delegating the manifest to `thread-delta-triage`. It is completely valid if the subagent classifies ALL threads as redundant; what is strictly forbidden (Investigative Fraud) is the Main Agent skipping subagent evaluation to close threads autonomously.
    - **Phase 2 (Deep Dive):** For the remaining 5–12 novel/anomalous threads, invoke dedicated forensic subagents (`Model: "flash"`) to inspect raw text (`query_chat.py -t <id>`), extract anchored quotes, register novel entities, and update the checklist item.
 
 #### Mandatory Triple Hard-Stop Gate before Step B.5 (100% Resolution across All Dimensions):

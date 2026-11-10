@@ -548,36 +548,6 @@ def update_thread_item(
     return cur.rowcount > 0
 
 
-def batch_update_threads(
-    conn: sqlite3.Connection,
-    chat_id: str,
-    thread_ids: List[str],
-    status: str,
-    notes: Optional[str] = None
-) -> int:
-    """Batch update multiple thread audit records."""
-    if status not in VALID_STATUSES:
-        raise ValueError(f"Invalid status '{status}'. Must be one of: {VALID_STATUSES}")
-
-    ensure_thread_checklist_table(conn)
-    cur = conn.cursor()
-    now_iso = datetime.now(timezone.utc).isoformat()
-    updated = 0
-
-    for tid in thread_ids:
-        cur.execute("""
-        UPDATE thread_audit_checklist
-        SET status = ?,
-            notes = coalesce(notes || ' | ', '') || coalesce(?, ''),
-            updated_at = ?
-        WHERE chat_id = ? AND thread_id = ?;
-        """, (status, notes, now_iso, chat_id, tid))
-        updated += cur.rowcount
-
-    conn.commit()
-    return updated
-
-
 def check_gate(conn: sqlite3.Connection, chat_id: str) -> int:
     """
     Hard-stop blocking gate validation.
@@ -682,6 +652,10 @@ def export_delta_manifest(
     cur.execute(sql, (chat_id,))
     rows = cur.fetchall()
 
+    now_iso = datetime.now(timezone.utc).isoformat()
+    cur.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?);", (f"delta_manifest_exported_{chat_id}", now_iso))
+    conn.commit()
+
     manifest = []
     for r in rows:
         manifest.append({
@@ -725,10 +699,24 @@ def resolve_redundant_threads(
     """Safely resolve redundant/corroborating threads with full audit trail and theoretical saturation notes."""
     ensure_thread_checklist_table(conn)
     cur = conn.cursor()
+
+    # Precondition: delta manifest must have been exported for subagent triage review
+    cur.execute("SELECT value FROM metadata WHERE key = ?;", (f"delta_manifest_exported_{chat_id}",))
+    row = cur.fetchone()
+    if not row:
+        print(f"\n[!] FRAUD / WORKFLOW VIOLATION: Cannot resolve redundant threads before exporting delta manifest!", file=sys.stderr)
+        print(f"    You must first export the manifest for subagent review:", file=sys.stderr)
+        print(f"      python3 project/scripts/thread_checklist.py -C {chat_id} --export-delta-manifest", file=sys.stderr)
+        print(f"    and submit it to the 'thread-delta-triage' subagent before resolving.\n", file=sys.stderr)
+        sys.exit(1)
+
+    clean_reason = reason.strip() if reason else ""
+    if not clean_reason or clean_reason == "Ad-hoc task / partial inquiry":
+        print(f"\n[!] Error: You must provide a specific corroborating theme via --reason (e.g. --reason 'corroborating_parental_conflict').\n", file=sys.stderr)
+        sys.exit(1)
+
     now_iso = datetime.now(timezone.utc).isoformat()
     updated = 0
-
-    clean_reason = reason.strip() or "Theoretical saturation: Corroborates established baseline"
     for tid in thread_ids:
         cur.execute("""
         UPDATE thread_audit_checklist
@@ -758,7 +746,6 @@ def main():
     parser.add_argument("--quotes", type=str, help="Anchored verbatim quotes [#ID | YYYY-MM-DD]")
     parser.add_argument("--tags", type=str, help="Thematic tags (e.g. #defense #attachment)")
     parser.add_argument("--notes", type=str, help="Additional notes")
-    parser.add_argument("--batch-update", nargs="+", metavar="THREAD_ID", help="Batch update multiple thread IDs")
     parser.add_argument("--export-delta-manifest", action="store_true", help="Export manifest of pending threads with summaries for Delta Triage Subagent")
     parser.add_argument("--resolve-redundant", nargs="+", metavar="THREAD_ID", help="Mark redundant/corroborating threads as completed with saturation note")
     parser.add_argument("--limit", "-l", type=int, help="Limit number of items for export-delta-manifest")
@@ -859,19 +846,6 @@ def main():
             print(json.dumps({"thread_id": args.update, "updated": ok, "status": args.set_status}))
         else:
             print(f"[✓] Updated thread '{args.update}' -> status: '{args.set_status}'.")
-        sys.exit(0)
-
-    if args.batch_update:
-        if not args.set_status:
-            print("[!] Error: --set-status is required when batch updating.")
-            conn.close()
-            sys.exit(1)
-        count = batch_update_threads(conn, chat_id, args.batch_update, args.set_status, notes=args.notes)
-        conn.close()
-        if args.json:
-            print(json.dumps({"batch_count": count, "status": args.set_status}))
-        else:
-            print(f"[✓] Batch updated {count} threads -> status: '{args.set_status}'.")
         sys.exit(0)
 
     if args.next:

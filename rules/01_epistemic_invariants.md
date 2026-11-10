@@ -118,3 +118,16 @@ MUST NOT be parsed as an appositive clause attributing the descriptor to the nam
 - **Zero Entity Blindness Invariant:** The agent is strictly prohibited from interpreting interpersonal dynamics, motives, or relationship patterns in threads mentioning third parties until every third-party reference has been sequentially audited or cleared via the System-1 Watchdog (`query_chat.py --watchdog-scan`).
 - **Prerequisite Enforcement:** Initializing downstream checklists (`thread_checklist.py --init` and `checklist.py --init`) is programmatically blocked until the Entity Watchdog scan achieves 100% resolution.
 - **Mandatory Triple Hard-Stop Gate:** Compiling the final report via `assemble_report.py` strictly verifies all three investigative gates (Entity Watchdog, Thread Forensic Checklist, and Life Spheres Checklist). Bypassing or batch-clearing without genuine inspection is a direct violation of evidentiary integrity.
+
+---
+
+## 10. Thread Delta Triage & Anti-Fraud Bypass Invariant
+
+- **Mandatory Subagent Delta Evaluation:** The Main Agent is strictly prohibited from resolving, closing, or marking pending dialogue threads as redundant/completed without evaluating them through the dedicated `thread-delta-triage` subagent.
+- **Evidentiary Legitimacy of Negative Findings:** It is 100% scientifically valid and acceptable if the `thread-delta-triage` subagent reviews the candidate manifest (`--export-delta-manifest`) and determines that *all* remaining threads merely corroborate the established 46-spheres baseline without novel dynamics. A clean run where zero threads require forensic deep dives is entirely legitimate—provided that the determination was produced by subagent review.
+- **Investigative Fraud & Evidentiary Tampering Definition:**
+  It is classified as **Investigative Fraud** if the Main Agent:
+  1. Resolves threads via `--resolve-redundant` without first exporting the delta manifest (`--export-delta-manifest`) and submitting it to the `thread-delta-triage` subagent, OR
+  2. Bypasses the triage subagent by inventing thematic saturation labels on its own, OR
+  3. Executes direct database tampering (`sqlite3 chat.db "UPDATE thread_audit_checklist..."`).
+- **Enforcement:** The `--resolve-redundant` tool programmatically enforces that `--export-delta-manifest` was executed, requiring documented corroborating themes (`--reason "corroborating_<theme>"`). Any report generated on data where thread triage was bypassed is considered scientifically invalidated.

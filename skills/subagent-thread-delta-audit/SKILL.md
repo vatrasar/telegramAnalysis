@@ -98,3 +98,4 @@ The Main Agent receives the returned evidence block, appends verified findings i
 - **Prohibition on Context Flooding:** The Main Agent must NEVER sequentially dump 50+ raw transcripts into its primary context.
 - **Prohibition on Unverified Summaries:** Scaledown summaries are routing metadata only; no claim may appear in the final report without verbatim quoted message anchors (`[#ID | YYYY-MM-DD]`).
 - **Prohibition on Ad-Hoc SQL Updates:** Marking threads completed via direct `sqlite3 "UPDATE..."` commands is strictly prohibited.
+- **FRAUD Invariant: Mandatory Subagent Triage:** The Main Agent is strictly forbidden from closing or resolving threads as redundant without delegating the manifest to the `thread-delta-triage` subagent. A finding where all threads are classified as redundant is fully valid and acceptable, but skipping subagent evaluation constitutes investigative fraud and immediately invalidates the dossier.
