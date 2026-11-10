@@ -144,10 +144,20 @@ The agent is strictly prohibited from synthesizing continuous multi-year spans (
 
 ---
 
-## 10. Evidentiary Pruning Rule & Ban on Placeholder Boilerplate
+## 10. Evidentiary Pruning & Stimulus Rejection Protocol
 
-- If a life sphere, lifestyle habit, or sub-topic (e.g. sports, pets, domestic cleaning habits, vacation style) was never mentioned in the chat archive, the agent MUST completely omit that topic from the report.
-- **Strict Prohibition on Placeholder Disclaimers:** NEVER write placeholder sections or disclaimers such as *"Brak danych na temat sportu"*, *"Temat ten nie był poruszany"*, or *"No information available"*.
+### 10.1 Absolute Void vs. Stimulus Rejection (Crucial Distinction)
+The agent must strictly distinguish between two fundamentally different evidentiary states:
+1. **True Non-Existence / Absence of Mention:**
+   - If a specific life sphere or lifestyle dimension (e.g. domestic cleaning habits, extreme sports, financial investments) was **never mentioned or introduced anywhere in the chat archive**, the agent MUST completely omit that sub-topic from the report.
+   - **Strict Prohibition on Placeholder Disclaimers:** NEVER write placeholder sections or disclaimers such as *"Brak danych na temat sportu"*, *"Temat ten nie był poruszany"*, or *"No information available"*.
+2. **Stimulus Exposure, Apathy, Disregard or Resistance as Positive Empirical Evidence:**
+   - When an interlocutor or conversational trigger explicitly introduces a topic, tool, lifestyle activity, political dilemma, or cultural phenomenon, and the primary subject demonstrates:
+     - lack of interest, disengagement, or apathy,
+     - passive avoidance, procrastination, or changing the subject,
+     - active skepticism, refusal, or evasive behavior (e.g. retreating into sleep, humor, or silence instead of engaging),
+   - **This is NOT an absence of evidence.** It constitutes **critical positive empirical evidence** regarding the subject's behavioral boundaries, cognitive openness, ideological flexibility, or digital habits.
+   - The agent is **strictly prohibited from omitting** such occurrences under the pretext of "lack of data". The agent MUST synthesize the subject's disinterest, passive avoidance, or non-engagement as a verified trait within the relevant life sphere.
 
 ---
 

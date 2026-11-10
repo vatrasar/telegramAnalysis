@@ -73,10 +73,16 @@ Use these detailed criteria when probing the archive across foundational domains
 ---
 
 ### C. Worldview, Politics & Technology Stance
-- **Socio-Political Beliefs:** Explicit political orientation (conservative, liberal, libertarian, left-wing, centrist, or apolitical/disillusioned), stance on governance, taxation, civic duties, individual liberties, tradition, and religion.
+- **Socio-Political Beliefs & Civic Orientation:**
+  - *Doctrinal & Partisan Orientation:* Explicit political stance (conservative, liberal, libertarian, left-wing, centrist, or apolitical/disillusioned), stance on governance, civic duties, and societal order.
+  - *Sympathies Toward Political Figures & Movements:* Stance toward specific political leaders, candidates, or political movements discussed in the archive (admiration, revulsion, or reflective neutrality).
+  - *Civic & Electoral Motivations:* What drives their voting decisions or civic behavior? (Programmatic ideology vs. affective/emotional impulses, e.g. voting out of sympathy or pity vs. civic duty vs. cynical disengagement).
+  - *Geopolitical & Cultural Alignments:* Positioning regarding international conflicts, cultural sovereignty, and religious/ethnic solidarity.
+  - *Boundary Maintenance in Political Debates:* Tolerance when interlocutors express opposing political or ideological views (collaborative pluralism vs. rigid boundary setting, e.g. demanding mutual respect and non-imposition vs. relational rupture).
 - **Attitude Toward Artificial Intelligence & Modern Technology:**
-  - *AI & Tech Posture:* Are they enthusiastic early adopters, pragmatic utilitarians, philosophical skeptics, or apprehensive about AI (automation, ethical risks, epistemic decline, dehumanization)?
-  - *Practical Tech Usage:* Do they embrace modern digital tools and AI assistants in their daily workflow and reasoning, or do they express resistance to technological shifts?
+  - *AI & Tech Posture:* Are they enthusiastic early adopters, pragmatic utilitarians, philosophical skeptics, or apprehensive/apathetic toward modern tech (automation, cognitive offloading, dehumanization)?
+  - *Interlocutor Stimulus Reaction (The Non-Engagement Test):* When an interlocutor introduces, recommends, or urges them to adopt modern software, generative digital tools, or AI assistants, how do they react? (Immediate curiosity and trial vs. skepticism vs. passive evasion, apathy, laughter, or preference for retreating into low-friction leisure).
+  - *Practical Digital Tool Usage:* How do they actually utilize digital infrastructure? (Advanced workflows and intellectual exploration vs. purely basic communication, administrative utilities, and low-friction mobile games).
 - **Cognitive Style in Debate:** Do they lean on empirical evidence and formal logic, or emotional appeal and moral superiority? Do they respect ideological opponents or dehumanize them?
 
 ---
