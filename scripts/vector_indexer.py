@@ -12,12 +12,15 @@ Supported modes:
 import os
 import sys
 import json
+import time
+import random
 import sqlite3
 import struct
 import argparse
 import urllib.request
 import urllib.error
 from typing import List, Dict, Any, Tuple, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # .agents/scripts
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)               # .agents
@@ -92,10 +95,18 @@ def dot_product(v1: List[float], v2: List[float]) -> float:
     return dot
 
 
-def fetch_openrouter_embeddings(texts: List[str], model: str, api_key: str, endpoint: str) -> List[List[float]]:
+def fetch_openrouter_embeddings(
+    texts: List[str],
+    model: str,
+    api_key: str,
+    endpoint: str,
+    max_retries: int = 5,
+    initial_backoff: float = 2.0
+) -> List[List[float]]:
     """
     Fetch embeddings from OpenRouter via standard urllib.request.
     Guaranteed zero external library dependencies and restricted purely to /embeddings.
+    Includes exponential backoff with jitter and Retry-After handling for HTTP 429 rate limits.
     """
     if not api_key or "YOUR_OPENROUTER_API_KEY" in api_key:
         raise ValueError("Invalid or placeholder OpenRouter API key found in configuration.")
@@ -113,30 +124,57 @@ def fetch_openrouter_embeddings(texts: List[str], model: str, api_key: str, endp
     }
 
     req_data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(endpoint, data=req_data, headers=headers, method="POST")
 
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            resp_body = json.loads(resp.read().decode("utf-8"))
-            data_items = resp_body.get("data", [])
-            data_items.sort(key=lambda x: x.get("index", 0))
-            return [item["embedding"] for item in data_items]
-    except urllib.error.HTTPError as e:
-        err_msg = e.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"OpenRouter HTTP {e.code} Error: {err_msg}")
-    except Exception as e:
-        raise RuntimeError(f"OpenRouter Connection Error: {e}")
+    for attempt in range(max_retries):
+        req = urllib.request.Request(endpoint, data=req_data, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                resp_body = json.loads(resp.read().decode("utf-8"))
+                data_items = resp_body.get("data", [])
+                data_items.sort(key=lambda x: x.get("index", 0))
+                return [item["embedding"] for item in data_items]
+        except urllib.error.HTTPError as e:
+            err_msg = e.read().decode("utf-8", errors="ignore")
+            # Handle rate limit (429) or transient server errors (500, 502, 503, 504)
+            if e.code in (429, 500, 502, 503, 504) and attempt < max_retries - 1:
+                retry_after_hdr = e.headers.get("Retry-After") if hasattr(e, "headers") else None
+                sleep_time = None
+                if retry_after_hdr:
+                    try:
+                        sleep_time = float(retry_after_hdr) + random.uniform(0.5, 1.5)
+                    except ValueError:
+                        pass
+                if sleep_time is None:
+                    sleep_time = min(60.0, (initial_backoff * (2 ** attempt)) + random.uniform(0.5, 2.0))
+
+                print(f"[!] OpenRouter HTTP {e.code} (Rate limit/busy). Backing off for {sleep_time:.1f}s (attempt {attempt + 1}/{max_retries})...")
+                time.sleep(sleep_time)
+                continue
+            raise RuntimeError(f"OpenRouter HTTP {e.code} Error: {err_msg}")
+        except (urllib.error.URLError, TimeoutError) as e:
+            if attempt < max_retries - 1:
+                sleep_time = min(30.0, (initial_backoff * (1.5 ** attempt)) + random.uniform(0.5, 1.5))
+                print(f"[!] OpenRouter connection timeout/error ({e}). Retrying in {sleep_time:.1f}s (attempt {attempt + 1}/{max_retries})...")
+                time.sleep(sleep_time)
+                continue
+            raise RuntimeError(f"OpenRouter Connection Error: {e}")
+        except Exception as e:
+            raise RuntimeError(f"OpenRouter Unexpected Error: {e}")
+
+    raise RuntimeError(f"Max retries ({max_retries}) exceeded calling OpenRouter /embeddings.")
 
 
 def index_threads(
     db_path: str,
     model_override: Optional[str] = None,
     chat_filter: Optional[str] = None,
-    force: bool = False
+    force: bool = False,
+    concurrency_override: Optional[int] = None
 ) -> bool:
     """
     Embed threads in the database using OpenRouter or local sentence-transformers.
     Supports incremental indexing (only unindexed threads) unless force=True.
+    Uses concurrent batching and real-time chunk checkpoints for OpenRouter API.
     """
     config = load_config()
     provider = config.get("provider", "openrouter").lower()
@@ -191,20 +229,56 @@ def index_threads(
         model = model_override or config.get("model", "openai/text-embedding-3-small")
         endpoint = config.get("endpoint", DEFAULT_OPENROUTER_ENDPOINT)
         batch_size = int(config.get("batch_size", 50))
+        concurrency = concurrency_override or int(config.get("concurrency", 4))
 
         masked_key = f"{api_key[:7]}...{api_key[-4:]}" if len(api_key) > 12 else "***"
         print(f"[*] Using OpenRouter Provider:")
-        print(f"    - Endpoint:   {endpoint}")
-        print(f"    - Model:      {model}")
-        print(f"    - API Key:    {masked_key} (used strictly for /embeddings)")
-        print(f"    - Batch Size: {batch_size}")
+        print(f"    - Endpoint:    {endpoint}")
+        print(f"    - Model:       {model}")
+        print(f"    - API Key:     {masked_key} (used strictly for /embeddings)")
+        print(f"    - Batch Size:  {batch_size}")
+        print(f"    - Concurrency: {concurrency} workers")
 
-        all_embeddings: List[List[float]] = []
+        chunks = []
         for i in range(0, len(batch_texts), batch_size):
-            chunk = batch_texts[i:i + batch_size]
-            print(f"[*] Embedding batch {i // batch_size + 1}/{(len(batch_texts) + batch_size - 1) // batch_size} ({len(chunk)} threads)...")
-            emb_chunk = fetch_openrouter_embeddings(chunk, model, api_key, endpoint)
-            all_embeddings.extend(emb_chunk)
+            chunk_texts = batch_texts[i:i + batch_size]
+            chunk_meta = batch_metadata[i:i + batch_size]
+            chunks.append((i // batch_size + 1, chunk_texts, chunk_meta))
+
+        total_chunks = len(chunks)
+        print(f"[*] Embedding {len(batch_texts)} threads across {total_chunks} batches (concurrency: {concurrency})...")
+
+        def fetch_chunk_worker(cid: int, c_texts: List[str], c_meta: List[Any]):
+            emb_chunk = fetch_openrouter_embeddings(c_texts, model, api_key, endpoint)
+            return cid, c_meta, emb_chunk
+
+        saved_count = 0
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            future_to_chunk = {
+                executor.submit(fetch_chunk_worker, cid, ctexts, cmeta): cid
+                for cid, ctexts, cmeta in chunks
+            }
+
+            for future in as_completed(future_to_chunk):
+                cid = future_to_chunk[future]
+                chunk_id, c_meta, emb_chunk = future.result()
+
+                insert_rows = []
+                for (t_id, c_id, s_date, parts, text, c_hash), emb in zip(c_meta, emb_chunk):
+                    blob = serialize_vector(emb)
+                    insert_rows.append((t_id, c_id, s_date, parts, text, c_hash, blob))
+
+                cur.executemany("""
+                INSERT OR REPLACE INTO thread_embeddings (thread_id, chat_id, start_date, participants, dialogue_text, content_hash, embedding)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
+                """, insert_rows)
+                conn.commit()
+                saved_count += len(insert_rows)
+                print(f"[+] Saved batch {chunk_id}/{total_chunks} ({len(insert_rows)} threads) to database. [Progress: {saved_count}/{len(batch_texts)}]")
+
+        conn.close()
+        print(f"[+] Successfully indexed {saved_count} threads into SQLite vector store.")
+        return True
 
     # Mode 2: Local Sentence-Transformers
     elif provider == "local":
@@ -224,26 +298,25 @@ def index_threads(
         embeddings = model.encode(batch_texts, normalize_embeddings=True, show_progress_bar=True)
         all_embeddings = embeddings.tolist()
 
+        insert_rows = []
+        for (t_id, c_id, s_date, parts, text, c_hash), emb in zip(batch_metadata, all_embeddings):
+            blob = serialize_vector(emb)
+            insert_rows.append((t_id, c_id, s_date, parts, text, c_hash, blob))
+
+        cur.executemany("""
+        INSERT OR REPLACE INTO thread_embeddings (thread_id, chat_id, start_date, participants, dialogue_text, content_hash, embedding)
+        VALUES (?, ?, ?, ?, ?, ?, ?);
+        """, insert_rows)
+
+        conn.commit()
+        conn.close()
+        print(f"[+] Successfully indexed {len(insert_rows)} threads into SQLite vector store.")
+        return True
+
     else:
         print(f"[!] Unknown provider '{provider}' in configuration.")
         conn.close()
         return False
-
-    # Insert embeddings
-    insert_rows = []
-    for (t_id, c_id, s_date, parts, text, c_hash), emb in zip(batch_metadata, all_embeddings):
-        blob = serialize_vector(emb)
-        insert_rows.append((t_id, c_id, s_date, parts, text, c_hash, blob))
-
-    cur.executemany("""
-    INSERT OR REPLACE INTO thread_embeddings (thread_id, chat_id, start_date, participants, dialogue_text, content_hash, embedding)
-    VALUES (?, ?, ?, ?, ?, ?, ?);
-    """, insert_rows)
-
-    conn.commit()
-    conn.close()
-    print(f"[+] Successfully indexed {len(insert_rows)} threads into SQLite vector store.")
-    return True
 
 
 def search_semantic_batch(
@@ -400,13 +473,20 @@ if __name__ == "__main__":
     parser.add_argument("--index", action="store_true", help="Run indexing on threads")
     parser.add_argument("--chat", "-C", type=str, help="Filter indexing or search to a specific chat (id or name)")
     parser.add_argument("--force", action="store_true", help="Force re-indexing of already embedded threads")
+    parser.add_argument("--concurrency", "-c", type=int, help="Number of concurrent API workers for embedding batches (default: 4)")
     parser.add_argument("--search", type=str, help="Semantic search query")
     parser.add_argument("--top-k", type=int, default=5, help="Number of results to return")
     parser.add_argument("--model", type=str, help="Override model name")
     args = parser.parse_args()
 
     if args.index:
-        index_threads(args.db, model_override=args.model, chat_filter=args.chat, force=args.force)
+        index_threads(
+            args.db,
+            model_override=args.model,
+            chat_filter=args.chat,
+            force=args.force,
+            concurrency_override=args.concurrency
+        )
     elif args.search:
         results = search_semantic(args.db, args.search, top_k=args.top_k, chat_filter=args.chat)
         print(f"\n--- Top {len(results)} Semantic Matches for: '{args.search}' ---")
