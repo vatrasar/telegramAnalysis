@@ -144,18 +144,10 @@ The agent is strictly prohibited from synthesizing continuous multi-year spans (
 
 ---
 
-## 10. Evidentiary Pruning & Stimulus Rejection Protocol
+## 10. Evidentiary Pruning Rule & Ban on Placeholder Boilerplate
 
-### 10.1 Absolute Void vs. Stimulus Rejection (Crucial Distinction)
-The agent must strictly distinguish between two fundamentally different evidentiary states:
-1. **True Non-Existence / Absence of Mention:**
-   - If a specific life sphere or lifestyle dimension (e.g. domestic cleaning habits, extreme sports, financial investments) was **never mentioned or introduced anywhere in the chat archive**, the agent MUST completely omit that sub-topic from the report.
-   - **Strict Prohibition on Placeholder Disclaimers:** NEVER write placeholder sections or disclaimers such as *"Brak danych na temat sportu"*, *"Temat ten nie był poruszany"*, or *"No information available"*.
-2. **Stimulus Exposure vs. Simple Disinterest (Grounding Analytical Inferences):**
-   - When an interlocutor introduces a topic, tool, lifestyle activity, political dilemma, or cultural phenomenon, and the primary subject demonstrates disengagement, changes the subject, or reacts with indifference:
-   - This should not be automatically dismissed as "no data", but the agent must also avoid forcing far-fetched or over-pathologized interpretations.
-   - Often the most realistic, objective analytical finding is simply that the subject is **uninterested in, indifferent to, or unenthusiastic about that particular topic or tool** (e.g. lack of interest in sports, indifference toward new digital tools, disengagement from partisan debates).
-   - Where relevant to the life sphere under investigation, record this disinterest or low priority as an empirical finding, rather than omitting the area under the pretext that "nothing was discussed".
+- If a life sphere, lifestyle habit, or sub-topic (e.g. sports, pets, domestic cleaning habits, vacation style) was never mentioned in the chat archive, the agent MUST completely omit that topic from the report.
+- **Strict Prohibition on Placeholder Disclaimers:** NEVER write placeholder sections or disclaimers such as *"Brak danych na temat sportu"*, *"Temat ten nie był poruszany"*, or *"No information available"*.
 
 ---
 
