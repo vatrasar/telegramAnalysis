@@ -105,44 +105,24 @@ Cross-examine how Big Five traits interact with Attachment Style and relational 
 
 ---
 
-## 7. Semantic Vector Probing Recipes for Framework Diagnosis (`--semantic`)
+## 7. Semantic Vector Probing Recipes (`--semantic`)
 
-Psychological defenses, attachment postures, and OCEAN traits **cannot be discovered using literal keyword searches** because subjects do not use psychological labels to describe their emotional habits. Dense vector search (`query_chat.py --semantic "<concept>"`) is mandatory to retrieve diagnostic threads:
-
-### 1. Probing Attachment Styles & Deactivating Strategies:
+Psychological defenses, attachment postures, and OCEAN traits cannot be discovered via literal keywords. Dense vector search is mandatory:
 ```bash
-# Dismissive-Avoidant Deactivations:
+# Attachment & Deactivating Maneuvers:
 python3 project/scripts/query_chat.py --db chat.db \
-  --semantic "compulsive self-reliance, discomfort with emotional vulnerability, shutting down when intimacy deepens, valuing autonomy over connection"
+  --semantic "compulsive self-reliance, discomfort with vulnerability, shutting down when intimacy deepens" \
+  --semantic "fear of abandonment, reassurance seeking, panicking during silence gaps" \
+  --semantic "volatile push-pull dynamic, craving closeness then panicking, sudden withdrawal"
 
-# Anxious-Preoccupied Insecurities:
+# Big Five Extremes (OCEAN):
 python3 project/scripts/query_chat.py --db chat.db \
-  --semantic "fear of abandonment, chronic reassurance seeking, panicking during silence gaps, hyper-activating protest behavior"
-
-# Fearful-Avoidant (Disorganized) Push-Pull:
-python3 project/scripts/query_chat.py --db chat.db \
-  --semantic "volatile push-pull dynamic, craving deep closeness then panicking, distrust, sudden emotional withdrawal after intimacy"
-```
-
-### 2. Probing Big Five Traits (OCEAN):
-```bash
-# Conscientiousness vs Slacking & Frugality:
-python3 project/scripts/query_chat.py --db chat.db \
-  --semantic "high structural discipline, diligent work ethic, conscientious execution of goals, disciplined saving and budgeting" \
-  --semantic "procrastination, coasting and slacking at work, abandoned projects, impulsive spending"
-
-# Openness to Experience vs Conventional Routine:
-python3 project/scripts/query_chat.py --db chat.db \
-  --semantic "intellectual curiosity, philosophical debates, experimenting with new technology, exploring foreign cultures"
-
-# Agreeableness (Altruism vs Confrontation):
-python3 project/scripts/query_chat.py --db chat.db \
-  --semantic "spontaneous altruism, empathic soothing, prosocial helpfulness, collaborative team spirit" \
-  --semantic "confrontational debate style, blunt skepticism, cynical view of human nature, lone wolf autonomy"
-
-# Neuroticism (Emotional Stability vs Volatility):
-python3 project/scripts/query_chat.py --db chat.db \
-  --semantic "emotional volatility, rumination over slights, late-night emotional breakdown, catastrophic anxiety over health or money"
+  --semantic "structural discipline, work ethic, conscientious follow-through, disciplined saving" \
+  --semantic "procrastination, slacking at work, abandoned projects, impulsive spending" \
+  --semantic "philosophical curiosity, abstract debates, experimenting with tech" \
+  --semantic "spontaneous altruism, empathic soothing, collaborative team spirit" \
+  --semantic "confrontational debate, blunt skepticism, cynical view of others" \
+  --semantic "emotional volatility, rumination over slights, late-night vulnerability"
 ```
 
 ---

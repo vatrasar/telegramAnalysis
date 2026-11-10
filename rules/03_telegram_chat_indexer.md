@@ -16,21 +16,17 @@ These rules govern database querying, CLI exploration tools, diagnostic radars, 
 
 ---
 
-## 2. The Primacy of Semantic Vector Search ("Turbo Fajne" & Indispensable)
+## 2. Qualitative Retrieval: Semantic Vector Search vs. Lexical FTS5
 
-Dense vector semantic search (`query_chat.py --semantic "<concept>"`) is the **primary, indispensable discovery engine** for psychological, attitudinal, and behavioral inquiry. 
-
-### 2.1 Why Vector Search is Fundamentally Superior to Lexical Keyword Search
-1. **The Natural Language Divergence Problem:**
-   Human interlocutors in informal messaging **never speak using textbook, clinical, or academic terminology**.
-   - **Worldview & Politics:** Nobody writes *"Mój światopogląd to konserwatyzm fiskalny"* or *"Reprezentuję centrolewicę"*. Instead, they vent about municipal tax hikes, argue about voting in local elections, discuss political corruption, criticize state healthcare, complain about border regulations, or share memes about politicians. Lexical search for `-s "polityka OR doktryna"` yields 0 hits or misses 90% of political discussions.
-   - **Ways of Saving & Financial Psychology:** Nobody writes *"Stosuję strategię oszczędnościową i wykazuję awersję do ryzyka"*. Instead, they discuss hunting for second-hand electronics on OLX/Allegro, express visceral guilt after eating at an overpriced restaurant, complain about rising rent and inflation, refuse to take bank loans (*"pętla na szyję"*), or brag about fixing an old laptop themselves. Lexical search for `-s "finanse OR oszczędzanie"` misses everyday financial behavioral patterns.
-   - **Psychological Defenses & Attachment:** Nobody writes *"Aktywuję styl unikający i deaktywuję bliskość"* or *"Dewaluuję twoje potrzeby"*. When confronted with emotional vulnerability, an avoidant individual abruptly changes the subject to sports, cracks a cynical joke, deflects with work stress, or lapses into a 48-hour silence. Lexical search for `-s "lęk przed bliskością"` yields 0 hits.
-2. **Dense Vector Embeddings Map Underlying Intent & Meaning:**
-   Semantic embeddings embed entire dialogue thread contexts into high-dimensional semantic space. They capture conceptual proximity, emotional valence, and behavioral stance — **even if not a single search word appears in the literal chat transcript**.
-3. **Investigative Division of Labor:**
-   - **Lexical FTS5 Search (`-s`):** Reserved strictly for **concrete named entities, specific nouns, and factual biographical anchors** (e.g. pet names, universities, companies, specific city names, model numbers, dates, purchases).
-   - **Semantic Vector Search (`--semantic`):** **MANDATORY** for all psychological, philosophical, political, relational, financial, and attitudinal probing. Concluding absence or presence of an attitude without vector search is strictly forbidden.
+- **Semantic Vector Search (`--semantic`):** **MANDATORY primary discovery engine** for all psychological, political, financial (saving habits, frugality), relational, and attitudinal probing. Chat participants never use clinical or academic terminology (e.g. they discuss road taxes, inflation, or OLX bargains, not "political doctrine" or "frugality strategy"). Vector embeddings capture underlying intent, emotional tone, and behavioral posture regardless of exact phrasing.
+- **Lexical FTS5 Search (`-s` / `-st`):** Reserved strictly for **concrete named entities and biographical trivia** (names of people, employers, universities, cities, specific devices, dates).
+- **Batch Multi-Concept Search:** Probe multiple concepts in a single CLI call:
+  ```bash
+  python3 project/scripts/query_chat.py \
+    --semantic "political opinions, voting, taxes, government policies" \
+    --semantic "saving money, frugal habits, buying second-hand, guilt when spending" \
+    --semantic "fear of commitment, deflecting intimacy with humor, emotional avoidance"
+  ```
 
 ---
 
@@ -44,12 +40,6 @@ Execute all analysis via `python3 project/scripts/query_chat.py --db chat.db`:
 python3 project/scripts/query_chat.py --semantic "political opinions, voting, government policies, civic duty"
 python3 project/scripts/query_chat.py --semantic "saving money, frugal habits, buying second-hand, guilt when spending"
 python3 project/scripts/query_chat.py --semantic "fear of commitment, deflecting intimacy with humor, emotional avoidance"
-
-# Batch Multi-Concept Semantic Vector Search (Execute multiple concepts in one pass):
-python3 project/scripts/query_chat.py \
-  --semantic "political opinions and elections" \
-  --semantic "attitude towards saving and money management" \
-  --semantic "unfulfilled ambitions and career regret"
 
 # Lexical FTS5 Search (Reserved for concrete named entities and biographical nouns):
 python3 project/scripts/query_chat.py -s "keyword1 OR keyword2" -s "must_have"

@@ -11,25 +11,18 @@ This skill defines the operational workflow, forensic probing criteria, database
 
 ---
 
-## 1. Overview & The Primacy of Semantic Vector Search ("Turbo Fajne")
+## 1. Overview & Semantic Vector Primacy
 
-Longitudinal chat archives contain rich behavioral evidence, but critical lifestyle indicators (e.g. political orientation, ways of saving money, work ethic, unfulfilled ambitions, financial psychology, altruism, relationship with animals) are dispersed across thousands of messages and almost **never appear under formal, textbook terminology**.
+Longitudinal chat archives contain rich behavioral evidence, but critical indicators (politics, saving habits, work ethic, unfulfilled ambitions, attachment defenses) are dispersed across thousands of messages and almost never appear under textbook terminology.
 
-### Why Semantic Vector Search is Superior & Indispensable:
-- **The Epistemic Limitation of Lexical Search (`-s`):**
-  BM25 lexical search matches exact words or stems. It works well for concrete named entities (e.g., *"Kraków"*, *"Google"*, *"Reksio"*), but **fails catastrophically for human psychology, attitudes, and emotional defenses**:
-  1. *Politics:* No one writes *"Reprezentuję doktrynę konserwatywną"*. Interlocutors debate local road taxes, welfare subsidies, election candidates, Ukrainian refugees, or bureaucracy. FTS5 on `-s "polityka"` yields 0 hits or misses 90% of actual worldview stances.
-  2. *Ways of Saving & Frugality:* No one writes *"Stosuję strategię oszczędnościową i minimalizm finansowy"*. Instead, they hunt for second-hand deals on OLX, complain that a restaurant bill was robbery, refuse to take a bank loan (*"pętla na szyję"*), or feel guilty buying new clothes. FTS5 on `-s "oszczędzanie"` misses everyday financial psychology.
-  3. *Attachment & Defenses:* No one writes *"Odczuwam lęk przed bliskością i deaktywuję relację"*. An avoidant subject deflects vulnerability with jokes, changes the topic to work, or stops replying for two days.
-- **Dense Vector Search (`query_chat.py --semantic`):**
-  Embeds reconstructed dialogue threads into high-dimensional semantic space. It locates conceptual proximity, emotional tone, and behavioral posture **even if not a single query word appears in the literal chat**.
+- **Lexical Search (`-s`):** Reserved for concrete named entities (cities, companies, pet names, devices). Fails on human attitudes because participants use colloquial expressions (e.g. taxes, OLX deals) rather than formal labels.
+- **Semantic Vector Search (`--semantic`):** **MANDATORY primary discovery engine**. Dense embeddings capture latent intent, behavioral stances, and emotional tone across threads even without literal keyword matches.
 
 This skill equips the agent with:
-1. **The 6 Core Life Spheres Probing Framework:** Concrete forensic questions and 46 standardized item IDs across all lifestyle domains.
-2. **The Life Spheres Database Checklist Manager (`checklist.py`):** SQLite persistence layer in `chat.db` enforcing exhaustive auditing of every dimension (tracking evidence found vs. unmentioned/absent data) and **strictly verifying semantic vector search compliance**.
-3. **The Master Bilingual Search Lexicon:** Curated Polish lexical terms for SQLite FTS5 queries (`-s`, `-st`) and descriptive English semantic queries for vector search (`--semantic`).
-4. **Query Toolchain Recipes:** Concrete CLI commands via `query_chat.py` to retrieve messages, inspect dialogue threads, and trace causal chains.
-5. **Dual-Layer Evidentiary Protocol:** 100% database tracking rigor (logging `completed` or `no_data` for all items with documented semantic vector probes) combined with clean narrative report delivery (omitting unmentioned topics without hollow boilerplates).
+1. **The 6 Core Life Spheres Probing Framework:** Forensic criteria and 46 standardized item IDs across lifestyle domains.
+2. **Database Checklist Manager (`checklist.py`):** SQLite persistence enforcing 100% resolution and strict semantic vector verification.
+3. **Master Bilingual Search Lexicon:** Polish lexical terms (`-s`, `-st`) and descriptive English vector queries (`--semantic`).
+4. **Query Toolchain Recipes:** CLI commands via `query_chat.py` for targeted thread retrieval and context verification.
 
 ---
 
@@ -236,32 +229,12 @@ python3 project/scripts/query_chat.py --db chat.db -f <message_id> -w 5
 
 ---
 
-## 6. The Master Bilingual Probing Lexicon & Case Studies
+## 6. The Master Bilingual Probing Lexicon
 
-### 6.1 Real-World Case Studies: Why Lexical Search Fails vs. Vector Search Wins
+Informal messaging rarely uses clinical or ideological terms (e.g. users discuss taxes or second-hand bargains rather than "political doctrines" or "frugality strategies"). Use the table below to pair Polish lexical queries (`-s` / `-st`) with descriptive English vector queries (`--semantic`):
 
-#### Case 1: Socio-Political Orientation (`world_political_orientation`, `world_civic_motivations`)
-- **Lexical FTS5 Failure:** Searching `-s "polityka OR doktryna OR konserwatyzm OR liberalizm"` returns **0 hits**. The agent falsely concludes *"no data on political views"*.
-- **Semantic Vector Win:** Running `--semantic "political opinions, voting, attitude towards government policies, elections, taxes, corruption, civic duty"` immediately retrieves:
-  - A thread where the subject complains bitterly about a municipal waste tax hike and bureaucratic incompetence.
-  - A thread discussing whether to vote in the presidential elections and expressing deep skepticism of all political parties.
-  - A debate where the subject defends individual economic freedom and criticizes social welfare programs.
-
-#### Case 2: Ways of Saving Money & Financial Psychology (`prof_frugality_vs_lavishness`, `prof_money_attitude`)
-- **Lexical FTS5 Failure:** Searching `-s "strategia finansowa OR awersja do ryzyka"` returns **0 hits**. Searching `-s "oszczędzanie"` returns 1 irrelevant message about saving a computer file.
-- **Semantic Vector Win:** Running `--semantic "saving money, frugal habits, hunting for bargains, buying used goods, guilt when spending, fear of debt"` immediately surfaces:
-  - Threads where the subject discusses searching for used electronics on OLX rather than buying new.
-  - Threads where the subject mentions feeling visceral guilt after spending money at an expensive restaurant.
-  - A discussion refusing an interlocutor's suggestion to take a bank loan (*"kredyt to niewolnictwo"*).
-
-#### Case 3: Intimacy Ceilings & Emotional Defenses (`rom_intimacy_ceilings`, `rom_conflict_resolution`)
-- **Lexical FTS5 Failure:** Searching `-s "lęk przed bliskością OR dewaluacja"` returns **0 hits**.
-- **Semantic Vector Win:** Running `--semantic "fear of vulnerability, deflecting emotional intimacy with humor, avoiding future plans, sudden withdrawal"` immediately retrieves:
-  - A dialogue where the partner asks where the relationship is going, and the subject deflects by making a joke about buying a dog and then goes silent for 24 hours.
-
----
-
-### 6.2 Probing Lexicon Table
+| Analytical Target | Polish Query Keywords (`-s`, `-st`) | English / Semantic Vector Queries (`--semantic`) | Primary Focus & Diagnostic Questions |
+| :--- | :--- | :--- | :--- |
 
 | Analytical Target | Polish Query Keywords (`-s`, `-st`) | English / Semantic Vector Queries (`--semantic`) | Primary Focus & Diagnostic Questions |
 | :--- | :--- | :--- | :--- |
