@@ -147,7 +147,31 @@ When executing direct SQL queries against `chat.db`:
 - `is_acute_emotional_peak` (BOOLEAN): Affective extreme flag (Radar 2).
 - `peak_type` (TEXT): `profound_sadness`, `euphoric_joy`, `intense_rage`.
 - `is_advice_seeking` (BOOLEAN): Intimate dilemma / advice seeking (Radar 3).
+- `mentions_third_party` (BOOLEAN): Mentions or discusses external third party (Radar 4).
 - `triage_reason` (TEXT): Concise rationale.
+
+### `chat_entities` Table (Registered Third-Party Individuals Scoped to Chat)
+- `entity_id` (TEXT NOT NULL): Slugified entity key (e.g. `caleb`, `dustin`).
+- `chat_id` (TEXT NOT NULL): Scoped conversation stream (`PRIMARY KEY (chat_id, entity_id)`).
+- `name_or_alias` (TEXT NOT NULL): Personal name or alias.
+- `verified_role` (TEXT): Verified relationship role (e.g. `ex-partner`, `platonic friend`).
+- `associated_descriptors` (TEXT): Geographic, occupational, or social labels (`US guy, Oregon`).
+- `is_ex_partner` (INTEGER DEFAULT 0): Explicit binary flag.
+- `is_romantic` (INTEGER DEFAULT 0): Explicit binary romantic flag.
+- `confidence` (TEXT DEFAULT 'unverified'): Verification status (`verified`, `unverified`, `hypothetical`).
+- `first_msg_id` (INTEGER): Message ID introducing the individual.
+- `notes` (TEXT): Biographical anchors and disambiguation notes.
+- `created_at`, `updated_at` (TEXT ISO8601).
+
+### `chat_descriptors` Table (Audited Role & Geographic Descriptors with Cardinality)
+- `chat_id` (TEXT NOT NULL): Scoped conversation stream (`PRIMARY KEY (chat_id, descriptor)`).
+- `descriptor` (TEXT NOT NULL): Normalized lowercase descriptor (`sister`, `us guy`).
+- `cardinality` (TEXT NOT NULL): `SINGLETON_K1` vs `POLYSEMOUS_K_GT_1` or `UNRESOLVED`.
+- `estimated_count` (INTEGER DEFAULT 1): Number of distinct entities sharing this descriptor.
+- `mapped_entity_ids` (TEXT): Comma-separated list of mapped entities.
+- `evidence_msg_ids` (TEXT): Anchors demonstrating plurality or singleton identity.
+- `needs_recheck` (INTEGER DEFAULT 0): Automatically set to 1 on chat file manifest refresh.
+- `audited_at` (TEXT ISO8601).
 
 ---
 

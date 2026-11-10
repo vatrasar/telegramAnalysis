@@ -246,6 +246,65 @@ def extract_intensive_threads(
     ]
 
 
+def fetch_entities_and_descriptors(
+    conn: sqlite3.Connection,
+    chat_id: Optional[str] = None
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Fetch registered chat entities and audited descriptors."""
+    cur = conn.cursor()
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='chat_entities';")
+    has_ent = cur.fetchone()[0] > 0
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='chat_descriptors';")
+    has_desc = cur.fetchone()[0] > 0
+
+    entities = []
+    if has_ent:
+        sql = """
+        SELECT name_or_alias, verified_role, is_ex_partner, is_romantic, associated_descriptors, notes, first_msg_id
+        FROM chat_entities
+        """
+        params: List[Any] = []
+        if chat_id:
+            sql += " WHERE chat_id = ?"
+            params.append(chat_id)
+        sql += " ORDER BY name_or_alias ASC"
+        cur.execute(sql, params)
+        for r in cur.fetchall():
+            entities.append({
+                "name": r[0],
+                "role": r[1] or "",
+                "is_ex": bool(r[2]),
+                "is_romantic": bool(r[3]),
+                "descriptors": r[4] or "",
+                "notes": r[5] or "",
+                "first_msg": r[6]
+            })
+
+    descriptors = []
+    if has_desc:
+        sql = """
+        SELECT descriptor, cardinality, estimated_count, mapped_entity_ids, needs_recheck, evidence_msg_ids
+        FROM chat_descriptors
+        """
+        params = []
+        if chat_id:
+            sql += " WHERE chat_id = ?"
+            params.append(chat_id)
+        sql += " ORDER BY descriptor ASC"
+        cur.execute(sql, params)
+        for r in cur.fetchall():
+            descriptors.append({
+                "descriptor": r[0],
+                "cardinality": r[1],
+                "count": r[2],
+                "mapped_entities": r[3] or "",
+                "needs_recheck": bool(r[4]),
+                "evidence_ids": r[5] or ""
+            })
+
+    return entities, descriptors
+
+
 def render_thread_entry(
     triage_info: Optional[Dict[str, Any]],
     meta_info: Dict[str, Any],
@@ -343,6 +402,9 @@ def generate_scratchpad(
         
     # Fetch thread metadata & dialogues
     metadata_map = fetch_threads_metadata(conn, list(thread_ids_to_fetch))
+
+    # Fetch registered entities and audited descriptors
+    entities, descriptors = fetch_entities_and_descriptors(conn, chat_id=chat_id)
     conn.close()
 
     # Track seen threads to avoid duplicating the full dialogue block if in multiple sections
@@ -360,11 +422,47 @@ def generate_scratchpad(
         f.write("> **Purpose:** Persistent investigation ledger for batch-auditing dialogue anomalies, emotional peaks, advice dilemmas, and substantive discussions. Agent records verbatim quotes, psychological mechanisms, and thematic tags here BEFORE drafting final report chapters, preventing context exhaustion.\n\n")
         
         f.write("## Table of Ledger Sections\n\n")
+        f.write("- [0. Third-Party Entities & Role Descriptors](#0-third-party-entities--role-descriptors)\n")
         f.write("- [1. Radar 1: Behavioral Anomalies & Interlocutor Shock](#1-radar-1-behavioral-anomalies--interlocutor-shock)\n")
         f.write("- [2. Radar 2: Acute Emotional Peaks & Dyadic Gravity](#2-radar-2-acute-emotional-peaks--dyadic-gravity)\n")
         f.write("- [3. Radar 3: Confessions & Advice Seeking](#3-radar-3-confessions--advice-seeking)\n")
         f.write("- [4. Other High-Salience Triaged Threads](#4-other-high-salience-triaged-threads)\n")
         f.write("- [5. Top Substantive & Intensive Discussions](#5-top-substantive--intensive-discussions)\n\n")
+        f.write("---\n\n")
+
+        # Section 0: Entities and Descriptors
+        f.write("## 0. Third-Party Entities & Role Descriptors\n\n")
+        f.write("> [!IMPORTANT]\n")
+        f.write("> **Anti-Conflation & Cardinality Safeguards:**\n")
+        f.write("> - **Hermetic Chat-Level Scoping:** All entities and descriptors are strictly scoped to this chat. Never transpose attributes across different files.\n")
+        f.write("> - **Polysemous Roles (K > 1):** Descriptors marked `POLYSEMOUS_K_GT_1` represent roles shared by multiple individuals. Attributing messages or traits using bare pronouns (*he*, *she*) without a verified proper name anchor in $N-5 \\dots N$ is strictly prohibited.\n")
+        f.write("> - **Next-Turn Proof ($N+1 \\dots N+5$):** If an interlocutor refutes an attribution (e.g. *\"not my ex btw\"*), the proposition cannot be adopted as truth.\n\n")
+
+        f.write("### 👥 Registered Third-Party Entities\n\n")
+        if not entities:
+            f.write("_No third-party entities registered yet. Use `query_chat.py --register-entity <name> --role <role>` to register._\n\n")
+        else:
+            f.write("| Name / Alias | Verified Role | Ex-Partner? | Romantic? | Associated Descriptors / Traits | Notes | First Msg Anchor |\n")
+            f.write("| :--- | :--- | :---: | :---: | :--- | :--- | :--- |\n")
+            for e in entities:
+                ex_tag = "YES" if e["is_ex"] else "no"
+                rom_tag = "YES" if e["is_romantic"] else "no"
+                first_msg = f"[#{e['first_msg']}]" if e["first_msg"] else "-"
+                f.write(f"| **{e['name']}** | {e['role']} | {ex_tag} | {rom_tag} | {e['descriptors']} | {e['notes']} | {first_msg} |\n")
+            f.write("\n")
+
+        f.write("### 🏷️ Audited Descriptors & Role Cardinality\n\n")
+        if not descriptors:
+            f.write("_No descriptors audited yet. Use `query_chat.py --audit-descriptor <descriptor>` on demand._\n\n")
+        else:
+            f.write("| Descriptor | Cardinality Class | Estimated Count | Needs Recheck? | Mapped Entity IDs | Sample Evidence Msg IDs |\n")
+            f.write("| :--- | :---: | :---: | :---: | :--- | :--- |\n")
+            for d in descriptors:
+                recheck_tag = "⚠️ **YES**" if d["needs_recheck"] else "OK"
+                card_badge = f"`{d['cardinality']}`"
+                f.write(f"| **{d['descriptor']}** | {card_badge} | {d['count']} | {recheck_tag} | {d['mapped_entities'] or '-'} | {d['evidence_ids'] or '-'} |\n")
+            f.write("\n")
+
         f.write("---\n\n")
 
         # Section 1: Radar 1
@@ -439,6 +537,18 @@ def generate_scratchpad(
     with open(hypothesis_path, "w", encoding="utf-8") as f:
         f.write("# Working Hypothesis Matrix & Tag Index\n\n")
         f.write("> **Purpose:** Cross-cutting synthesis board. As the agent audits threads in `evidence_ledger.md`, it records emergent hypotheses here grouped by thematic chapters (Spheres A–F, OCEAN, Attachment, Operational Manual).\n\n")
+        f.write("## Entity Disambiguation Baseline\n\n")
+        if entities:
+            ent_names = ", ".join(f"`{e['name']}` ({e['role']})" for e in entities)
+            f.write(f"- **Registered Entities ({len(entities)}):** {ent_names}\n")
+        else:
+            f.write("- **Registered Entities:** None recorded yet.\n")
+        if descriptors:
+            desc_items = ", ".join(f"`{d['descriptor']}` ({d['cardinality']})" for d in descriptors)
+            f.write(f"- **Audited Descriptors ({len(descriptors)}):** {desc_items}\n")
+        else:
+            f.write("- **Audited Descriptors:** None recorded yet.\n")
+        f.write("\n---\n\n")
         f.write("## Thematic Chapter Mapping\n\n")
         f.write("| Chapter / Sphere | Relevant Ledger Tags | Emergent Core Hypotheses & Evidence Links |\n")
         f.write("| :--- | :--- | :--- |\n")

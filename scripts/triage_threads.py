@@ -21,7 +21,7 @@ import argparse
 import datetime
 import urllib.request
 import urllib.error
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Directory paths
@@ -60,6 +60,7 @@ def init_triage_table(conn: sqlite3.Connection):
         interlocutor_surprised INTEGER DEFAULT 0,
         emotional_peak TEXT DEFAULT 'none',
         is_advice_seeking INTEGER DEFAULT 0,
+        mentions_third_party INTEGER DEFAULT 0,
         anomaly_notes TEXT,
         raw_response TEXT,
         triaged_at TEXT NOT NULL
@@ -76,6 +77,8 @@ def init_triage_table(conn: sqlite3.Connection):
         cur.execute("ALTER TABLE thread_triage ADD COLUMN emotional_peak TEXT DEFAULT 'none'")
     if "is_advice_seeking" not in existing_cols:
         cur.execute("ALTER TABLE thread_triage ADD COLUMN is_advice_seeking INTEGER DEFAULT 0")
+    if "mentions_third_party" not in existing_cols:
+        cur.execute("ALTER TABLE thread_triage ADD COLUMN mentions_third_party INTEGER DEFAULT 0")
     if "anomaly_notes" not in existing_cols:
         cur.execute("ALTER TABLE thread_triage ADD COLUMN anomaly_notes TEXT")
 
@@ -85,6 +88,7 @@ def init_triage_table(conn: sqlite3.Connection):
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_surprised ON thread_triage(interlocutor_surprised);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_peak ON thread_triage(emotional_peak);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_advice ON thread_triage(is_advice_seeking);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_third_party ON thread_triage(mentions_third_party);")
     conn.commit()
 
 
@@ -173,6 +177,13 @@ def call_openrouter_decisions(
                     "Does a participant explicitly ask for advice on a personal problem, express a moral/life dilemma ('what should I do?'), "
                     "or announce an intimate personal confession ('I need to confess something', 'can I tell you something in confidence')?"
                 )
+            },
+            "mentions_third_party_person": {
+                "type": "noul",
+                "instructions": (
+                    "Does this dialogue explicitly mention, discuss, quote, or introduce an external third-party person "
+                    "(e.g. friend, suitor, ex-partner, coworker, boss, family member, acquaintance) other than the two main chat participants?"
+                )
             }
         }
     }
@@ -204,6 +215,7 @@ def call_openrouter_decisions(
                 emotional_peak = "none"
 
             is_advice_seeking = 1 if float(answers.get("is_advice_seeking", {}).get("noul", 0.0)) >= 0.5 else 0
+            mentions_third_party = 1 if float(answers.get("mentions_third_party_person", {}).get("noul", 0.0)) >= 0.5 else 0
 
             # Escalation policy:
             # High priority flags ALWAYS escalate and get salience score boosted
@@ -225,6 +237,8 @@ def call_openrouter_decisions(
                 reason_parts.append(f"peak:{emotional_peak}")
             if is_advice_seeking:
                 reason_parts.append("advice/confession")
+            if mentions_third_party:
+                reason_parts.append("third_party")
 
             notes_parts = []
             if is_atypical:
@@ -235,6 +249,8 @@ def call_openrouter_decisions(
                 notes_parts.append(f"Peak: {emotional_peak}")
             if is_advice_seeking:
                 notes_parts.append("Advice seeking/confession")
+            if mentions_third_party:
+                notes_parts.append("Mentions third party")
 
             return {
                 "escalate": 1 if should_escalate else 0,
@@ -245,6 +261,7 @@ def call_openrouter_decisions(
                 "interlocutor_surprised": interlocutor_surprised,
                 "emotional_peak": emotional_peak,
                 "is_advice_seeking": is_advice_seeking,
+                "mentions_third_party": mentions_third_party,
                 "anomaly_notes": ", ".join(notes_parts),
                 "reason": ", ".join(reason_parts),
                 "raw_response": json.dumps(resp_data)
@@ -295,7 +312,9 @@ def call_openrouter_chat_completions(
         "3. emotional_peak: Set to 'profound_sadness' (acute grief, tragic news, crying, deep condolences/consoling by interlocutor), "
         "'euphoric_joy' (intense happiness, celebration, infatuation, relief), 'intense_rage' (fury, verbal aggression), or 'none'.\n"
         "4. is_advice_seeking: Set true if a participant explicitly asks for advice, expresses a personal dilemma ('what should I do?'), "
-        "or announces an intimate confession ('I need to confess something').\n\n"
+        "or announces an intimate confession ('I need to confess something').\n"
+        "5. mentions_third_party: Set true if this dialogue explicitly mentions, discusses, quotes, or introduces an external third-party person "
+        "(e.g. friend, suitor, ex-partner, coworker, boss, family member, acquaintance) other than the two main chat participants.\n\n"
         "Respond ONLY with a valid JSON object matching this schema:\n"
         "{\n"
         '  "escalate_to_llm": boolean,\n'
@@ -306,6 +325,7 @@ def call_openrouter_chat_completions(
         '  "interlocutor_surprised": boolean,\n'
         '  "emotional_peak": "none" | "profound_sadness" | "euphoric_joy" | "intense_rage",\n'
         '  "is_advice_seeking": boolean,\n'
+        '  "mentions_third_party": boolean,\n'
         '  "anomaly_notes": "Short 1-sentence description if special radars triggered, otherwise empty string",\n'
         '  "reason": "1-sentence concise diagnostic rationale"\n'
         "}"
@@ -348,6 +368,7 @@ def call_openrouter_chat_completions(
             if emotional_peak not in ("none", "profound_sadness", "euphoric_joy", "intense_rage"):
                 emotional_peak = "none"
             is_advice_seeking = bool(parsed.get("is_advice_seeking", False))
+            mentions_third_party = bool(parsed.get("mentions_third_party", False))
             anomaly_notes = str(parsed.get("anomaly_notes", "")).strip()
 
             has_special_flag = is_atypical or interlocutor_surprised or (emotional_peak != "none") or is_advice_seeking
@@ -368,6 +389,7 @@ def call_openrouter_chat_completions(
                 "interlocutor_surprised": 1 if interlocutor_surprised else 0,
                 "emotional_peak": emotional_peak,
                 "is_advice_seeking": 1 if is_advice_seeking else 0,
+                "mentions_third_party": 1 if mentions_third_party else 0,
                 "anomaly_notes": anomaly_notes,
                 "reason": reason,
                 "raw_response": content
@@ -408,6 +430,7 @@ def evaluate_single_thread(
             "interlocutor_surprised": 0,
             "emotional_peak": "none",
             "is_advice_seeking": 0,
+            "mentions_third_party": 0,
             "anomaly_notes": "",
             "reason": "Thread empty or under 10 chars",
             "raw_response": "{}"
@@ -472,6 +495,10 @@ def print_reduction_report(conn: sqlite3.Connection):
     cur.execute("SELECT count(*) FROM thread_triage WHERE is_advice_seeking = 1")
     advice_count = cur.fetchone()[0]
 
+    # Radar 4: Third-Party Mentions
+    cur.execute("SELECT count(*) FROM thread_triage WHERE mentions_third_party = 1")
+    third_party_count = cur.fetchone()[0]
+
     cur.execute("""
     SELECT sum(m.word_count)
     FROM messages m
@@ -504,6 +531,7 @@ def print_reduction_report(conn: sqlite3.Connection):
     print(f"  ⚡ Radar 1 (Anomalies & Shocks):      {atypical_count + surprised_count} flags (Atypical: {atypical_count}, Surprised: {surprised_count})")
     print(f"  🎭 Radar 2 (Acute Emotional Peaks):    {peaks_count} threads (😢 Sadness/Grief: {sadness_count}, 🎉 Joy/Euphoria: {joy_count}, 😡 Rage: {rage_count})")
     print(f"  💡 Radar 3 (Confessions & Advice):     {advice_count} threads")
+    print(f"  👤 Radar 4 (Third-Party Mentions):     {third_party_count} threads")
     print("=" * 80)
 
     cur.execute("""
@@ -716,9 +744,9 @@ def run_triage(
                 cur.execute("""
                 INSERT OR REPLACE INTO thread_triage
                 (thread_id, chat_id, salience_score, escalate, primary_category, confidence, reason,
-                 is_atypical, interlocutor_surprised, emotional_peak, is_advice_seeking,
+                 is_atypical, interlocutor_surprised, emotional_peak, is_advice_seeking, mentions_third_party,
                  anomaly_notes, raw_response, triaged_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     result["thread_id"],
                     result["chat_id"],
@@ -731,6 +759,7 @@ def run_triage(
                     result.get("interlocutor_surprised", 0),
                     result.get("emotional_peak", "none"),
                     result.get("is_advice_seeking", 0),
+                    result.get("mentions_third_party", 0),
                     result.get("anomaly_notes", ""),
                     result.get("raw_response", ""),
                     now_iso
@@ -749,6 +778,8 @@ def run_triage(
                     icons.append("😡")
                 if result.get("is_advice_seeking"):
                     icons.append("💡")
+                if result.get("mentions_third_party"):
+                    icons.append("👤")
                 if not icons:
                     icons.append("🟢" if result["escalate"] == 1 else "⚪")
 
@@ -781,6 +812,112 @@ def run_triage(
     print_reduction_report(conn)
     conn.close()
     return 0
+
+
+def verify_unregistered_entities_decider(
+    dialogue_text: str,
+    known_names: List[str],
+    model: str,
+    api_key: str,
+    max_retries: int = 3
+) -> Tuple[bool, float]:
+    """Adversarial System-1 watchdog: verify whether dialogue mentions any third-party person NOT in known_names."""
+    url = "https://openrouter.ai/api/alpha/decisions"
+    headers = {
+        "Authorization": f"Bearer {api_key.strip()}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/vatrasar/telegramAnalysis",
+        "X-Title": "Entity Watchdog Decision"
+    }
+
+    trimmed_text = dialogue_text[:16000]
+    known_str = ", ".join(f"'{name}'" for name in known_names) if known_names else "none"
+
+    instructions = (
+        f"We have already identified and registered the following individuals: [{known_str}]. "
+        f"Does this dialogue explicitly mention, discuss, quote, or introduce any OTHER external third-party person, suitor, "
+        f"acquaintance, coworker, or relative whose personal name or identity is NOT among the registered individuals listed above?"
+    )
+
+    is_decision_model = any(k in model.lower() for k in ["decider", "decision", "jev", "systemone"])
+
+    if is_decision_model:
+        payload = {
+            "model": model,
+            "state": trimmed_text,
+            "questions": {
+                "has_unregistered_third_party": {
+                    "type": "noul",
+                    "instructions": instructions
+                }
+            }
+        }
+        req_data = json.dumps(payload).encode("utf-8")
+        for attempt in range(max_retries):
+            try:
+                req = urllib.request.Request(url, data=req_data, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    resp_data = json.loads(resp.read().decode("utf-8"))
+                answers = resp_data.get("answers", {})
+                prob = float(answers.get("has_unregistered_third_party", {}).get("noul", 0.0))
+                return (prob >= 0.5, prob)
+            except urllib.error.HTTPError as e:
+                err_msg = e.read().decode("utf-8", errors="ignore")
+                if e.code == 429 and attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                raise RuntimeError(f"OpenRouter Decisions API error {e.code}: {err_msg}")
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    time.sleep(1.5 ** attempt)
+                    continue
+                raise e
+    else:
+        chat_url = "https://openrouter.ai/api/v1/chat/completions"
+        system_prompt = (
+            "You are an adversarial entity verification watchdog. "
+            "Determine if a conversation mentions any third-party person NOT in the provided list of known names.\n"
+            "Respond ONLY with a valid JSON object: {\"has_unregistered_third_party\": boolean, \"probability\": number}"
+        )
+        user_prompt = f"Known registered entities: [{known_str}]\n\nDialogue text:\n{trimmed_text}\n\nQuestion: {instructions}"
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.0,
+            "max_tokens": 100
+        }
+        req_data = json.dumps(payload).encode("utf-8")
+        for attempt in range(max_retries):
+            try:
+                req = urllib.request.Request(chat_url, data=req_data, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    resp_data = json.loads(resp.read().decode("utf-8"))
+                content = resp_data["choices"][0]["message"]["content"].strip()
+                if content.startswith("```"):
+                    content = content.split("```")[1]
+                    if content.startswith("json"):
+                        content = content[4:].strip()
+                parsed = json.loads(content)
+                flag = bool(parsed.get("has_unregistered_third_party", False))
+                prob = float(parsed.get("probability", 1.0 if flag else 0.0))
+                return (flag, prob)
+            except urllib.error.HTTPError as e:
+                err_msg = e.read().decode("utf-8", errors="ignore")
+                if e.code == 429 and attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                raise RuntimeError(f"OpenRouter Chat API error {e.code}: {err_msg}")
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    time.sleep(1.5 ** attempt)
+                    continue
+                raise e
+
+    raise RuntimeError("Max retries exceeded calling verify_unregistered_entities_decider.")
 
 
 def main():

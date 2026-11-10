@@ -222,6 +222,43 @@ def create_schema(conn: sqlite3.Connection):
     );
     """)
 
+    # Chat scoped third-party entities table
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS chat_entities (
+        entity_id TEXT NOT NULL,
+        chat_id TEXT NOT NULL,
+        name_or_alias TEXT NOT NULL,
+        verified_role TEXT,
+        associated_descriptors TEXT,
+        is_ex_partner INTEGER DEFAULT 0,
+        is_romantic INTEGER DEFAULT 0,
+        confidence TEXT DEFAULT 'unverified',
+        first_msg_id INTEGER,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (chat_id, entity_id)
+    );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_entities_chat ON chat_entities(chat_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_entities_name ON chat_entities(chat_id, name_or_alias);")
+
+    # Chat scoped role descriptors & cardinality table
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS chat_descriptors (
+        chat_id TEXT NOT NULL,
+        descriptor TEXT NOT NULL,
+        cardinality TEXT NOT NULL,
+        estimated_count INTEGER DEFAULT 1,
+        mapped_entity_ids TEXT,
+        evidence_msg_ids TEXT,
+        needs_recheck INTEGER DEFAULT 0,
+        audited_at TEXT NOT NULL,
+        PRIMARY KEY (chat_id, descriptor)
+    );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_desc_chat ON chat_descriptors(chat_id);")
+
     conn.commit()
 
 
@@ -610,6 +647,9 @@ def insert_chat_data(
             (file_path, chat_id, file_hash, file_size, last_modified, message_count, max_message_id, ingested_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?);
             """, (abs_sf, chat_id, f_hash, f_size, f_mtime, len(processed_msgs), max_id, now_iso))
+
+    # Mark existing descriptors for this chat as needing recheck upon manifest update
+    cur.execute("UPDATE chat_descriptors SET needs_recheck = 1 WHERE chat_id = ?;", (chat_id,))
 
     return len(processed_msgs), len(threads_data), len(gap_rows)
 
