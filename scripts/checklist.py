@@ -758,6 +758,16 @@ def list_checklist_items(
     ]
 
 
+def check_gate(conn: sqlite3.Connection, chat_id: str) -> int:
+    """Check pipeline blocking gate. Returns 0 if complete or waived, 1 if pending items remain."""
+    stats = get_checklist_stats(conn, chat_id)
+    if stats.get("is_waived"):
+        return 0
+    if stats.get("total", 0) == 0:
+        return 1
+    return 0 if stats.get("is_complete", False) else 1
+
+
 def print_status_summary(stats: Dict[str, Any]):
     """Print a clean human-readable dashboard of checklist progress."""
     print("=" * 72)

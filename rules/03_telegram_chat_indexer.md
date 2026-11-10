@@ -144,6 +144,35 @@ python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --skip
 
 ---
 
+### 2.5 Dual Checklist Gating & Progress Tracking
+Track and enforce 100% resolution of investigative dimensions and substantive threads before report compilation:
+```bash
+# Life Spheres 46-Item Investigation Status:
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id>" --checklist
+python3 project/scripts/checklist.py -C "<chat_id>" --status
+python3 project/scripts/checklist.py -C "<chat_id>" --check
+
+# Thread Forensic Audit Checklist (Track B - Radars 1-3 + Intensive Threads):
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id>" --threads-checklist
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id>" --next-thread
+python3 project/scripts/thread_checklist.py -C "<chat_id>" --status
+python3 project/scripts/thread_checklist.py -C "<chat_id>" --next
+python3 project/scripts/thread_checklist.py -C "<chat_id>" --check
+
+# Updating a Thread Audit Record:
+python3 project/scripts/thread_checklist.py -C "<chat_id>" --update <thread_id> \
+  --set-status completed \
+  --findings "Analytical takeaways..." \
+  --quotes "[#ID | YYYY-MM-DD] \"Quote\"" \
+  --tags "#defense #attachment"
+
+# Safety Waivers for Ad-Hoc / Q&A Tasks:
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id>" --waive-checklist --reason "Ad-hoc task"
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id>" --waive-threads-checklist --reason "Ad-hoc task"
+```
+
+---
+
 ## 3. Mandatory Chat Data Ingestion Skill Activation Gate
 
 To preserve system context, data engineering pipelines, database parsing tools, vectorization scripts, and SQLite schemas are maintained in a specialized skill:

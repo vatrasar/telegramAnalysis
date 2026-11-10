@@ -171,6 +171,17 @@ def main():
         action="store_true",
         help="Disable automatic Table of Contents generation"
     )
+    parser.add_argument(
+        "--db",
+        type=str,
+        default=None,
+        help="Path to SQLite database to verify checklist and thread audit gates before assembly"
+    )
+    parser.add_argument(
+        "--check-gates",
+        action="store_true",
+        help="Enforce hard-stop verification of life spheres and thread audit checklists before assembly"
+    )
 
     args = parser.parse_args()
 
@@ -182,6 +193,39 @@ def main():
     if not files:
         print("[!] No section files found to assemble.", file=sys.stderr)
         sys.exit(1)
+
+    # Gatekeeper verification if requested or if db provided with --check-gates
+    if args.check_gates or args.db:
+        db_path = args.db or "chat.db"
+        if os.path.exists(db_path):
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            cur = conn.cursor()
+            cur.execute("SELECT chat_id FROM chats LIMIT 1;")
+            c_row = cur.fetchone()
+            cid = c_row[0] if c_row else None
+
+            if cid:
+                try:
+                    from checklist import check_gate as check_spheres_gate
+                    from thread_checklist import check_gate as check_threads_gate
+                except ImportError:
+                    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+                    from checklist import check_gate as check_spheres_gate
+                    from thread_checklist import check_gate as check_threads_gate
+
+                print(f"[*] Verifying Hard-Stop Blocking Gates for chat '{cid}' in '{db_path}'...")
+                spheres_code = check_spheres_gate(conn, cid)
+                threads_code = check_threads_gate(conn, cid)
+                conn.close()
+
+                if spheres_code != 0 or threads_code != 0:
+                    print("\n[!] ASSEMBLY BLOCKED: One or more investigative gates failed!", file=sys.stderr)
+                    print("    You must resolve 100% of checklist dimensions and thread audits before assembling.", file=sys.stderr)
+                    sys.exit(1)
+                print("[✓] All investigative gates passed successfully.\n")
+            else:
+                conn.close()
 
     print(f"[*] Assembling {len(files)} section files:")
     for f in files:

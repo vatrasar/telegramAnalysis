@@ -63,11 +63,13 @@ When the user asks a specific question about the chat (e.g. *"What did X say abo
    - **DO NOT** initialize or enforce the life spheres checklist (`checklist.py`).
    - **DO NOT** force an 8-part psychological dossier, Big Five ratings, or life spheres audits unless the user specifically asks for personality profiling.
 5. **Safety Waiver Mechanism for Ad-Hoc / Partial Tasks:**
-   If the database already contains an active checklist (e.g. from a prior session or ingestion) and the task does not require life spheres profiling, the agent can explicitly waive/disable the checklist for safety:
+   If the database already contains an active checklist (e.g. from a prior session or ingestion) and the task does not require life spheres or full thread profiling, the agent can explicitly waive/disable the checklists for safety:
    ```bash
    python3 project/scripts/checklist.py -C <chat_id> --waive --reason "Ad-hoc task: Q&A inquiry"
+   python3 project/scripts/thread_checklist.py -C <chat_id> --waive --reason "Ad-hoc task: Q&A inquiry"
    # or via query_chat:
    python3 project/scripts/query_chat.py -C <chat_id> --waive-checklist --reason "Ad-hoc task: Q&A inquiry"
+   python3 project/scripts/query_chat.py -C <chat_id> --waive-threads-checklist --reason "Ad-hoc task: Q&A inquiry"
    ```
    This immediately marks all pending items as `not_applicable` and records the exemption in SQLite metadata, ensuring the agent is not blocked by pipeline gates.
 
@@ -97,8 +99,30 @@ python3 project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_s
 - **Third-Party Watchdog Verification:** For complex multi-party threads, apply the System-1 Watchdog loop to ensure no secondary entities were overlooked.
 - Cross-examine words vs. actions across the longitudinal timeline.
 
-#### Step B.4: Intensive Discussions & Life Spheres Audit
-- Audit substantive debates using the 3-Point Thread Inspection Method (Trigger $\to$ Peak $\to$ Exit).
+#### Step B.4: Intensive Discussions, Substantive Threads & Life Spheres Audit
+
+##### B.4a: Substantive Threads Forensic Audit (`thread_checklist.py`)
+To prevent the agent from skipping triaged psychological moments or relying only on superficial keyword searches, all high-salience and intensive threads are tracked in a dedicated SQLite checklist table (`thread_audit_checklist`):
+1. **Initialize the Thread Audit Checklist:**
+   Enrolls Radars 1, 2, 3, high-salience (score $\ge 2.0$), and top intensive discussions into SQLite:
+   ```bash
+   python3 project/scripts/thread_checklist.py --init -C <chat_id>
+   ```
+   *(Note: Pure Radar 4 third-party name threads are excluded here; they are handled via the Watchdog entity scanner).*
+2. **Audit Threads Turn-by-Turn:**
+   Inspect the next pending thread and record detailed psychological findings, defenses, and verbatim quote anchors:
+   ```bash
+   python3 project/scripts/thread_checklist.py -C <chat_id> --next
+   # Read transcript:
+   python3 project/scripts/query_chat.py -t <thread_id>
+   # Record findings:
+   python3 project/scripts/thread_checklist.py -C <chat_id> --update <thread_id> --set-status completed \
+     --findings "Demonstrates dismissive attachment: stonewalls upon partner's emotional demand" \
+     --quotes "[#1234 | 2024-11-08] \"I don't need anyone's help\"" \
+     --tags "#attachment #stonewalling"
+   ```
+
+##### B.4b: Life Spheres 46-Item Systematic Probing (`checklist.py`)
 - **Mandatory Skill Activation:** Activate the `life-spheres-investigation` skill to retrieve forensic probing criteria and the master bilingual lexicon across all 6 life spheres.
 - **Mandatory Database Checklist Initialization:**
   Initialize the complete 46-item forensic life spheres checklist in SQLite:
@@ -119,12 +143,17 @@ python3 project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_s
     ```bash
     python3 project/scripts/checklist.py -C <chat_id> --batch-update item1 item2 --set-status completed --notes "..."
     ```
-- **Hard Stop Blocking Gate before Step B.5 (100% Resolution Rule):**
-  The agent is **STRICTLY FORBIDDEN** from moving to Step B.5 (Dossier Assembly) or drafting final profile chapters until all 46 items are resolved (0 `pending` items remaining). Verify via:
-  ```bash
-  python3 project/scripts/checklist.py --check -C <chat_id>
-  ```
-  If `checklist.py --check` exits with code 1 (`PENDING_ITEMS_REMAIN`), review the printed list of pending items, execute targeted queries for each, and resolve their status before proceeding.
+
+#### The Dual Hard-Stop Blocking Gate before Step B.5 (100% Resolution Rule):
+The agent is **STRICTLY FORBIDDEN** from moving to Step B.5 (Dossier Assembly) or drafting final profile chapters until **BOTH** checklists are 100% resolved (0 `pending` items and 0 `pending` threads remaining):
+```bash
+# Gate 1: Substantive Threads Audit Gate
+python3 project/scripts/thread_checklist.py --check -C <chat_id>
+
+# Gate 2: Life Spheres 46-Item Checklist Gate
+python3 project/scripts/checklist.py --check -C <chat_id>
+```
+If either gate exits with code 1 (`PENDING_REMAIN`), the agent must inspect remaining pending items/threads and resolve their status before proceeding.
 
 #### Step B.5: Diagnostic Frameworks & Modular Dossier Assembly
 - **Mandatory Skill Activation:** Activate `forensic-personality-frameworks` for Big Five (OCEAN) conversational markers and Attachment Style classification.

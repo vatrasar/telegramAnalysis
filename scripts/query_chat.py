@@ -2435,6 +2435,9 @@ def main():
     parser.add_argument("--batch-json", type=str, help="JSON string or file path containing multiple query directives")
     parser.add_argument("--checklist", action="store_true", help="Display life spheres investigation checklist status")
     parser.add_argument("--waive-checklist", action="store_true", help="Waive/disable life spheres checklist for ad-hoc / partial tasks")
+    parser.add_argument("--threads-checklist", action="store_true", help="Display thread audit checklist status (Track B - Substantive threads)")
+    parser.add_argument("--next-thread", action="store_true", help="Display next pending thread waiting for audit in thread checklist")
+    parser.add_argument("--waive-threads-checklist", action="store_true", help="Waive/disable thread audit checklist for ad-hoc / partial tasks")
     parser.add_argument("--reason", type=str, default="Ad-hoc task / partial inquiry (full profiling not required)", help="Reason for waiving checklist")
 
     # Entity Disambiguation & Descriptor Registry flags
@@ -2633,6 +2636,65 @@ def main():
             print(json.dumps(stats, indent=2, ensure_ascii=False))
         else:
             print_status_summary(stats)
+        return
+
+    # 6b. Thread Audit Checklist (Track B - Substantive & Intensive Threads)
+    if args.waive_threads_checklist:
+        try:
+            from thread_checklist import waive_thread_checklist
+        except ImportError:
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from thread_checklist import waive_thread_checklist
+
+        if not resolved_chat_id:
+            print("[!] Error: Multiple chats found in database. Please specify chat using -C <chat_id>.")
+            sys.exit(1)
+
+        conn = sqlite3.connect(args.db)
+        waived_count = waive_thread_checklist(conn, resolved_chat_id, reason=args.reason)
+        conn.close()
+        if args.json:
+            print(json.dumps({"action": "waive_thread_checklist", "chat_id": resolved_chat_id, "waived_threads": waived_count, "reason": args.reason}))
+        else:
+            print(f"[✓] Thread audit checklist WAIVED/DISABLED for chat '{resolved_chat_id}'.")
+            print(f"    Reason: {args.reason}")
+            print(f"    {waived_count} pending threads marked as not_applicable. Full thread audit is not required.")
+        return
+
+    if args.threads_checklist or batch_config.get("threads_checklist", False):
+        try:
+            from thread_checklist import get_thread_checklist_stats, print_thread_status
+        except ImportError:
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from thread_checklist import get_thread_checklist_stats, print_thread_status
+
+        if not resolved_chat_id:
+            print("[!] Error: Multiple chats found in database. Please specify chat using -C <chat_id>.")
+            sys.exit(1)
+
+        conn = sqlite3.connect(args.db)
+        stats = get_thread_checklist_stats(conn, resolved_chat_id)
+        conn.close()
+        if args.json:
+            print(json.dumps(stats, indent=2, ensure_ascii=False))
+        else:
+            print_thread_status(stats)
+        return
+
+    if args.next_thread:
+        try:
+            from thread_checklist import print_next_thread
+        except ImportError:
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from thread_checklist import print_next_thread
+
+        if not resolved_chat_id:
+            print("[!] Error: Multiple chats found in database. Please specify chat using -C <chat_id>.")
+            sys.exit(1)
+
+        conn = sqlite3.connect(args.db)
+        print_next_thread(conn, resolved_chat_id)
+        conn.close()
         return
 
     # Merge CLI flags with batch config
