@@ -48,7 +48,16 @@ When the user asks a specific question about the chat (e.g. *"What did X say abo
 4. **Prohibitions in Mode A:**
    - **DO NOT** initialize the research scratchpad (`export_scratchpad.py`).
    - **DO NOT** create chapter drafts or section files (`reports/<subject>_sections/`).
+   - **DO NOT** initialize or enforce the life spheres checklist (`checklist.py`).
    - **DO NOT** force an 8-part psychological dossier, Big Five ratings, or life spheres audits unless the user specifically asks for personality profiling.
+5. **Safety Waiver Mechanism for Ad-Hoc / Partial Tasks:**
+   If the database already contains an active checklist (e.g. from a prior session or ingestion) and the task does not require life spheres profiling, the agent can explicitly waive/disable the checklist for safety:
+   ```bash
+   python3 project/scripts/checklist.py -C <chat_id> --waive --reason "Ad-hoc task: Q&A inquiry"
+   # or via query_chat:
+   python3 project/scripts/query_chat.py -C <chat_id> --waive-checklist --reason "Ad-hoc task: Q&A inquiry"
+   ```
+   This immediately marks all pending items as `not_applicable` and records the exemption in SQLite metadata, ensuring the agent is not blocked by pipeline gates.
 
 ---
 
@@ -79,6 +88,31 @@ python3 project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_s
 #### Step B.4: Intensive Discussions & Life Spheres Audit
 - Audit substantive debates using the 3-Point Thread Inspection Method (Trigger $\to$ Peak $\to$ Exit).
 - **Mandatory Skill Activation:** Activate the `life-spheres-investigation` skill to retrieve forensic probing criteria and the master bilingual lexicon across all 6 life spheres.
+- **Mandatory Database Checklist Initialization:**
+  Initialize the complete 46-item forensic life spheres checklist in SQLite:
+  ```bash
+  python3 project/scripts/checklist.py --init -C <chat_id>
+  ```
+- **Systematic Probing & Status Resolution Protocol:**
+  The agent must audit every item across all 6 spheres and record the investigative outcome in `chat.db`:
+  - *Evidence Found:* Mark as `completed` with findings and citation anchors:
+    ```bash
+    python3 project/scripts/checklist.py -C <chat_id> --update <item_id> --set-status completed --notes "Identified uncompleted IT pivot [#1234 | 2021-03-04]" --queries "marzenie OR rzuciłem OR startup"
+    ```
+  - *Probed but Absent (No Data):* If lexical and semantic searches yield no relevant mentions, **the agent MUST explicitly record the probe attempt** in the database as `no_data`:
+    ```bash
+    python3 project/scripts/checklist.py -C <chat_id> --update <item_id> --set-status no_data --notes "Queried -s 'sport OR siłownia' --semantic 'exercise': 0 mentions found" --queries "sport OR siłownia"
+    ```
+  - *Batch Updates:* Rapidly reconcile multiple audited dimensions via:
+    ```bash
+    python3 project/scripts/checklist.py -C <chat_id> --batch-update item1 item2 --set-status completed --notes "..."
+    ```
+- **Hard Stop Blocking Gate before Step B.5 (100% Resolution Rule):**
+  The agent is **STRICTLY FORBIDDEN** from moving to Step B.5 (Dossier Assembly) or drafting final profile chapters until all 46 items are resolved (0 `pending` items remaining). Verify via:
+  ```bash
+  python3 project/scripts/checklist.py --check -C <chat_id>
+  ```
+  If `checklist.py --check` exits with code 1 (`PENDING_ITEMS_REMAIN`), review the printed list of pending items, execute targeted queries for each, and resolve their status before proceeding.
 
 #### Step B.5: Diagnostic Frameworks & Modular Dossier Assembly
 - **Mandatory Skill Activation:** Activate `forensic-personality-frameworks` for Big Five (OCEAN) conversational markers and Attachment Style classification.

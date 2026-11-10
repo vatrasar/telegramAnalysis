@@ -1999,6 +1999,9 @@ def main():
     # Agent productivity features
     parser.add_argument("--json", action="store_true", help="Output all results in structured JSON format")
     parser.add_argument("--batch-json", type=str, help="JSON string or file path containing multiple query directives")
+    parser.add_argument("--checklist", action="store_true", help="Display life spheres investigation checklist status")
+    parser.add_argument("--waive-checklist", action="store_true", help="Waive/disable life spheres checklist for ad-hoc / partial tasks")
+    parser.add_argument("--reason", type=str, default="Ad-hoc task / partial inquiry (full profiling not required)", help="Reason for waiving checklist")
 
     # Entity Disambiguation & Descriptor Registry flags
     parser.add_argument("--entities", action="store_true", help="Display catalog of registered third-party entities for the selected chat")
@@ -2124,6 +2127,49 @@ def main():
             print(json.dumps(watchdog_res, indent=2, ensure_ascii=False))
         else:
             print_watchdog_result(watchdog_res)
+        return
+
+    # 6. Life Spheres Investigation Checklist Status / Waiver
+    if args.waive_checklist:
+        try:
+            from checklist import waive_checklist
+        except ImportError:
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from checklist import waive_checklist
+
+        if not resolved_chat_id:
+            print("[!] Error: Multiple chats found in database. Please specify chat using -C <chat_id>.")
+            sys.exit(1)
+
+        conn = sqlite3.connect(args.db)
+        waived_count = waive_checklist(conn, resolved_chat_id, reason=args.reason)
+        conn.close()
+        if args.json:
+            print(json.dumps({"action": "waive", "chat_id": resolved_chat_id, "waived_items": waived_count, "reason": args.reason}))
+        else:
+            print(f"[✓] Life spheres checklist WAIVED/DISABLED for chat '{resolved_chat_id}'.")
+            print(f"    Reason: {args.reason}")
+            print(f"    {waived_count} pending items marked as not_applicable. Full checklist audit is not required.")
+        return
+
+    if args.checklist or batch_config.get("checklist", False):
+        try:
+            from checklist import get_checklist_stats, print_status_summary
+        except ImportError:
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from checklist import get_checklist_stats, print_status_summary
+
+        if not resolved_chat_id:
+            print("[!] Error: Multiple chats found in database. Please specify chat using -C <chat_id>.")
+            sys.exit(1)
+
+        conn = sqlite3.connect(args.db)
+        stats = get_checklist_stats(conn, resolved_chat_id)
+        conn.close()
+        if args.json:
+            print(json.dumps(stats, indent=2, ensure_ascii=False))
+        else:
+            print_status_summary(stats)
         return
 
     # Merge CLI flags with batch config

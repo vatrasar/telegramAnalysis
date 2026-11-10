@@ -259,6 +259,26 @@ def create_schema(conn: sqlite3.Connection):
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_desc_chat ON chat_descriptors(chat_id);")
 
+    # Life spheres investigation checklist
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS life_spheres_checklist (
+        chat_id TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        sphere_id TEXT NOT NULL,
+        sphere_name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        sub_item TEXT NOT NULL,
+        description TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        evidence_summary TEXT,
+        query_terms_used TEXT,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (chat_id, item_id)
+    );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_checklist_chat_status ON life_spheres_checklist(chat_id, status);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_checklist_chat_sphere ON life_spheres_checklist(chat_id, sphere_id);")
+
     conn.commit()
 
 
