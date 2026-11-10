@@ -56,6 +56,19 @@ The agent is strictly forbidden from deriving analytical conclusions, biographic
 - **The Heuristic Trap:** When a lexical keyword search (`-s`, `-st`) returns a matching message describing a biographical trait, habit, medical condition, hobby, pet, or lifestyle fact starting with or dominated by a bare third-person pronoun (*"He farm mushroom"*, *"She works at"*, *"On ma kota"*, *"Ona studiuje"*), the agent is **STRICTLY PROHIBITED** from attributing that trait to an established character based on conversational inertia.
 - **Mandatory Antecedent Audit:** The agent MUST invoke `query_chat.py -f <msg_id> -w 5` or `query_chat.py --around <msg_id> -n 5` to locate the explicit grammatical antecedent (proper noun or role descriptor) in preceding turns ($N-5 \dots N$). Attribution without an audited proper noun antecedent is a critical protocol breach.
 
+### 1.4 The Sender-vs-Author Disambiguation Principle (Metadana Transportowa vs. Autorstwo Intelektualne)
+- **Transport Sender vs. Intellectual Author:** In chat archives and SQLite databases (`messages.sender`), the `sender` field denotes the network transport account that dispatched the message, **NOT** proof of intellectual authorship.
+- **Pasted & Forwarded Content Guard:** Chat participants frequently paste external text (questionnaire answers from romantic partners, messages from friends/coworkers, forwarded emails, articles, or social media clips) directly from their own account.
+- **Verification Invariant:** The agent is strictly prohibited from treating an utterance under `sender == Subject` as the Subject's personal self-disclosure, motto, or inner psychological stance without auditing the preceding turns ($N-5 \dots N$). If preceding messages reveal a prompt (e.g. *"I asked him 3 questions, look what he answered"*), the text belongs to the external respondent, not the Subject.
+
+### 1.5 The Zero-Unverified-Quote Invariant (Bezwzględny Wymóg Audytu Każdego Cytatu w Raporcie)
+- **Zero-Unverified-Quote Mandate:** Every verbatim quote, biographical claim, or psychological marker incorporated into a deliverable report (`reports/*.md`), dossier section, or Cast of Characters table **MUST undergo a full contextual audit ($N-5 \dots N+5$)**.
+- **Prohibition of Heuristic Quote Harvesting:** It is strictly forbidden to grab a plausible or evocative quote directly from keyword search outputs (`-s`), triage teasers, or an isolated single message without executing `query_chat.py --around <msg_id> -n 5` or `query_chat.py -t <thread_id>`.
+- **Three-Point Verification Standard:** The audit trajectory must explicitly confirm:
+  1. *Authorship Origin:* Did the subject personally author this statement, or is it pasted/forwarded third-party text?
+  2. *Conversational Tone:* Is it authentic, dry sarcasm, playful exaggeration, or an inside joke?
+  3. *Interlocutor Reception:* How did the interlocutor react in turns $N+1 \dots N+5$ (acceptance, correction, mockery, or challenge)? Any quote that fails this three-point audit is inadmissible as primary evidence.
+
 ---
 
 ## 2. The Vocative & Left-Dislocation Protocol (Chat Syntax Disambiguation)

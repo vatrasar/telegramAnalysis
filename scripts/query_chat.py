@@ -51,6 +51,39 @@ def format_duration(seconds: int) -> str:
     return f"{days}d {rem_hours}h"
 
 
+SAFE_MESSAGE_CHAR_LIMIT = 1500
+
+
+def format_message_text(text: Optional[str], msg_id: Optional[Any] = None, max_chars: int = SAFE_MESSAGE_CHAR_LIMIT) -> str:
+    """Safely format single message text with per-message truncation guard.
+
+    Protects LLM context from being flooded by individual outlier messages (pasted texts,
+    long forwardings, or articles) without restricting normal multi-message dialogue flow.
+    """
+    if not text:
+        return ""
+    if len(text) <= max_chars:
+        return text
+
+    total_parts = math.ceil(len(text) / max_chars)
+    # Attempt word boundary break within the last 100 characters before limit
+    trunc_point = max_chars
+    last_space = text[:max_chars].rfind(" ")
+    last_newline = text[:max_chars].rfind("\n")
+    best_break = max(last_space, last_newline)
+    if best_break > max_chars - 100:
+        trunc_point = best_break
+
+    truncated_content = text[:trunc_point].rstrip()
+    id_arg = str(msg_id) if msg_id is not None else "<msg_id>"
+    warning_notice = (
+        f"\n\n... [⚠️ WIADOMOŚĆ UCIĘTA: Wyświetlono {len(truncated_content)} z {len(text)} znaków (Część 1/{total_parts}).\n"
+        f"    Aby przeczytać pełną treść lub kolejne części, użyj:\n"
+        f"    python3 project/scripts/query_chat.py -m {id_arg} --part 2 (lub --all)]"
+    )
+    return truncated_content + warning_notice
+
+
 # ==============================================================================
 # CHAT RESOLUTION & CATALOG
 # ==============================================================================
@@ -670,9 +703,10 @@ def get_search_messages(
     db_path: str,
     query: str,
     limit: int = 15,
-    chat_id: Optional[str] = None
+    chat_id: Optional[str] = None,
+    sender: Optional[str] = None
 ) -> List[Dict[str, Any]]:
-    """Search individual messages using FTS5."""
+    """Search individual messages using FTS5 with optional sender filter."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
@@ -687,7 +721,7 @@ def get_search_messages(
     try:
         sql = """
         SELECT mf.message_id, mf.chat_id, coalesce(c.chat_name, mf.chat_id) as chat_name,
-               mf.date, mf.sender, mf.thread_id, snippet(messages_fts, 5, '【', '】', '...', 15)
+               mf.date, mf.sender, mf.thread_id, mf.text
         FROM messages_fts mf
         LEFT JOIN chats c ON mf.chat_id = c.chat_id
         WHERE messages_fts MATCH ?
@@ -696,6 +730,9 @@ def get_search_messages(
         if chat_id:
             sql += " AND mf.chat_id = ? "
             p.append(chat_id)
+        if sender:
+            sql += " AND mf.sender LIKE ? "
+            p.append(f"%{sender}%")
         sql += " ORDER BY rank LIMIT ?; "
         p.append(limit)
 
@@ -712,6 +749,9 @@ def get_search_messages(
         if chat_id:
             sql += " AND m.chat_id = ? "
             p.append(chat_id)
+        if sender:
+            sql += " AND m.sender LIKE ? "
+            p.append(f"%{sender}%")
         sql += " ORDER BY m.date DESC LIMIT ?; "
         p.append(limit)
         cur.execute(sql, p)
@@ -848,6 +888,40 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> 
         cur.execute("SELECT thread_id FROM threads WHERE parent_thread_id = ? ORDER BY start_timestamp ASC;", (actual_tid,))
         children = [r[0] for r in cur.fetchall()]
 
+    # Fetch individual messages for the thread
+    cur.execute("""
+    SELECT id, chat_id, date, sender, reply_to_id, text
+    FROM messages
+    WHERE thread_id = ?
+    ORDER BY timestamp ASC, id ASC;
+    """, (actual_tid,))
+    msg_rows = cur.fetchall()
+    thread_msgs = [
+        {
+            "id": mr[0],
+            "chat_id": mr[1],
+            "date": mr[2],
+            "sender": mr[3],
+            "reply_to_id": mr[4],
+            "text": mr[5] or ""
+        }
+        for mr in msg_rows
+    ]
+
+    anchor_msg = None
+    if row[3]:
+        cur.execute("SELECT id, chat_id, date, sender, reply_to_id, text FROM messages WHERE id = ?", (row[3],))
+        arow = cur.fetchone()
+        if arow:
+            anchor_msg = {
+                "id": arow[0],
+                "chat_id": arow[1],
+                "date": arow[2],
+                "sender": arow[3],
+                "reply_to_id": arow[4],
+                "text": arow[5] or ""
+            }
+
     conn.close()
 
     return {
@@ -855,6 +929,8 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> 
         "chat_id": row[1],
         "chat_name": row[2],
         "anchor_message_id": row[3],
+        "anchor_message": anchor_msg,
+        "messages": thread_msgs,
         "start_date": row[4],
         "end_date": row[5],
         "message_count": row[6],
@@ -1115,6 +1191,39 @@ def get_chronological_around(
     }
 
 
+def get_single_message(db_path: str, msg_id: int, chat_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Fetch complete metadata and text of a single message by ID."""
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    sql = """
+    SELECT m.id, m.chat_id, coalesce(c.chat_name, m.chat_id) as chat_name,
+           m.date, m.sender, m.reply_to_id, m.thread_id, m.text, length(coalesce(m.text, '')) as text_len
+    FROM messages m
+    LEFT JOIN chats c ON m.chat_id = c.chat_id
+    WHERE m.id = ?
+    """
+    p: List[Any] = [msg_id]
+    if chat_id:
+        sql += " AND m.chat_id = ?"
+        p.append(chat_id)
+    cur.execute(sql, p)
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {
+        "id": row[0],
+        "chat_id": row[1],
+        "chat_name": row[2],
+        "date": row[3],
+        "sender": row[4],
+        "reply_to_id": row[5],
+        "thread_id": row[6],
+        "text": row[7] or "",
+        "text_len": row[8] or 0
+    }
+
+
 def get_semantic_batch_results(
     db_path: str,
     concepts: List[str],
@@ -1322,8 +1431,9 @@ def print_search_messages(query: str, rows: List[Dict[str, Any]]):
 
     for r in rows:
         c_label = f" | Chat: {r.get('chat_name', r.get('chat_id'))}" if r.get("chat_name") else ""
+        fmt_text = format_message_text(r['text'], r.get('message_id'))
         print(f"\n[#{r['message_id']} | {r['date'][:16].replace('T', ' ')}{c_label}] {r['sender']} (Thread: {r['thread_id']}):")
-        print(f"   {r['text']}")
+        print(f"   {fmt_text}")
 
 
 def print_search_threads_fts(query: str, rows: List[Dict[str, Any]]):
@@ -1358,7 +1468,19 @@ def print_thread(t: Dict[str, Any]):
     print(f"Messages:          {t['message_count']}")
     print(f"Participants:      {t['participants']} (Initiator: {t['initiator']})")
     print("=" * 70)
-    print(t["dialogue_text"])
+
+    if t.get("messages"):
+        if t.get("anchor_message"):
+            anc = t["anchor_message"]
+            fmt_anc = format_message_text(anc["text"], anc["id"])
+            print(f"[Anchor #{anc['id']} | {anc['date'][:16].replace('T', ' ')}] {anc['sender']}: {fmt_anc}")
+            print("-" * 50)
+        for m in t["messages"]:
+            prefix = f"[Reply to #{m['reply_to_id']}] " if m.get("reply_to_id") else ""
+            fmt_m = format_message_text(m["text"], m["id"])
+            print(f"[#{m['id']} | {m['date'][:16].replace('T', ' ')}] {m['sender']}: {prefix}{fmt_m}")
+    else:
+        print(t["dialogue_text"])
 
     # Boundary warning for first 5 / last 5 messages or linked threads
     if t.get("parent_thread_id") or t.get("child_thread_ids") or t.get("message_count", 0) <= 1:
@@ -1386,12 +1508,13 @@ def print_chronological_around(c: Dict[str, Any]):
         prefix = f"[Reply to #{m['reply_to_id']}] " if m.get("reply_to_id") else ""
         thread_tag = f" (Thread: {m['thread_id']})" if m.get("thread_id") else ""
         dt_str = m['date'][:16].replace('T', ' ')
+        fmt_text = format_message_text(m['text'], m['id'])
         if is_target:
             print("-" * 70)
-            print(f"👉 [#{m['id']} | {dt_str}{thread_tag}] {m['sender']}: {prefix}{m['text']}  [AUDITED TARGET]")
+            print(f"👉 [#{m['id']} | {dt_str}{thread_tag}] {m['sender']}: {prefix}{fmt_text}  [AUDITED TARGET]")
             print("-" * 70)
         else:
-            print(f"   [#{m['id']} | {dt_str}{thread_tag}] {m['sender']}: {prefix}{m['text']}")
+            print(f"   [#{m['id']} | {dt_str}{thread_tag}] {m['sender']}: {prefix}{fmt_text}")
     print("=" * 70)
 
 
@@ -1404,7 +1527,8 @@ def print_thread_slice(s: Dict[str, Any]):
     for m in s["messages"]:
         marker = "==> " if m["is_target"] else "    "
         prefix = f"[Reply #{m['reply_to_id']}] " if m["reply_to_id"] else ""
-        print(f"{marker}[#{m['id']} | {m['date'][:16].replace('T', ' ')}] {m['sender']}: {prefix}{m['text']}")
+        fmt_text = format_message_text(m['text'], m['id'])
+        print(f"{marker}[#{m['id']} | {m['date'][:16].replace('T', ' ')}] {m['sender']}: {prefix}{fmt_text}")
     print("=" * 70)
 
 
@@ -1417,18 +1541,67 @@ def print_quote_chain(c: Dict[str, Any]):
     if c["ancestors"]:
         print("⬆️  UPSTREAM CONTEXT (What triggered this):")
         for a in c["ancestors"]:
-            print(f"   [#{a['id']} | {a['date'][:16].replace('T', ' ')}] {a['sender']}: {a['text']}")
+            fmt_a = format_message_text(a['text'], a['id'])
+            print(f"   [#{a['id']} | {a['date'][:16].replace('T', ' ')}] {a['sender']}: {fmt_a}")
         print("   " + "-" * 50)
 
     t = c["target_message"]
+    fmt_t = format_message_text(t['text'], t['id'])
     print(f"🎯 TARGET MESSAGE [#{t['id']} | {t['date'][:16].replace('T', ' ')}] {t['sender']}:")
-    print(f"   {t['text']}")
+    print(f"   {fmt_t}")
 
     if c["replies"]:
         print("   " + "-" * 50)
         print("⬇️  DOWNSTREAM REACTIONS (Direct answers to target):")
         for r in c["replies"]:
-            print(f"   [#{r['id']} | {r['date'][:16].replace('T', ' ')}] {r['sender']}: {r['text']}")
+            fmt_r = format_message_text(r['text'], r['id'])
+            print(f"   [#{r['id']} | {r['date'][:16].replace('T', ' ')}] {r['sender']}: {fmt_r}")
+    print("=" * 70)
+
+
+def print_single_message(msg: Dict[str, Any], part: int = 1, part_size: int = 1500, show_all: bool = False):
+    """Display single message with chunking / pagination support."""
+    text = msg["text"]
+    total_len = len(text)
+    print("\n" + "=" * 70)
+    c_label = f" [Chat: {msg['chat_name']}]" if msg.get("chat_name") else ""
+    print(f"📩 MESSAGE INSPECTION: #{msg['id']}{c_label}")
+    print("=" * 70)
+    print(f"Date:         {msg['date'][:19].replace('T', ' ')}")
+    print(f"Sender:       {msg['sender']}")
+    print(f"Thread ID:    {msg['thread_id']}")
+    print(f"Reply To:     #{msg['reply_to_id']}" if msg.get("reply_to_id") else "Reply To:     None")
+    print(f"Total Chars:  {total_len}")
+    print("=" * 70)
+
+    if show_all or total_len <= part_size:
+        if total_len > part_size:
+            print(f"[📄 PEŁNA TREŚĆ WIADOMOŚCI ({total_len} znaków, tryb --all)]:\n")
+        print(text)
+        print("=" * 70)
+        return
+
+    total_parts = math.ceil(total_len / part_size)
+    if part < 1:
+        part = 1
+    if part > total_parts:
+        print(f"⚠️  Wybrana część ({part}) przekracza łączną liczbę części ({total_parts}). Pokazuję część {total_parts}.")
+        part = total_parts
+
+    start_idx = (part - 1) * part_size
+    end_idx = min(start_idx + part_size, total_len)
+    chunk = text[start_idx:end_idx]
+
+    print(f"[📄 Część {part}/{total_parts} (znaki {start_idx + 1}-{end_idx} z {total_len})]:")
+    print("-" * 70)
+    print(chunk)
+    print("-" * 70)
+
+    if part < total_parts:
+        print(f"💡 Aby wyświetlić kolejną część: python3 project/scripts/query_chat.py -m {msg['id']} --part {part + 1}")
+        print(f"   Aby wyświetlić całość bez podziału: python3 project/scripts/query_chat.py -m {msg['id']} --all")
+    else:
+        print(f"✅ Koniec wiadomości (Część {part}/{total_parts}). Aby wyświetlić całość bez podziału: --all")
     print("=" * 70)
 
 
@@ -1987,8 +2160,13 @@ def main():
 
     # Repeatable flags for multi-query execution
     parser.add_argument("--search", "-s", action="append", help="Search individual messages via FTS5 (can be repeated)")
+    parser.add_argument("--sender", "-S", type=str, help="Filter message search (-s) by sender name or alias")
     parser.add_argument("--search-threads", "-st", action="append", help="Search full dialogue threads via FTS5 (can be repeated)")
     parser.add_argument("--thread", "-t", action="append", help="Display full transcript of a thread by thread_id or message_id (can be repeated)")
+    parser.add_argument("--msg", "-m", action="append", type=int, help="Inspect a specific message by message_id with pagination (can be repeated)")
+    parser.add_argument("--part", type=int, default=1, help="Part/page number to display for long messages (default: 1)")
+    parser.add_argument("--part-size", type=int, default=1500, help="Character size per part for --msg (default: 1500)")
+    parser.add_argument("--all", action="store_true", help="Display entire message text without truncation or pagination")
     parser.add_argument("--from-msg", "-f", action="append", type=int, help="Display a slice of a thread starting from this message_id (can be repeated)")
     parser.add_argument("--window", "-w", type=int, default=0, help="Number of preceding messages to show before --from-msg (default: 0)")
     parser.add_argument("--chain", "-c", action="append", type=int, help="Display direct causal quote chain for a message_id (can be repeated)")
@@ -2204,15 +2382,17 @@ def main():
     search_queries = extract_list(args.search, "search")
     search_thread_queries = extract_list(args.search_threads, "search_threads")
     thread_ids = [str(x) for x in extract_list(args.thread, "thread")]
+    msg_ids = [int(x) for x in extract_list(args.msg, "msg")]
     from_msgs = [int(x) for x in extract_list(args.from_msg, "from_msg")]
     chains = [int(x) for x in extract_list(args.chain, "chain")]
     around_msgs = [int(x) for x in extract_list(args.around, "around")]
     semantic_queries = [str(x) for x in extract_list(args.semantic, "semantic")]
+    sender_filter = args.sender or batch_config.get("sender")
 
     has_actions = any([
         run_stats, run_gaps, run_timeline, run_burning, run_intensive,
         run_triaged, run_triage_status,
-        search_queries, search_thread_queries, thread_ids,
+        search_queries, search_thread_queries, thread_ids, msg_ids,
         from_msgs, chains, around_msgs, semantic_queries
     ])
 
@@ -2290,7 +2470,7 @@ def main():
     if search_queries:
         search_results: Dict[str, Any] = {}
         for q in search_queries:
-            msgs = get_search_messages(args.db, q, limit=limit, chat_id=resolved_chat_id)
+            msgs = get_search_messages(args.db, q, limit=limit, chat_id=resolved_chat_id, sender=sender_filter)
             if args.json:
                 search_results[q] = msgs
             else:
@@ -2327,6 +2507,24 @@ def main():
                     print(f"\n[!] Thread/Message '{t_id}' not found.")
         if args.json:
             aggregated["threads"] = thread_results
+
+    # 8b. Inspect Single Messages (with pagination / full display)
+    if msg_ids:
+        msg_results: Dict[str, Any] = {}
+        for m_id in msg_ids:
+            m_obj = get_single_message(args.db, m_id, chat_id=resolved_chat_id)
+            if m_obj:
+                if args.json:
+                    msg_results[str(m_id)] = m_obj
+                else:
+                    print_single_message(m_obj, part=args.part, part_size=args.part_size, show_all=args.all)
+            else:
+                if args.json:
+                    msg_results[str(m_id)] = None
+                else:
+                    print(f"\n[!] Message #{m_id} not found.")
+        if args.json:
+            aggregated["messages"] = msg_results
 
     # 9. Retrieve Thread Slices
     if from_msgs:

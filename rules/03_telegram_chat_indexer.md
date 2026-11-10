@@ -64,10 +64,19 @@ python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --stat
 ---
 
 ### 2.3 Qualitative Retrieval, Semantic Search & Context Window Inspection
-Retrieve specific verbatim evidence and perform mandatory context audits:
+Retrieve specific verbatim evidence, inspect single messages, and perform mandatory context audits:
 ```bash
 # FTS5 Lexical Search: multi-keyword boolean search on messages
 python3 project/scripts/query_chat.py --db chat.db -s "przepraszam OR wybacz" -s "wina"
+
+# Filter Lexical Search by Sender:
+python3 project/scripts/query_chat.py --db chat.db -s "work" -S "Ismi"
+
+# Dedicated Single Message Inspection with Pagination:
+python3 project/scripts/query_chat.py --db chat.db -m <msg_id> --part 1
+python3 project/scripts/query_chat.py --db chat.db -m <msg_id> --part 2
+# Full message display without pagination:
+python3 project/scripts/query_chat.py --db chat.db -m <msg_id> --all
 
 # FTS5 Thread Search: search reconstructed dialogue threads by topic
 python3 project/scripts/query_chat.py --db chat.db -st "kredyt OR mieszkanie OR kupno"
@@ -90,6 +99,17 @@ python3 project/scripts/query_chat.py --db chat.db --around <msg_id> -n 5
 # Machine-Readable JSON: emit structured JSON output for agent parsing
 python3 project/scripts/query_chat.py --db chat.db --stats -s "awans" --json
 ```
+
+#### 2.3.1 Per-Message Context Protection Guard
+- All print functions (`print_search_messages`, `print_chronological_around`, `print_thread`, `print_thread_slice`, `print_quote_chain`) enforce a **per-message character limit** (default: 1500 chars).
+- Normal conversational turns (short dialog flow) are displayed completely without artificial cumulative caps.
+- When an individual message exceeds 1500 chars (long pasted articles, forwarded messages, or partners' essays), it is cleanly truncated on a word boundary, followed by an explicit notice:
+  ```text
+  ... [⚠️ WIADOMOŚĆ UCIĘTA: Wyświetlono 1497 z 3059 znaków (Część 1/3).
+      Aby przeczytać pełną treść lub kolejne części, użyj:
+      python3 project/scripts/query_chat.py -m <msg_id> --part 2 (lub --all)]
+  ```
+- To read the full text safely without flooding the context window, use `-m <msg_id> --part <N>` or `--all`.
 
 ---
 

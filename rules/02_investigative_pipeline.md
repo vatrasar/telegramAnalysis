@@ -16,6 +16,18 @@ These rules define the technical pipeline boundaries, pre-flight configuration g
 - All analytical databases and runtime data live in the workspace root (e.g. `chat.db` or `data/chat.db`).
 - All processing scripts in `project/scripts/` read and write runtime state in the parent workspace root.
 
+### 1.1 Prohibition on Ad-Hoc Python/SQLite Querying Scripts (Zakaz Pisania Doraźnych Skryptów)
+- **Absolute Prohibition:** The agent is strictly forbidden from writing or executing ad-hoc Python one-liners (`python3 -c "import sqlite3..."`), temporary scrapers, or raw SQL scripts to query, search, or slice chat messages.
+- **Sanctioned Toolchain Invariant:** All chat exploration, keyword searching, sender filtering, thread reading, and context audits MUST be conducted exclusively via the sanctioned CLI toolchain (`project/scripts/query_chat.py`, `checklist.py`, `assemble_report.py`).
+- **Failure Mode Defense:** Ad-hoc scripting leads to silent string slicing (`[:140]`), uncalibrated truncation, context blindness, and epistemic misattributions. The CLI toolchain enforces uniform context protection, boundary traversal, and pagination.
+
+### 1.2 Tool Capability Feedback & Escalation Protocol
+- **Blocking Tool Gap:** If an essential analytical capability is truly absent from the sanctioned tools and prevents completing the user's task accurately:
+  - The agent **MUST stop and escalate immediately**: explain the exact technical limitation to the user in chat and request permission or instructions before improvising custom scripts.
+- **Non-Blocking Enhancement Suggestions:** If the task can be completed cleanly with available flags, but the agent identified a feature or optimization that would make future analysis easier:
+  - The agent must state this tool suggestion **exclusively in the final conversational chat response** to the user.
+  - **Strict Delivery Hygiene:** NEVER contaminate final deliverables, profile files, or dossiers (`reports/*.md`) with tool improvement suggestions, agent introspection, or execution meta-commentary. Deliverables must contain purely forensic psychological analysis.
+
 ---
 
 ## 2. Pre-Flight Configuration & Mandatory Startup Gate
