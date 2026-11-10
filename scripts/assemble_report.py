@@ -180,7 +180,7 @@ def main():
     parser.add_argument(
         "--check-gates",
         action="store_true",
-        help="Enforce hard-stop verification of life spheres and thread audit checklists before assembly"
+        help="Enforce hard-stop verification of entity watchdog, life spheres, and thread audit checklists before assembly"
     )
 
     args = parser.parse_args()
@@ -209,21 +209,24 @@ def main():
                 try:
                     from checklist import check_gate as check_spheres_gate
                     from thread_checklist import check_gate as check_threads_gate
+                    from query_chat import check_watchdog_gate
                 except ImportError:
                     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
                     from checklist import check_gate as check_spheres_gate
                     from thread_checklist import check_gate as check_threads_gate
+                    from query_chat import check_watchdog_gate
 
-                print(f"[*] Verifying Hard-Stop Blocking Gates for chat '{cid}' in '{db_path}'...")
+                print(f"[*] Verifying Mandatory Triple Hard-Stop Blocking Gates for chat '{cid}' in '{db_path}'...")
+                watchdog_code = check_watchdog_gate(conn, cid)
                 spheres_code = check_spheres_gate(conn, cid)
                 threads_code = check_threads_gate(conn, cid)
                 conn.close()
 
-                if spheres_code != 0 or threads_code != 0:
+                if watchdog_code != 0 or spheres_code != 0 or threads_code != 0:
                     print("\n[!] ASSEMBLY BLOCKED: One or more investigative gates failed!", file=sys.stderr)
-                    print("    You must resolve 100% of checklist dimensions and thread audits before assembling.", file=sys.stderr)
+                    print("    You must resolve 100% of Entity Watchdog audits, Life Spheres dimensions, and Thread audits before assembling.", file=sys.stderr)
                     sys.exit(1)
-                print("[✓] All investigative gates passed successfully.\n")
+                print("[✓] All 3 investigative gates passed successfully.\n")
             else:
                 conn.close()
 

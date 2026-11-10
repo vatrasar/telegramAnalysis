@@ -113,6 +113,8 @@ MUST NOT be parsed as an appositive clause attributing the descriptor to the nam
 
 ---
 
-## 9. Multi-Party Entity Audit & Watchdog Loop Gate
+## 9. Multi-Party Entity Audit & Zero-Blindness Watchdog Gate
 
-When auditing multi-party chat archives for third parties, suitors, and acquaintances, the agent must prevent Single-Entity Blindness. Activate the `entity-watchdog-audit` skill to execute the sequential System-1 gatekeeper check and double-check cursor protocol before concluding entity identification.
+- **Zero Entity Blindness Invariant:** The agent is strictly prohibited from interpreting interpersonal dynamics, motives, or relationship patterns in threads mentioning third parties until every third-party reference has been sequentially audited or cleared via the System-1 Watchdog (`query_chat.py --watchdog-scan`).
+- **Prerequisite Enforcement:** Initializing downstream checklists (`thread_checklist.py --init` and `checklist.py --init`) is programmatically blocked until the Entity Watchdog scan achieves 100% resolution.
+- **Mandatory Triple Hard-Stop Gate:** Compiling the final report via `assemble_report.py` strictly verifies all three investigative gates (Entity Watchdog, Thread Forensic Checklist, and Life Spheres Checklist). Bypassing or batch-clearing without genuine inspection is a direct violation of evidentiary integrity.

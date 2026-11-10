@@ -133,7 +133,10 @@ python3 project/scripts/assemble_report.py \
 ## 5. Verification Checklist
 
 Before finalizing the dossier report, verify:
-- [ ] Did the Life Spheres Checklist gate (`python3 project/scripts/checklist.py --check -C <chat_id>`) pass with exit code 0?
+- [ ] Did all three investigative gates pass with exit code 0?
+  - Entity Watchdog: `python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate`
+  - Thread Forensic Checklist: `python3 project/scripts/thread_checklist.py --check -C <chat_id>`
+  - Life Spheres Checklist: `python3 project/scripts/checklist.py --check -C <chat_id>`
 - [ ] Are all 8 mandatory components present?
 - [ ] Is the document written in Polish by default?
 - [ ] Are all thematic chapters structured with the 4-part Thesis-First headings?

@@ -65,30 +65,37 @@ python3 project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_s
 - Salience radars: `--anomalies-only`, `--emotional-peaks`, `--advice-seeking`, `--triaged-threads`.
 - Always audit metrics per dyad via `-C <chat_id>`. Inspect entity baselines via `--entities` and `--descriptors`.
 
-#### Step B.3: Forensic Thread & Entity Ingestion
+#### Step B.3: Forensic Thread & Entity Ingestion (Sequential Watchdog Prerequisite)
 - Audit threads in small batches (10–15 threads at a time) via `query_chat.py -t <id>`.
 - Cross-examine words vs. actions across the longitudinal timeline.
 - Enforce the Bare-Pronoun ban and Lazy On-Demand Cardinality checks (`--audit-descriptor "<term>"`).
-- Activate `entity-watchdog-audit` skill for sequential multi-party entity verification.
+- **Mandatory Entity Watchdog Loop:** Activate `entity-watchdog-audit` skill. You MUST run:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> --watchdog-scan
+  ```
+  Iterate until 100% of third-party threads are resolved (`[✓ CLEARED]` or skipped).
+  *Note:* Step B.4 initialization (`thread_checklist.py --init` and `checklist.py --init`) is **programmatically blocked** until `query_chat.py -C <chat_id> --check-watchdog-gate` returns exit code 0.
 
 #### Step B.4: Substantive Threads & Life Spheres Dual Audit
 1. **Thread Forensic Checklist (`thread_checklist.py`):**
-   - Init: `python3 project/scripts/thread_checklist.py --init -C <chat_id>`
+   - Init: `python3 project/scripts/thread_checklist.py --init -C <chat_id>` (Enforces completed Watchdog Gate)
    - Audit next pending thread: `python3 project/scripts/thread_checklist.py -C <chat_id> --next`
    - Record findings: `python3 project/scripts/thread_checklist.py -C <chat_id> --update <id> --set-status completed --findings "..." --quotes "..." --tags "..."`
 2. **Life Spheres 46-Item Audit (`checklist.py`):**
    - Activate `life-spheres-investigation` skill for criteria, lexicons, and vector queries.
-   - Init: `python3 project/scripts/checklist.py --init -C <chat_id>`
+   - Init: `python3 project/scripts/checklist.py --init -C <chat_id>` (Enforces completed Watchdog Gate)
    - Audit items via primary vector search (`query_chat.py --semantic`) and targeted lexical queries (`-s`).
    - Record findings: `python3 project/scripts/checklist.py -C <chat_id> --update <id> --set-status completed --notes "..." --queries "..." --semantic-queries "..."`
    - **Ban on Keyword-Only `no_data`:** Concluding absence requires documented semantic vector search.
 
-#### Mandatory Dual Hard-Stop Gate before Step B.5 (100% Resolution & Semantic Gate):
-Drafting final profile chapters is **STRICTLY FORBIDDEN** until both checklists pass verification (exit code 0):
+#### Mandatory Triple Hard-Stop Gate before Step B.5 (100% Resolution across All Dimensions):
+Drafting final profile chapters is **STRICTLY FORBIDDEN** until all three investigative gates pass verification (exit code 0):
 ```bash
+python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
 python3 project/scripts/thread_checklist.py --check -C <chat_id>
 python3 project/scripts/checklist.py --check -C <chat_id>
 ```
+The assembly script (`assemble_report.py --check-gates`) automatically enforces all three gates before compilation.
 
 #### Step B.5: Diagnostic Frameworks & Modular Dossier Assembly
 - Activate `forensic-personality-frameworks` skill for Big Five (OCEAN) and Attachment Style rubrics.

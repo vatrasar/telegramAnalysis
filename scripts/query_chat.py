@@ -2229,6 +2229,87 @@ def print_watchdog_status(db_path: str, chat_id: str):
     print("=" * 80 + "\n")
 
 
+def check_watchdog_gate(conn_or_db: Any, chat_id: str) -> int:
+    """
+    Hard-stop blocking gate validation for Entity Watchdog Scan.
+    Returns 0 if all third-party threads are resolved (cleared or skipped) and no unregistered entities remain detected.
+    Returns 1 if pending or unregistered threads remain.
+    """
+    if isinstance(conn_or_db, str):
+        conn = sqlite3.connect(conn_or_db)
+        should_close = True
+    else:
+        conn = conn_or_db
+        should_close = False
+
+    ensure_entities_tables(conn)
+    cur = conn.cursor()
+
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
+    has_triage = cur.fetchone()[0] > 0
+    if not has_triage:
+        print(f"[!] Warning: 'thread_triage' table does not exist. Thread triage must be run before watchdog audit.")
+        if should_close:
+            conn.close()
+        return 1
+
+    target_chats = [chat_id]
+    if chat_id == "global" or not chat_id:
+        cur.execute("SELECT DISTINCT chat_id FROM chats;")
+        target_chats = [r[0] for r in cur.fetchall()]
+        if not target_chats:
+            cur.execute("SELECT DISTINCT chat_id FROM threads;")
+            target_chats = [r[0] for r in cur.fetchall()]
+
+    if not target_chats:
+        print("[✓] PASSED (EXEMPT): No chats found in database to verify for Entity Watchdog.")
+        if should_close:
+            conn.close()
+        return 0
+
+    overall_failed = False
+
+    for cid in target_chats:
+        cur.execute("""
+        SELECT COUNT(*) FROM threads t
+        JOIN thread_triage tt ON t.thread_id = tt.thread_id
+        WHERE t.chat_id = ? AND tt.mentions_third_party = 1;
+        """, (cid,))
+        total_third_party = cur.fetchone()[0]
+
+        if total_third_party == 0:
+            print(f"[✓] PASSED (EXEMPT): No third-party threads (mentions_third_party = 1) for chat '{cid}'.")
+            continue
+
+        cur.execute("""
+        SELECT status, COUNT(*) FROM thread_entity_audit
+        WHERE chat_id = ?
+        GROUP BY status;
+        """, (cid,))
+        counts = dict(cur.fetchall())
+        cleared = counts.get("cleared", 0)
+        skipped = counts.get("skipped", 0)
+        detected = counts.get("unregistered_detected", 0)
+        resolved = cleared + skipped
+        pending = max(0, total_third_party - resolved)
+
+        if detected > 0:
+            print(f"[✗] FAILED: Entity Watchdog gate active for chat '{cid}'! {detected} thread(s) have unregistered entities detected.")
+            print(f"    Register identified entities and resolve threads using: python3 project/scripts/query_chat.py -C {cid} --watchdog-scan")
+            overall_failed = True
+        elif pending > 0:
+            print(f"[✗] FAILED: Entity Watchdog gate active for chat '{cid}'! {pending} of {total_third_party} third-party threads are still pending audit.")
+            print(f"    Current progress: [{resolved}/{total_third_party}]. Run: python3 project/scripts/query_chat.py -C {cid} --watchdog-scan")
+            overall_failed = True
+        else:
+            print(f"[✓] PASSED: 100% of third-party threads ({resolved}/{total_third_party}) are verified for chat '{cid}'.")
+
+    if should_close:
+        conn.close()
+
+    return 1 if overall_failed else 0
+
+
 def run_sequential_watchdog_scan(
     db_path: str,
     chat_id: str,
@@ -2458,6 +2539,7 @@ def main():
     parser.add_argument("--watchdog-status", action="store_true", help="Display summary progress of sequential entity watchdog scan")
     parser.add_argument("--skip-thread", type=str, help="Mark thread as skipped/false-positive in entity scan to resume progress")
     parser.add_argument("--reset-watchdog-scan", action="store_true", help="Reset watchdog scan progress for the target chat")
+    parser.add_argument("--check-watchdog-gate", action="store_true", help="Run hard-stop gatekeeper check for Entity Watchdog (exit 0 on pass, exit 1 on fail)")
 
     args = parser.parse_args()
 
@@ -2576,6 +2658,11 @@ def main():
             sys.exit(1)
         print_watchdog_status(args.db, resolved_chat_id)
         return
+
+    if args.check_watchdog_gate:
+        cid = resolved_chat_id or "global"
+        gate_code = check_watchdog_gate(args.db, cid)
+        sys.exit(gate_code)
 
     if args.skip_thread:
         skip_watchdog_thread(args.db, args.skip_thread, resolved_chat_id)

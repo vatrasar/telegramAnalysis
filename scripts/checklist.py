@@ -1042,6 +1042,11 @@ def main():
         action="store_true",
         help="Output results in JSON format"
     )
+    parser.add_argument(
+        "--ignore-prerequisites",
+        action="store_true",
+        help="Bypass prerequisite check (e.g. Entity Watchdog)"
+    )
 
     args = parser.parse_args()
 
@@ -1083,6 +1088,22 @@ def main():
 
     # 3. Action: --init
     if args.init:
+        if not args.ignore_prerequisites:
+            try:
+                from query_chat import check_watchdog_gate
+            except ImportError:
+                sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+                from query_chat import check_watchdog_gate
+
+            watchdog_code = check_watchdog_gate(conn, chat_id)
+            if watchdog_code != 0:
+                print("\n[!] PREREQUISITE ERROR: You cannot initialize or audit the 46-dimension life spheres checklist before resolving all third-party entities!", file=sys.stderr)
+                print(f"    Entity identification is required to properly audit interpersonal spheres without Single-Entity Blindness.", file=sys.stderr)
+                print(f"    Run the sequential watchdog scan first: python3 project/scripts/query_chat.py -C {chat_id} --watchdog-scan", file=sys.stderr)
+                print(f"    (Pass --ignore-prerequisites only for testing or partial tasks).\n", file=sys.stderr)
+                conn.close()
+                sys.exit(1)
+
         ensure_checklist_table(conn)
         cur = conn.cursor()
         cur.execute("DELETE FROM metadata WHERE key IN (?, ?);", (f"checklist_mode_{chat_id}", f"checklist_waiver_reason_{chat_id}"))

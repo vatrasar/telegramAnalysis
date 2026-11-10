@@ -64,9 +64,23 @@ python3 project/scripts/query_chat.py -C <chat_id> --watchdog-check <thread_id>
 # Check current watchdog audit progress:
 python3 project/scripts/query_chat.py -C <chat_id> --watchdog-status
 
+# Verify hard-stop gate status (exit 0 on complete, 1 on pending/detected):
+python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
+
 # Register a verified third-party entity:
 python3 project/scripts/query_chat.py -C <chat_id> --register-entity "<Name>" --role "<Role>" --desc "<Notes>"
 
 # Skip false positive thread:
 python3 project/scripts/query_chat.py -C <chat_id> --skip-thread <thread_id> --reason "false_positive"
 ```
+
+---
+
+## 4. Hard-Stop Blocking Gate & Downstream Prerequisites
+
+The Entity Watchdog is not an optional suggestion; it is a **programmatic prerequisite**:
+
+1. **Downstream Initialization Barrier:**
+   `python3 project/scripts/thread_checklist.py --init -C <chat_id>` and `python3 project/scripts/checklist.py --init -C <chat_id>` verify the watchdog gate. They immediately exit with code 1 if any third-party thread remains pending or has unregistered entities detected.
+2. **Assembly Triple Hard-Stop Gate:**
+   `python3 project/scripts/assemble_report.py --check-gates` verifies that all third-party threads are 100% resolved (`cleared` or `skipped`) before allowing report generation. If watchdog threads remain pending, assembly aborts with exit code 1.
