@@ -121,16 +121,16 @@ def init_thread_checklist(
     min_salience_other: float = 2.0,
     min_words_intensive: int = 60,
     min_messages_intensive: int = 8,
-    limit_intensive: int = 50
+    limit_intensive: int = 0
 ) -> Dict[str, Any]:
     """
     Initialize thread audit checklist for a given chat.
     Pulls:
-    - Radar 1 (Anomalies & Shocks)
+    - Radar 1 (Anomalies & Shocks: is_atypical or interlocutor_surprised)
     - Radar 2 (Acute Emotional Peaks: grief, euphoria, rage)
     - Radar 3 (Intimate Confessions & Advice Seeking)
-    - Other High-Salience Triaged Threads (salience >= min_salience_other)
-    - Top Intensive Discussions (word_count >= 60, msgs >= 8)
+    - Other High-Salience Triaged Threads (salience >= min_salience_other, default 2.0)
+    - Top Intensive Discussions (only if limit_intensive > 0 or as fallback when triage is absent)
     
     EXCLUDES: Pure Radar 4 (third-party names only) without anomalies, peaks, advice, or high intensity.
     """
@@ -208,40 +208,45 @@ def init_thread_checklist(
                     "total_words": word_count
                 }
 
-    # Add Intensive Discussions
-    sql_intensive = """
-    SELECT t.thread_id, t.start_date, t.message_count, sum(m.word_count) as total_words
-    FROM threads t
-    JOIN messages m ON t.thread_id = m.thread_id
-    WHERE t.chat_id = ?
-    GROUP BY t.thread_id
-    HAVING t.message_count >= ? AND total_words >= ?
-    ORDER BY total_words DESC
-    LIMIT ?;
-    """
-    cur.execute(sql_intensive, (chat_id, min_messages_intensive, min_words_intensive, limit_intensive))
-    for r in cur.fetchall():
-        tid = r[0]
-        start_date = r[1][:16].replace("T", " ") if r[1] else ""
-        msg_count = r[2] or 0
-        word_count = r[3] or 0
+    # Add Intensive Discussions (only if limit_intensive > 0, or fallback if triage is not available)
+    effective_limit_intensive = limit_intensive
+    if not has_triage and limit_intensive <= 0:
+        effective_limit_intensive = 50
 
-        if tid in thread_candidates:
-            existing_radars = thread_candidates[tid]["radar_sources"].split(",")
-            if "intensive_discussion" not in existing_radars:
-                existing_radars.append("intensive_discussion")
-                thread_candidates[tid]["radar_sources"] = ",".join(existing_radars)
-        else:
-            thread_candidates[tid] = {
-                "thread_id": tid,
-                "chat_id": chat_id,
-                "radar_sources": "intensive_discussion",
-                "salience_score": 1.5,
-                "primary_category": "intensive_discussion",
-                "start_date": start_date,
-                "message_count": msg_count,
-                "total_words": word_count
-            }
+    if effective_limit_intensive > 0:
+        sql_intensive = """
+        SELECT t.thread_id, t.start_date, t.message_count, sum(m.word_count) as total_words
+        FROM threads t
+        JOIN messages m ON t.thread_id = m.thread_id
+        WHERE t.chat_id = ?
+        GROUP BY t.thread_id
+        HAVING t.message_count >= ? AND total_words >= ?
+        ORDER BY total_words DESC
+        LIMIT ?;
+        """
+        cur.execute(sql_intensive, (chat_id, min_messages_intensive, min_words_intensive, effective_limit_intensive))
+        for r in cur.fetchall():
+            tid = r[0]
+            start_date = r[1][:16].replace("T", " ") if r[1] else ""
+            msg_count = r[2] or 0
+            word_count = r[3] or 0
+
+            if tid in thread_candidates:
+                existing_radars = thread_candidates[tid]["radar_sources"].split(",")
+                if "intensive_discussion" not in existing_radars:
+                    existing_radars.append("intensive_discussion")
+                    thread_candidates[tid]["radar_sources"] = ",".join(existing_radars)
+            else:
+                thread_candidates[tid] = {
+                    "thread_id": tid,
+                    "chat_id": chat_id,
+                    "radar_sources": "intensive_discussion",
+                    "salience_score": 1.5,
+                    "primary_category": "intensive_discussion",
+                    "start_date": start_date,
+                    "message_count": msg_count,
+                    "total_words": word_count
+                }
 
     # Insert into thread_audit_checklist if not existing
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -904,6 +909,7 @@ def main():
     parser.add_argument("--chat", "-C", type=str, help="Target chat_id or chat_name")
     parser.add_argument("--init", action="store_true", help="Initialize thread audit checklist from triage and intensive threads")
     parser.add_argument("--reset", action="store_true", help="Wipe and rebuild checklist (used with --init)")
+    parser.add_argument("--limit-intensive", type=int, default=0, help="Number of intensive discussions to include if triage is present (default: 0)")
     parser.add_argument("--status", action="store_true", help="Display progress and radar breakdown")
     parser.add_argument("--next", action="store_true", help="Fetch and inspect next pending thread")
     parser.add_argument("--update", type=str, metavar="THREAD_ID", help="Thread ID to update")
@@ -960,7 +966,7 @@ def main():
                 conn.close()
                 sys.exit(1)
 
-        res = init_thread_checklist(conn, chat_id, reset=args.reset)
+        res = init_thread_checklist(conn, chat_id, reset=args.reset, limit_intensive=args.limit_intensive)
         conn.close()
         if args.json:
             print(json.dumps(res, indent=2))

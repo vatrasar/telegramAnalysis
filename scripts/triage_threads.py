@@ -1106,8 +1106,13 @@ def run_enrichment(
            tr.salience_score, tr.summary_short, tr.candidate_entities
     FROM threads t
     JOIN thread_triage tr ON t.thread_id = tr.thread_id
-    WHERE (tr.salience_score >= 1.5 OR tr.is_atypical = 1 OR tr.emotional_peak != 'none' 
-           OR tr.is_advice_seeking = 1 OR tr.mentions_third_party = 1 OR t.message_count >= 25)
+    WHERE (
+        tr.salience_score >= 2.0
+        OR tr.is_atypical = 1
+        OR tr.interlocutor_surprised = 1
+        OR tr.emotional_peak IN ('profound_sadness', 'euphoric_joy', 'intense_rage')
+        OR tr.is_advice_seeking = 1
+    )
     """
     where_extra = []
     params = []
