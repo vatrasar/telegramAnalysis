@@ -81,6 +81,10 @@ def init_triage_table(conn: sqlite3.Connection):
         cur.execute("ALTER TABLE thread_triage ADD COLUMN mentions_third_party INTEGER DEFAULT 0")
     if "anomaly_notes" not in existing_cols:
         cur.execute("ALTER TABLE thread_triage ADD COLUMN anomaly_notes TEXT")
+    if "summary_short" not in existing_cols:
+        cur.execute("ALTER TABLE thread_triage ADD COLUMN summary_short TEXT")
+    if "candidate_entities" not in existing_cols:
+        cur.execute("ALTER TABLE thread_triage ADD COLUMN candidate_entities TEXT")
 
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_escalate ON thread_triage(escalate);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_score ON thread_triage(salience_score);")
@@ -834,9 +838,11 @@ def verify_unregistered_entities_decider(
     known_str = ", ".join(f"'{name}'" for name in known_names) if known_names else "none"
 
     instructions = (
-        f"We have already identified and registered the following individuals: [{known_str}]. "
-        f"Does this dialogue explicitly mention, discuss, quote, or introduce any OTHER external third-party person, suitor, "
-        f"acquaintance, coworker, or relative whose personal name or identity is NOT among the registered individuals listed above?"
+        f"Currently known and registered persons (with their roles and descriptors): [{known_str}].\n"
+        f"Core Question: Does this conversation thread introduce, present, discuss, or mention ANY NEW, UNKNOWN PERSON "
+        f"not accounted for in the list of known persons above? "
+        f"(Consider both personal names and relational or functional descriptions like 'my ex', 'new suitor', 'the doctor', 'a coworker', "
+        f"provided it refers to a distinct, new human individual)."
     )
 
     is_decision_model = any(k in model.lower() for k in ["decider", "decision", "jev", "systemone"])
@@ -876,7 +882,8 @@ def verify_unregistered_entities_decider(
         chat_url = "https://openrouter.ai/api/v1/chat/completions"
         system_prompt = (
             "You are an adversarial entity verification watchdog. "
-            "Determine if a conversation mentions any third-party person NOT in the provided list of known names.\n"
+            "Your task is to determine whether a conversation thread introduces, presents, or mentions ANY NEW, UNKNOWN PERSON "
+            "not present in the provided list of known registered persons.\n"
             "Respond ONLY with a valid JSON object: {\"has_unregistered_third_party\": boolean, \"probability\": number}"
         )
         user_prompt = f"Known registered entities: [{known_str}]\n\nDialogue text:\n{trimmed_text}\n\nQuestion: {instructions}"
@@ -920,6 +927,254 @@ def verify_unregistered_entities_decider(
     raise RuntimeError("Max retries exceeded calling verify_unregistered_entities_decider.")
 
 
+def call_openrouter_summary(
+    dialogue_text: str,
+    model: str,
+    api_key: str,
+    max_retries: int = 3
+) -> str:
+    """Generate a dense, factual 1-2 sentence summary of the dialogue thread."""
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key.strip()}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/vatrasar/telegramAnalysis",
+        "X-Title": "Thread Dialogue Summarization"
+    }
+    trimmed = dialogue_text[:16000]
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a concise conversation summarizer. Summarize what occurs in this conversation "
+                    "in 1 to 2 factual sentences. Focus on interpersonal dynamics, emotional topics, conflicts, "
+                    "or life events. Do not use filler introductions like 'In this conversation'."
+                )
+            },
+            {"role": "user", "content": trimmed}
+        ],
+        "temperature": 0.2,
+        "max_tokens": 120
+    }
+    req_data = json.dumps(payload).encode("utf-8")
+    for attempt in range(max_retries):
+        try:
+            req = urllib.request.Request(url, data=req_data, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                resp_data = json.loads(resp.read().decode("utf-8"))
+            return resp_data["choices"][0]["message"]["content"].strip()
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+                continue
+            err_msg = e.read().decode("utf-8", errors="ignore")
+            raise RuntimeError(f"OpenRouter Summary API error {e.code}: {err_msg}")
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(1.5 ** attempt)
+                continue
+            raise e
+    raise RuntimeError("Max retries exceeded calling call_openrouter_summary.")
+
+
+def call_openrouter_extraction(
+    dialogue_text: str,
+    model: str,
+    api_key: str,
+    max_retries: int = 3
+) -> str:
+    """Extract candidate external individuals and relational entities from dialogue as JSON string."""
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key.strip()}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/vatrasar/telegramAnalysis",
+        "X-Title": "Candidate Entity Extraction"
+    }
+    trimmed = dialogue_text[:16000]
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "Extract all third-party human individuals mentioned or discussed in this dialogue. "
+                    "Include both personal names (e.g. 'Sarah', 'Ahmed') and relational/functional descriptions (e.g. 'my ex', 'boss', 'pediatrician', 'roommate'). "
+                    "Respond ONLY with a valid JSON array of objects: [{\"mention\": \"...\", \"role\": \"...\"}]. "
+                    "If no third-party individuals are mentioned, respond with []."
+                )
+            },
+            {"role": "user", "content": trimmed}
+        ],
+        "temperature": 0.0,
+        "max_tokens": 300
+    }
+
+    if "extract" in model.lower():
+        payload["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "person_entities",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "people": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "mention": {"type": "string", "description": "Name or relational mention"},
+                                    "role": {"type": "string", "description": "Role or relationship"}
+                                },
+                                "required": ["mention", "role"],
+                                "additionalProperties": False
+                            }
+                        }
+                    },
+                    "required": ["people"],
+                    "additionalProperties": False
+                }
+            }
+        }
+
+    req_data = json.dumps(payload).encode("utf-8")
+    for attempt in range(max_retries):
+        try:
+            req = urllib.request.Request(url, data=req_data, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                resp_data = json.loads(resp.read().decode("utf-8"))
+            content = resp_data["choices"][0]["message"]["content"].strip()
+            if content.startswith("```"):
+                content = content.split("```")[1]
+                if content.startswith("json"):
+                    content = content[4:].strip()
+            # Normalize to valid JSON
+            try:
+                parsed = json.loads(content)
+                if isinstance(parsed, dict):
+                    if "structured_result" in parsed and isinstance(parsed["structured_result"], dict) and "people" in parsed["structured_result"]:
+                        parsed = parsed["structured_result"]["people"]
+                    elif "people" in parsed:
+                        parsed = parsed["people"]
+                    elif "entities" in parsed:
+                        parsed = parsed["entities"]
+                return json.dumps(parsed, ensure_ascii=False)
+            except Exception:
+                return json.dumps([{"mention": content[:80], "role": "unparsed"}], ensure_ascii=False)
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+                continue
+            err_msg = e.read().decode("utf-8", errors="ignore")
+            raise RuntimeError(f"OpenRouter Extraction API error {e.code}: {err_msg}")
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(1.5 ** attempt)
+                continue
+            raise e
+    raise RuntimeError("Max retries exceeded calling call_openrouter_extraction.")
+
+
+def run_enrichment(
+    db_path: str,
+    limit: Optional[int] = None,
+    force: bool = False,
+    concurrency_override: Optional[int] = None,
+    chat_id: Optional[str] = None,
+    do_summary: bool = True,
+    do_extraction: bool = True
+) -> int:
+    config = load_config()
+    api_key = str(config.get("api_key", "")).strip()
+    if not api_key or "YOUR_OPENROUTER_API_KEY" in api_key:
+        print("[ERROR] OpenRouter API key missing in config/embeddings_config.json")
+        return 2
+
+    summary_model = str(config.get("summary_model", "scaledown/summarize")).strip()
+    extraction_model = str(config.get("extraction_model", "scaledown/extract")).strip()
+    concurrency = concurrency_override or int(config.get("concurrency", 4))
+
+    conn = sqlite3.connect(db_path)
+    init_triage_table(conn)
+    cur = conn.cursor()
+
+    sql = """
+    SELECT t.thread_id, t.chat_id, t.start_date, t.message_count, t.dialogue_text,
+           tr.salience_score, tr.summary_short, tr.candidate_entities
+    FROM threads t
+    JOIN thread_triage tr ON t.thread_id = tr.thread_id
+    WHERE (tr.salience_score >= 1.5 OR tr.is_atypical = 1 OR tr.emotional_peak != 'none' 
+           OR tr.is_advice_seeking = 1 OR tr.mentions_third_party = 1 OR t.message_count >= 25)
+    """
+    where_extra = []
+    params = []
+    if chat_id:
+        where_extra.append("t.chat_id = ?")
+        params.append(chat_id)
+    if not force:
+        where_extra.append("(tr.summary_short IS NULL OR tr.candidate_entities IS NULL)")
+
+    if where_extra:
+        sql += " AND " + " AND ".join(where_extra)
+
+    sql += " ORDER BY tr.salience_score DESC"
+    if limit:
+        sql += f" LIMIT {int(limit)}"
+
+    cur.execute(sql, params)
+    rows = cur.fetchall()
+
+    if not rows:
+        print("[✓] All qualifying threads are already enriched with summaries/entities! (Use --force to regenerate).")
+        conn.close()
+        return 0
+
+    print(f"[*] Starting Scaledown Batch Enrichment on {len(rows)} salient threads:")
+    if do_summary:
+        print(f"    - Summary Model:    {summary_model}")
+    if do_extraction:
+        print(f"    - Extraction Model: {extraction_model}")
+    print(f"    - Concurrency:      {concurrency} workers")
+    print("-" * 80)
+
+    def process_item(item):
+        tid, cid, sdate, mcount, dtext, score, curr_sum, curr_ent = item
+        new_sum = curr_sum
+        new_ent = curr_ent
+        if do_summary and (force or not curr_sum):
+            try:
+                new_sum = call_openrouter_summary(dtext, summary_model, api_key)
+            except Exception as e:
+                new_sum = f"[Summary failed: {e}]"
+        if do_extraction and (force or not curr_ent):
+            try:
+                new_ent = call_openrouter_extraction(dtext, extraction_model, api_key)
+            except Exception as e:
+                new_ent = json.dumps([{"error": str(e)}])
+        return tid, new_sum, new_ent
+
+    completed = 0
+    with ThreadPoolExecutor(max_workers=concurrency) as executor:
+        future_map = {executor.submit(process_item, r): r[0] for r in rows}
+        for fut in as_completed(future_map):
+            tid, s_val, e_val = fut.result()
+            cur.execute("""
+            UPDATE thread_triage
+            SET summary_short = ?, candidate_entities = ?
+            WHERE thread_id = ?;
+            """, (s_val, e_val, tid))
+            conn.commit()
+            completed += 1
+            print(f"[{completed}/{len(rows)}] Enriched thread {tid}")
+
+    conn.close()
+    print(f"[✓] Successfully enriched {completed} threads with summaries and entity candidates.")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="System-1 Dialogue Thread Triage Engine")
     parser.add_argument("--db", default=DEFAULT_DB_PATH, help=f"Path to SQLite database (default: {DEFAULT_DB_PATH})")
@@ -930,6 +1185,9 @@ def main():
     parser.add_argument("--model", "-m", help="Override triage model name")
     parser.add_argument("--chat-id", help="Filter by specific chat ID")
     parser.add_argument("--status", action="store_true", help="Print existing triage and reduction report without running API")
+    parser.add_argument("--enrich", action="store_true", help="Batch run Scaledown summaries and entity extractions on salient threads")
+    parser.add_argument("--summarize-only", action="store_true", help="Generate summaries only for salient threads")
+    parser.add_argument("--extract-only", action="store_true", help="Extract candidate entities only for salient threads")
 
     args = parser.parse_args()
 
@@ -943,6 +1201,17 @@ def main():
         print_reduction_report(conn)
         conn.close()
         return 0
+
+    if args.enrich or args.summarize_only or args.extract_only:
+        return run_enrichment(
+            db_path=args.db,
+            limit=args.limit,
+            force=args.force,
+            concurrency_override=args.concurrency,
+            chat_id=args.chat_id,
+            do_summary=not args.extract_only,
+            do_extraction=not args.summarize_only
+        )
 
     return run_triage(
         db_path=args.db,

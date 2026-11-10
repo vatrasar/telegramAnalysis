@@ -167,10 +167,97 @@ def test_triage_connectivity(api_key: str, triage_model: str) -> int:
         return 6
 
 
+def test_model_connectivity(api_key: str, model: str, role_name: str) -> int:
+    """Test standard chat completion endpoint for a given OpenRouter model."""
+    endpoint = "https://openrouter.ai/api/v1/chat/completions"
+    masked_key = f"{api_key[:7]}...{api_key[-4:]}" if len(api_key) > 12 else "***"
+    print(f"[*] Testing {role_name} Model (Model: {model}, Key: {masked_key})...")
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/vatrasar/telegramAnalysis",
+        "X-Title": f"{role_name} Preflight Check"
+    }
+
+    if "extract" in model.lower():
+        test_payload = json.dumps({
+            "model": model,
+            "messages": [
+                {"role": "user", "content": "I met with Dr. Smith and my friend Alice."}
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "person_entities",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "people": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "mention": {"type": "string"},
+                                        "role": {"type": "string"}
+                                    },
+                                    "required": ["mention", "role"],
+                                    "additionalProperties": False
+                                }
+                            }
+                        },
+                        "required": ["people"],
+                        "additionalProperties": False
+                    }
+                }
+            }
+        }).encode("utf-8")
+    else:
+        test_payload = json.dumps({
+            "model": model,
+            "messages": [
+                {"role": "user", "content": "Respond with OK"}
+            ],
+            "max_tokens": 10
+        }).encode("utf-8")
+
+    req = urllib.request.Request(endpoint, data=test_payload, headers=headers, method="POST")
+
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp_json = json.loads(resp.read().decode("utf-8"))
+            if "choices" in resp_json and len(resp_json["choices"]) > 0:
+                print(f"[SUCCESS] {role_name} verified! Model '{model}' is active and responding.")
+                return 0
+            else:
+                print(f"[WARNING] Unexpected response from {role_name} endpoint: {resp_json}")
+                return 0
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="ignore")
+        if e.code == 401:
+            print(f"[ERROR] HTTP 401 Unauthorized: The OpenRouter API key is invalid.")
+            return 3
+        elif e.code == 402:
+            print(f"[ERROR] HTTP 402 Payment Required: Insufficient OpenRouter credits.")
+            return 4
+        elif e.code == 404:
+            print(f"[ERROR] HTTP 404 Not Found: {role_name} model '{model}' not found on OpenRouter.")
+            return 5
+        else:
+            print(f"[ERROR] {role_name} HTTP {e.code} Error: {err_body}")
+            return 1
+    except Exception as e:
+        print(f"[ERROR] {role_name} connection failure: {e}")
+        return 6
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Configuration Initializer & Pre-Flight Validator")
     parser.add_argument("--embeddings", action="store_true", help="Validate only embeddings connectivity")
     parser.add_argument("--triage", action="store_true", help="Validate only System-1 triage model connectivity")
+    parser.add_argument("--summary", action="store_true", help="Validate only Summary model connectivity")
+    parser.add_argument("--extraction", action="store_true", help="Validate only Extraction model connectivity")
     args = parser.parse_args()
 
     config = init_and_load_config()
@@ -178,6 +265,8 @@ def main() -> int:
     api_key = str(config.get("api_key", "")).strip()
     embeddings_model = str(config.get("model", "qwen/qwen3-embedding-8b")).strip()
     triage_model = str(config.get("triage_model", "perplexity/pplx-decider-v1.2")).strip()
+    summary_model = str(config.get("summary_model", "scaledown/summarize")).strip()
+    extraction_model = str(config.get("extraction_model", "scaledown/extract")).strip()
 
     if not api_key or "YOUR_OPENROUTER_API_KEY" in api_key or api_key.startswith("YOUR_"):
         print("[ACTION_REQUIRED] OpenRouter API key has not been set yet!")
@@ -185,8 +274,11 @@ def main() -> int:
         print("  -> Please replace placeholder with your real OpenRouter API key.")
         return 2
 
-    check_embeddings = args.embeddings or (not args.triage)
-    check_triage = args.triage or (not args.embeddings)
+    any_specific = args.embeddings or args.triage or args.summary or args.extraction
+    check_embeddings = args.embeddings or not any_specific
+    check_triage = args.triage or not any_specific
+    check_summary = args.summary or not any_specific
+    check_extraction = args.extraction or not any_specific
 
     codes = []
     print("=" * 70)
@@ -198,6 +290,12 @@ def main() -> int:
 
     if check_triage:
         codes.append(test_triage_connectivity(api_key, triage_model))
+
+    if check_summary and summary_model:
+        codes.append(test_model_connectivity(api_key, summary_model, "Summary"))
+
+    if check_extraction and extraction_model:
+        codes.append(test_model_connectivity(api_key, extraction_model, "Extraction"))
 
     return max(codes) if codes else 0
 

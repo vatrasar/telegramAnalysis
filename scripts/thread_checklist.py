@@ -635,6 +635,115 @@ def resolve_chat_id(conn: sqlite3.Connection, chat_input: Optional[str]) -> Opti
     return None
 
 
+def export_delta_manifest(
+    conn: sqlite3.Connection,
+    chat_id: str,
+    limit: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Export concise manifest of pending threads with triage summaries and candidate entities for Delta Triage Subagent."""
+    ensure_thread_checklist_table(conn)
+    cur = conn.cursor()
+
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
+    has_triage = cur.fetchone()[0] > 0
+
+    if has_triage:
+        cur.execute("PRAGMA table_info(thread_triage);")
+        tcols = {col[1] for col in cur.fetchall()}
+        sum_col = "coalesce(tt.summary_short, 'No summary generated yet')" if "summary_short" in tcols else "'No summary generated yet'"
+        ent_col = "coalesce(tt.candidate_entities, '[]')" if "candidate_entities" in tcols else "'[]'"
+
+        sql = f"""
+        SELECT tac.thread_id, tac.radar_sources, tac.salience_score, tac.primary_category,
+               tac.start_date, tac.message_count, tac.total_words,
+               {sum_col}, {ent_col},
+               substr(t.dialogue_text, 1, 300)
+        FROM thread_audit_checklist tac
+        JOIN threads t ON tac.thread_id = t.thread_id
+        LEFT JOIN thread_triage tt ON tac.thread_id = tt.thread_id
+        WHERE tac.chat_id = ? AND tac.status = 'pending'
+        ORDER BY tac.salience_score DESC, tac.message_count DESC
+        """
+    else:
+        sql = """
+        SELECT tac.thread_id, tac.radar_sources, tac.salience_score, tac.primary_category,
+               tac.start_date, tac.message_count, tac.total_words,
+               'No summary generated yet', '[]',
+               substr(t.dialogue_text, 1, 300)
+        FROM thread_audit_checklist tac
+        JOIN threads t ON tac.thread_id = t.thread_id
+        WHERE tac.chat_id = ? AND tac.status = 'pending'
+        ORDER BY tac.salience_score DESC, tac.message_count DESC
+        """
+
+    if limit:
+        sql += f" LIMIT {int(limit)}"
+
+    cur.execute(sql, (chat_id,))
+    rows = cur.fetchall()
+
+    manifest = []
+    for r in rows:
+        manifest.append({
+            "thread_id": r[0],
+            "radar_sources": r[1],
+            "salience_score": r[2],
+            "category": r[3],
+            "date": r[4],
+            "messages": r[5],
+            "words": r[6],
+            "summary": r[7],
+            "candidate_entities": r[8],
+            "sample_snippet": r[9].strip().replace("\n", " ") if r[9] else ""
+        })
+    return manifest
+
+
+def print_delta_manifest(manifest: List[Dict[str, Any]], chat_id: str):
+    """Print high-density delta manifest for prompt construction."""
+    print("=" * 80)
+    print(f"📋 DELTA TRIAGE MANIFEST: {len(manifest)} PENDING THREADS FOR CHAT '{chat_id}'")
+    print("=" * 80)
+    print("Instructions for Delta Subagent: Compare each thread summary against established baseline.")
+    print("Filter into: (1) NOVELTY/ANOMALY (needs deep dive) vs (2) CORROBORATING/REDUNDANT.")
+    print("-" * 80)
+
+    for i, m in enumerate(manifest, 1):
+        print(f"[{i:03d}] Thread {m['thread_id']} | Date: {m['date']} | Msgs: {m['messages']} | Score: {m['salience_score']:.1f} | Radars: {m['radar_sources']}")
+        print(f"      Summary:  {m['summary']}")
+        if m['candidate_entities'] and m['candidate_entities'] != "[]":
+            print(f"      Entities: {m['candidate_entities']}")
+        print(f"      Snippet:  \"{m['sample_snippet'][:120]}...\"\n")
+
+
+def resolve_redundant_threads(
+    conn: sqlite3.Connection,
+    chat_id: str,
+    thread_ids: List[str],
+    reason: str
+) -> int:
+    """Safely resolve redundant/corroborating threads with full audit trail and theoretical saturation notes."""
+    ensure_thread_checklist_table(conn)
+    cur = conn.cursor()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    updated = 0
+
+    clean_reason = reason.strip() or "Theoretical saturation: Corroborates established baseline"
+    for tid in thread_ids:
+        cur.execute("""
+        UPDATE thread_audit_checklist
+        SET status = 'completed',
+            findings_summary = 'Theoretical Saturation: Redundant discussion corroborating established baseline',
+            notes = coalesce(notes || ' | ', '') || 'Corroborating: ' || ?,
+            updated_at = ?
+        WHERE chat_id = ? AND thread_id = ?;
+        """, (clean_reason, now_iso, chat_id, tid))
+        updated += cur.rowcount
+
+    conn.commit()
+    return updated
+
+
 def main():
     parser = argparse.ArgumentParser(description="Thread Forensic Audit Checklist & Gatekeeper")
     parser.add_argument("--db", type=str, default=DEFAULT_DB_PATH, help="Path to SQLite database")
@@ -650,6 +759,9 @@ def main():
     parser.add_argument("--tags", type=str, help="Thematic tags (e.g. #defense #attachment)")
     parser.add_argument("--notes", type=str, help="Additional notes")
     parser.add_argument("--batch-update", nargs="+", metavar="THREAD_ID", help="Batch update multiple thread IDs")
+    parser.add_argument("--export-delta-manifest", action="store_true", help="Export manifest of pending threads with summaries for Delta Triage Subagent")
+    parser.add_argument("--resolve-redundant", nargs="+", metavar="THREAD_ID", help="Mark redundant/corroborating threads as completed with saturation note")
+    parser.add_argument("--limit", "-l", type=int, help="Limit number of items for export-delta-manifest")
     parser.add_argument("--check", action="store_true", help="Run hard-stop gatekeeper check (exit 0 if resolved, exit 1 if pending)")
     parser.add_argument("--waive", action="store_true", help="Waive/disable thread audit for ad-hoc / partial tasks")
     parser.add_argument("--reason", type=str, default="Ad-hoc task / partial inquiry", help="Reason for waiver")
@@ -713,6 +825,24 @@ def main():
             print(json.dumps({"action": "enable", "chat_id": chat_id, "re_enabled": count}))
         else:
             print(f"[✓] Thread audit checklist RE-ENABLED for chat '{chat_id}' ({count} threads reverted to pending).")
+        sys.exit(0)
+
+    if args.export_delta_manifest:
+        manifest = export_delta_manifest(conn, chat_id, limit=args.limit)
+        conn.close()
+        if args.json:
+            print(json.dumps(manifest, indent=2, ensure_ascii=False))
+        else:
+            print_delta_manifest(manifest, chat_id)
+        sys.exit(0)
+
+    if args.resolve_redundant:
+        r_count = resolve_redundant_threads(conn, chat_id, args.resolve_redundant, args.reason)
+        conn.close()
+        if args.json:
+            print(json.dumps({"action": "resolve_redundant", "count": r_count, "reason": args.reason}))
+        else:
+            print(f"[✓] Safely resolved {r_count} redundant threads with reason: '{args.reason}'.")
         sys.exit(0)
 
     if args.update:

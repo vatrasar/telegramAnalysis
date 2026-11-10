@@ -2078,9 +2078,18 @@ def run_watchdog_check(
         known_names.extend(explicit_known_names)
     else:
         ensure_entities_tables(conn)
-        cur.execute("SELECT name_or_alias FROM chat_entities WHERE chat_id = ?;", (actual_chat_id,))
+        cur.execute("SELECT name_or_alias, verified_role, associated_descriptors FROM chat_entities WHERE chat_id = ?;", (actual_chat_id,))
         for r in cur.fetchall():
-            known_names.append(r[0])
+            name, role, descs = r[0], r[1], r[2]
+            label = name
+            details = []
+            if role:
+                details.append(f"role: {role}")
+            if descs:
+                details.append(f"aliases/descriptors: {descs}")
+            if details:
+                label = f"{name} ({', '.join(details)})"
+            known_names.append(label)
         if participants:
             for p in participants.split(","):
                 p_clean = p.strip()
@@ -2185,6 +2194,12 @@ def print_watchdog_status(db_path: str, chat_id: str):
     conn = sqlite3.connect(db_path)
     ensure_entities_tables(conn)
     cur = conn.cursor()
+
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
+    if cur.fetchone()[0] == 0:
+        print(f"[*] 'thread_triage' table not found in '{db_path}'. Run triage first via: python3 project/scripts/triage_threads.py")
+        conn.close()
+        return
 
     cur.execute("""
     SELECT COUNT(*) FROM threads t
@@ -2334,6 +2349,12 @@ def run_sequential_watchdog_scan(
         conn.commit()
         print(f"[✓] Reset watchdog scan audit progress for chat '{chat_id}'.")
 
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
+    if cur.fetchone()[0] == 0:
+        print(f"[!] Error: 'thread_triage' table not found in '{db_path}'. Run triage first via: python3 project/scripts/triage_threads.py")
+        conn.close()
+        return {"status": "no_triage_table"}
+
     # Get all threads with mentions_third_party = 1
     cur.execute("""
     SELECT t.thread_id, t.start_date, t.dialogue_text, t.participants,
@@ -2386,9 +2407,21 @@ def run_sequential_watchdog_scan(
             print(f"\n[*] Scan limit ({limit}) reached for this execution.")
             break
 
-        # Load currently registered entities fresh from DB
-        cur.execute("SELECT name_or_alias FROM chat_entities WHERE chat_id = ?;", (chat_id,))
-        known_names = [r[0] for r in cur.fetchall()]
+        # Load currently registered entities fresh from DB with roles and descriptors
+        cur.execute("SELECT name_or_alias, verified_role, associated_descriptors FROM chat_entities WHERE chat_id = ?;", (chat_id,))
+        known_names = []
+        for r in cur.fetchall():
+            name, role, descs = r[0], r[1], r[2]
+            label = name
+            details = []
+            if role:
+                details.append(f"role: {role}")
+            if descs:
+                details.append(f"aliases/descriptors: {descs}")
+            if details:
+                label = f"{name} ({', '.join(details)})"
+            known_names.append(label)
+
         if participants:
             for p in participants.split(","):
                 p_clean = p.strip()

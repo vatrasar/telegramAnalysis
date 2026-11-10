@@ -23,17 +23,20 @@ The **Sequential Watchdog Loop** counters this by using a lightweight System-1 d
 
 ### Step 1: System-1 Gatekeeper Check
 For each thread flagged with `mentions_third_party = 1`:
-- System-1 evaluates the transcript against the set of currently registered entities $S$:
-  *"Given known entities [S], does this dialogue mention ANY other third party, acquaintance, family member, or suitor?"*
+- System-1 evaluates the transcript against the set of currently registered entities and roles $S$:
+  *"Currently known registered persons [S]. Does this conversation thread introduce, present, discuss, or mention ANY NEW, UNKNOWN PERSON not accounted for in the list of known persons above?"*
 - **Outcome NO (0):** Thread contains only known entities. It is marked `cleared` and skipped automatically. Zero agent context tokens spent.
-- **Outcome YES (1):** Novel or unrecognized entity detected. The cursor halts on thread $T_i$ and presents it to the agent.
+- **Outcome YES (1):** Novel or unrecognized person detected. The cursor halts on thread $T_i$ and flags it for investigation.
 
-### Step 2: Agent Extraction & Registration (System-2)
-The agent reads thread $T_i$, determines the character's name/descriptor, role, and relationship, and registers the entity:
+### Step 2: Subagent Forensic Investigation & Registration (System-2)
+To protect the Main Agent's context window, the Main Agent delegates the thread investigation to the custom **Entity Investigator Subagent** (`invoke_subagent` with `TypeName: "entity-investigator"`, `Model: "flash"`):
+1. The subagent inspects thread $T_i$ (leveraging Scaledown extraction hints if available).
+2. The subagent identifies the novel character's name/alias, relational role (e.g. 'ex-partner', 'coworker', 'attending doctor'), and context.
+3. The subagent registers the entity into SQLite:
 ```bash
-python3 project/scripts/query_chat.py -C <chat_id> --register-entity "<Name>" --role "<Role>" --desc "<Descriptor>"
+python3 project/scripts/query_chat.py -C <chat_id> --register-entity "<Name/Alias>" --role "<Role>" --desc "<Descriptor/Context>"
 ```
-The entity registry updates: $S \gets S \cup \{\text{Name}\}$.
+The entity registry updates: $S \gets S \cup \{\text{Name (Role)}\}$.
 
 ### Step 3: Adversarial Double-Check on Same Thread
 The agent **does not immediately advance** to the next thread. Instead, re-query the same thread $T_i$ against the updated set $S$:
