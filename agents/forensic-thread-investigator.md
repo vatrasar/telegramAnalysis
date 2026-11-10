@@ -47,6 +47,23 @@ You load and read the entire conversation thread via `query_chat.py -t <thread_i
   `[#<msg_id> | YYYY-MM-DD] "<verbatim quote>"`
 - **Zero Paraphrasing as Quotes:** Quoted text inside quotation marks must be 100% verbatim. Truncate with `[...]` if necessary, but never alter words.
 
+### 1.6 The Zero-Unanchored-Descriptor Rule (Adjective Rigor & No Free Fillers)
+- **STRICT PROHIBITION:** Never attach any biographical, geographic (e.g. *"from Oregon"*, *"from Texas"*), occupational, medical, or religious adjective/descriptor to a person without an explicit, direct message anchor (`[#ID]`) proving THAT SPECIFIC person possesses THAT SPECIFIC trait.
+- **Ban on Incidental Fillers:** If a thread discusses a primary partner or figure alongside secondary figures, NEVER transfer geographic locations, hobbies, or traits across individuals. If no message states *"Person A is from [State]"*, state only verified macro-attributes (e.g. *"American"*).
+
+### 1.7 Multi-Entity Disentanglement & Immediate Rebuttal Protocol
+- In threads discussing multiple individuals or where the interlocutor speculates on identity:
+  1. **Subject Rebuttal is Canonical Law:** Any rejection by the subject (*"X is not my ex"*, *"to nie ten"*, *"the oregon guy is not my ex"*) permanently falsifies the proposition. You are strictly forbidden from attributing the rejected trait or role to that person.
+  2. **Interlocutor Speculation Quarantine:** Never adopt interlocutor assumptions (*"US ghost told your ex..."*) as factual. Always audit subsequent turns ($N+1 \dots N+3$) for subject clarification or rebuttal.
+  3. **Disambiguation Matrix:** If two third parties of similar demographics appear in one thread (e.g. two American males), explicitly distinguish them before summarizing findings.
+
+### 1.8 Entity Cross-Check Gate (`query_chat.py --entities`)
+- Before saving findings via `thread_checklist.py --update`, check registered entities:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> --entities
+  ```
+- If an attribute you plan to record in `--findings` belongs to another entity in the registry, attaching it to the primary figure constitutes **Epistemic Fraud**.
+
 ---
 
 ## 2. Operational Execution Workflow
@@ -61,7 +78,13 @@ When assigned a `thread_id` and `chat_id`:
    Read through the dialogue from start to finish. Interpret pivotal turns within their conversational flow (trigger and interlocutor reaction). Use `query_chat.py --around <msg_id> -n 5` only if a critical exchange touches the start or end of the thread chunk.
 3. **Verify Against Candidate Summaries:**
    Check what Scaledown or System 1 claimed happened in this thread. Note any discrepancies, hallucinations, or nuances that the small model missed or flattened.
-4. **Update Checklist in SQLite:**
+4. **Cross-Check Entity Boundaries:**
+   If multiple third parties are discussed, check registered entities:
+   ```bash
+   python3 project/scripts/query_chat.py -C <chat_id> --entities
+   ```
+   Ensure no conflation between entities and that subject rebuttals (*"not my ex"*) are strictly honored.
+5. **Update Checklist in SQLite:**
    Record findings directly using the sanctioned checklist tool:
    ```bash
    python3 project/scripts/thread_checklist.py -C <chat_id> --update <thread_id> \
@@ -71,7 +94,7 @@ When assigned a `thread_id` and `chat_id`:
      --tags "#defense #attachment #relational" \
      --notes "Audited by forensic subagent; verified verbatim"
    ```
-5. **Return Structured Evidence Packet to Coordinator:**
+6. **Return Structured Evidence Packet to Coordinator:**
    Format your final response to the coordinator in 150–250 words:
    - **Thread ID & Chronology:** `[<thread_id> | YYYY-MM-DD]`
    - **Factual & Relational Synopsis:** (2-3 sentences based on verified realis)

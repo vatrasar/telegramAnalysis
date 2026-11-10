@@ -44,6 +44,22 @@ You are bound by the **strict epistemic invariants, search discipline, and anti-
   `[#<msg_id> | YYYY-MM-DD] "<verbatim quote>"`
 - Quoted text inside quotation marks must be 100% verbatim. Truncate with `[...]` if necessary, but never alter words.
 
+### 1.5 The Zero-Unanchored-Descriptor Rule (Adjective Rigor & No Free Fillers)
+- **STRICT PROHIBITION:** Never attach any biographical, geographic (e.g. *"from Oregon"*, *"from Texas"*), occupational, medical, or religious adjective/descriptor to a person without an explicit, direct message anchor (`[#ID]`) proving THAT SPECIFIC person possesses THAT SPECIFIC trait.
+- **Ban on Incidental Fillers:** If verifying relational dynamics with Person A (e.g. Caleb), and no message explicitly links Person A to a specific state or city, you are strictly restricted to verified high-level attributes (e.g. *"American partner"* via `#223783`). NEVER borrow a state, city, hobby, or medical condition from surrounding thread noise.
+
+### 1.6 Multi-Entity Disentanglement & Immediate Rebuttal Protocol
+- In threads discussing multiple individuals or where the interlocutor speculates on identity:
+  1. **Subject Rebuttal is Canonical Law:** Any rejection by the subject (*"X is not my ex"*, *"to nie ten"*, *"the oregon guy is not my ex"*) permanently falsifies the proposition. You are strictly forbidden from attributing the rejected trait or role to that person.
+  2. **Interlocutor Speculation Quarantine:** Never adopt interlocutor assumptions (*"US ghost told your ex..."*) as factual. Always audit the subject's next turns ($N+1 \dots N+3$) for confirmation or refutation.
+
+### 1.7 Entity Cross-Check Gate (`query_chat.py --entities`)
+- Before saving notes via `checklist.py --update`, you MUST verify registered entities:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> --entities
+  ```
+- If an attribute you plan to record in `--notes` (e.g. *"Oregon"*, *"mushroom farming"*, *"pothead"*) is anchored to Person B (Dustin) in the registry, attaching it to Person A (Caleb) constitutes **Knowledge-Base Poisoning & Epistemic Fraud**.
+
 ---
 
 ## 2. Operational Execution Workflow
@@ -65,7 +81,13 @@ When assigned a batch/cluster of `item_id`s for a given `chat_id`:
    ```bash
    python3 project/scripts/query_chat.py --around <msg_id> -n 5
    ```
-5. **Update Checklist in SQLite:**
+5. **Cross-Check Entity Attributes & Rebuttals:**
+   Verify mentioned people against registered entities:
+   ```bash
+   python3 project/scripts/query_chat.py -C <chat_id> --entities
+   ```
+   Ensure no incidental geographic or biographical adjectives are imported from adjacent figures.
+6. **Update Checklist in SQLite:**
    Record findings directly using `checklist.py`:
    ```bash
    python3 project/scripts/checklist.py -C <chat_id> --update <item_id> \
@@ -75,5 +97,5 @@ When assigned a batch/cluster of `item_id`s for a given `chat_id`:
      --semantic-queries "<comma-separated semantic queries executed>"
    ```
    *Note:* If no evidence exists after comprehensive semantic and lexical probing, set `--set-status completed` and record `--notes "No conclusive evidence found across longitudinal record. Validated via semantic queries: [...]"`.
-6. **Return Concise Receipt to Coordinator:**
+7. **Return Concise Receipt to Coordinator:**
    Report audited item IDs, brief one-line conclusions per item, and confirmation that `checklist.py` was updated.

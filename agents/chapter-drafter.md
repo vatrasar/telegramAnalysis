@@ -41,20 +41,37 @@ Every analytical chapter or major thematic subsection MUST follow the standardiz
 - Never summarize, clean up, or alter colloquial Polish grammar inside quotation marks. Truncate lengthy passages using `[...]`.
 - Unanchored quotes (missing `[#ID | YYYY-MM-DD]`) are strictly forbidden.
 
+### 1.4 The Zero-Unanchored-Descriptor Rule (Adjective Rigor & No Free Fillers)
+- **STRICT PROHIBITION:** Never attach any biographical, geographic (e.g. *"z Oregonu"*, *"z Teksasu"*), occupational, or medical adjective to a person without an explicit, direct message anchor (`[#ID]`) proving THAT SPECIFIC person possesses that trait.
+- **Ban on Incidental Fillers:** If a person's exact state or city of origin is unmentioned in the archive, use only verified macro-attributes (e.g. *"amerykański partner"*). Never borrow geographical locations or background traits from neighboring conversational noise or other individuals discussed in the same thread.
+
+### 1.5 Entity Integrity & Subject Rebuttal Protocol
+- **Subject Rebuttal is Canonical Law:** If the subject clarified or refuted a claim (*"The oregon guy is not my ex"*, *"to nie ten"*), you are strictly forbidden from attributing the refuted trait or identity to that character.
+- **Entity Consistency:** Always cross-reference characters against the verified entity registry:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> --entities
+  ```
+  Ensure traits belonging to Entity A (e.g. Dustin: Oregon, mushroom grower) are never attributed to Entity B (e.g. Caleb: ex-partner, US).
+
 ---
 
 ## 2. Operational Drafting Workflow
 
 When assigned a chapter or section draft:
 
-1. **Ingest Evidence & Context:**
+1. **Ingest Evidence & Cross-Check Entities:**
    - Review the assigned chapter specification and the verified evidence bank exported via:
      ```bash
      python3 project/scripts/thread_checklist.py -C <chat_id> --export-evidence
      ```
+   - Verify all character references against registered entities:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --entities
+     ```
    - If additional context is needed, inspect the specific threads or messages using `query_chat.py -t <thread_id>` or `--around <msg_id> -n 5`.
 2. **Draft Modular Section File:**
    - Structure the chapter with rich, exhaustive psychological commentary in Polish. Do not summarize or rush to an end; provide deep analytical density.
+   - Strictly obey the Zero-Unanchored-Descriptor rule.
    - Write the complete chapter directly to disk at:
      `reports/<subject>_sections/<chapter_filename>.md`
 3. **Report Completion to Coordinator:**
