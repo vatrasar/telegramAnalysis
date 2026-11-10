@@ -66,10 +66,14 @@ python3 project/scripts/export_scratchpad.py --db chat.db -o reports/<subject>_s
 2. Inspect diagnostic radars: `--anomalies-only`, `--emotional-peaks`, `--advice-seeking`, `--triaged-threads`.
 3. **Anti-Snippet Ingestion Guard:** Treat all radar hits strictly as hypothesis cues. Never cite or draft from a triage preview without full contextual audit via `query_chat.py -t <id>` or `query_chat.py --around <msg_id> -n 5`.
 4. **Anti-Simpson Relational Protocol:** In multi-chat archives, always audit metrics per individual dyad via `Per-Chat Relational Breakdown` in `--gaps` (`query_chat.py -C <chat_id> --gaps`).
+5. **Entity & Role Baseline Inspection:** Inspect registered entities and descriptors for the target chat via `query_chat.py -C <chat_id> --entities` and `--descriptors`. If a chat file was refreshed or modified, review any descriptors flagged with `needs_recheck = 1`.
 
 #### Step B.3: Forensic Scratchpad Ingestion & Hypothesis Synthesis
 - Audit threads in small batches (10–15 threads at a time) in `evidence_ledger.md` or via `query_chat.py -t <id>`.
 - **Thread Boundary Fallback Protocol:** If an analyzed message is near thread start/end or in a single-message thread, invoke `query_chat.py --around <id> -n 5` to inspect chronological before/after turns across thread lines.
+- **Bare-Pronoun Search Attribution Ban:** Never attribute an action/trait from a search hit with a bare pronoun without checking $N-5 \dots N$ for the proper noun antecedent.
+- **Lazy On-Demand Cardinality Audit:** When encountering any relational role or descriptor (*"sister"*, *"ex"*, *"US guy"*), perform an on-demand cardinality check (`query_chat.py -C <chat_id> --audit-descriptor "<term>"`) before assigning traits.
+- **Third-Party Watchdog Verification:** For complex multi-party threads, apply the System-1 Watchdog loop to ensure no secondary entities were overlooked.
 - Cross-examine words vs. actions across the longitudinal timeline.
 
 #### Step B.4: Intensive Discussions & Life Spheres Audit

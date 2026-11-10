@@ -93,6 +93,27 @@ python3 project/scripts/query_chat.py --db chat.db --stats -s "awans" --json
 
 ---
 
+### 2.4 Entity Disambiguation, Role Cardinality & Watchdog Verification
+Inspect and manage third-party entities and scoped role descriptors:
+```bash
+# Display registered third-party entities for a specific conversation
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --entities
+
+# Display registered role descriptors and their cardinality (K=1 vs K>1)
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --descriptors
+
+# Perform Lazy On-Demand Cardinality Audit on a newly encountered role or descriptor
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --audit-descriptor "sister"
+
+# Register or update a verified third-party entity under chat scope
+python3 project/scripts/query_chat.py --db chat.db -C "<chat_id_or_name>" --register-entity "Dustin" --role "Chat friend from Oregon" --desc "pothead, mushroom farmer" --non-romantic
+
+# Execute System-1 Watchdog Double-Check on a thread to detect overlooked entities
+python3 project/scripts/query_chat.py --db chat.db --watchdog-check <thread_id> --known "Dustin"
+```
+
+---
+
 ## 3. Mandatory Chat Data Ingestion Skill Activation Gate
 
 To preserve system context, data engineering pipelines, database parsing tools, vectorization scripts, and SQLite schemas are maintained in a specialized skill:

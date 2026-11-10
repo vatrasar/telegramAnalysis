@@ -39,6 +39,10 @@ The agent is strictly forbidden from deriving analytical conclusions, biographic
 - **Vectorization vs. Epistemic Separation Principle:**
   Unrelated chronological messages must **NEVER** be concatenated into database thread objects (`dialogue_text` / `threads` table), as doing so would pollute vector embeddings and cluster unrelated topics together. The chronological inspection is an **epistemic reasoning protocol executed by the agent at query time**, not a persistent mutation of the database threads.
 
+### 1.3 The Bare-Pronoun Search Attribution Ban (Zakaz Atrybucji z Wyników Zaimkowych)
+- **The Heuristic Trap:** When a lexical keyword search (`-s`, `-st`) returns a matching message describing a biographical trait, habit, medical condition, hobby, pet, or lifestyle fact starting with or dominated by a bare third-person pronoun (*"He farm mushroom"*, *"She works at"*, *"On ma kota"*, *"Ona studiuje"*), the agent is **STRICTLY PROHIBITED** from attributing that trait to an established character based on conversational inertia.
+- **Mandatory Antecedent Audit:** The agent MUST invoke `query_chat.py -f <msg_id> -w 5` or `query_chat.py --around <msg_id> -n 5` to locate the explicit grammatical antecedent (proper noun or role descriptor) in preceding turns ($N-5 \dots N$). Attribution without an audited proper noun antecedent is a critical protocol breach.
+
 ---
 
 ## 2. The Vocative & Left-Dislocation Protocol (Chat Syntax Disambiguation)
@@ -103,8 +107,12 @@ The agent is strictly prohibited from synthesizing continuous multi-year spans (
    - Demographic attributes (*"indian guy"*, *"policeman"*, *"blonde girl"*) are surface descriptors. Never promote an episodic demographic encounter to the Cast of Characters. Categorize as **Episodic Bystander / NPC**.
 2. **Principle B: Action/Behavioral Signature & Conversational Inertia:**
    - Within an active relational era, generic labels sharing a romantic/partner behavioral signature inherit the dominant partner via Conversational Inertia. Interactions lacking this signature constitute Lack of Evidentiary Proof.
-3. **Principle C: Cardinality State Machine ($K=1$ vs. $K \ge 2$):**
-   - If multiple individuals hold the same role simultaneously (e.g., multiple sisters), a bare mention (*"my sister"*) CANNOT be mapped to an individual without a distinguishing anchor. Route to a collective container (e.g. `Sister_Unresolved`).
+3. **Principle C: Generalized Role & Descriptor Cardinality ($K=1$ vs. $K \ge 2$):**
+   - **Scope:** Applies universally to ANY relational role, kinship label, demographic container, or geographic tag (*"sister"*, *"brother"*, *"ex"*, *"US guy"*, *"Oregon"*, *"doctor"*, *"boss"*, *"roommate"*).
+   - **Lazy On-Demand Cardinality Audit:** When the agent first encounters a role or descriptor during investigation, it is strictly forbidden from assuming uniqueness ($K=1$). The agent MUST execute a targeted lexical query (e.g. `query_chat.py -C <chat_id> -s "sister OR sisters OR siblings"`) to establish cardinality within this specific conversation:
+     - **$K=1$ (Singleton):** Proven single entity across the entire chat (e.g. father, mother). Direct role mapping is permitted.
+     - **$K \ge 2$ (Polysemous / Multi-Entity):** Plural mentions, multiple individuals, or ambiguous references detected (e.g. multiple sisters, two distinct US contacts). A bare role mention (*"my sister"*, *"the US guy"*) CANNOT be mapped to any entity without an audited distinguishing anchor (e.g. `Sister_2_Epilepsy`, `US_Caleb_Ex`, `US_Dustin_ChatFriend`).
+   - **One-Time Registry Persistence:** Once audited for a specific `chat_id`, the cardinality status is recorded in `chat_descriptors` or the research scratchpad so it is never re-audited redundantly.
 4. **Principle D: Proportional Verification (The Materiality Principle):**
    - *Low-Stakes:* Ambient background activities (*"watching a movie with friend"*). If identity has zero bearing on the psychological insight, do not launch identity searches.
    - *High-Stakes (Mandatory Verification Gate):* Required for biographical milestones, relationship spans, crimes/violence, major financial transactions, and core relational pathology/trauma.
@@ -112,6 +120,13 @@ The agent is strictly prohibited from synthesizing continuous multi-year spans (
    - In threads where two or more third parties are discussed, personal pronouns (*he*, *she*, *they*, *on*, *ona*) must NEVER be attributed to a character without verifying the antecedent noun/proper name in preceding turns ($N-5 \dots N$).
 6. **Principle F: Collective-to-Individual Attribute Leakage Ban:**
    - Political alignments, religious beliefs, or pathologies of a social unit (family, ethnic group, partner circle) must NEVER be transposed onto an individual character without explicit personal affirmation.
+7. **Principle G: Hermetic Chat-Level Scoping (`chat_id` Boundary Protection):**
+   - Every role descriptor, cardinality mapping, and third-party entity is strictly scoped to its individual conversation (`chat_id` / source file).
+   - Descriptors and entities must **NEVER leak across chat boundaries**: *„sister”* or *„ex”* in `ismi.json` has zero relation to *„sister”* or *„ex”* in `silvi.json` or `katia.json`. Cross-chat pollution is a critical architectural violation.
+8. **Principle H: Anti-Interlocutor Memory Bias & Speculative Prompt Invalidation:**
+   - Interlocutors in longitudinal chats frequently confuse third parties, misremember names, or conflate distinct individuals across distant months.
+   - Statements or questions made by the interlocutor (e.g. *"I thought it was the US guy"*, *"Is Caleb your ex?"*, *"Didn't your sister have that job?"*) have **ZERO evidentiary authority**. They are treated strictly as unverified stimuli.
+   - The Subject's next-turn reaction ($N+1 \dots N+5$) holds primary authority. If the subject corrects, refutes, or clarifies (*"not my ex"*, *"to nie ten"*, *"different guy"*), the agent is unconditionally prohibited from adopting the interlocutor's conflation.
 
 ---
 
@@ -140,3 +155,17 @@ The agent is strictly prohibited from synthesizing continuous multi-year spans (
 
 - In dossiers and Cast of Characters tables, every factual descriptor, biographical milestone, occupation, or ideological label MUST be pinned to a verifiable message ID (`[#ID | YYYY-MM-DD]`).
 - Synthetic filler, narrative embellishments, or unverified guesswork are strictly forbidden. If an attribute lacks direct primary proof, omit it entirely.
+
+---
+
+## 12. The System-1 Watchdog Entity Verification Loop (Adversarial Double-Check Gate)
+
+To prevent Single-Entity Blindness (stopping entity search after finding the first obvious character in a thread), the pipeline employs an adversarial double-check loop between the Agent (System-2) and the Decision Router (System-1):
+
+1. **Third-Party Radar Hit:** In threads flagged with `mentions_third_party_person = 1`, the Agent examines the dialogue and extracts the initial set of third-party names/entities: $S = \{\text{Name}_1, \dots\}$.
+2. **Adversarial Watchdog Query:** System-1 evaluates the thread binarially (`type: noul` via Decisions API):
+   - *"Does this dialogue mention, discuss, or quote any external third-party person, suitor, friend, or coworker other than the known entities: S?"*
+3. **Loop Convergence:**
+   - **Odpowiedź NIE (0):** 100% coverage achieved. Thread investigation completes cleanly.
+   - **Odpowiedź TAK (1):** Alert raised: an uncaptured third-party entity is present. The Agent is forced to re-examine the thread turn-by-turn to locate the omitted entity (e.g. spotting `CJ` after initially recording only `Dustin`).
+   - If after strict re-examination the Agent confirms no other entity exists (System-1 false positive), the Agent logs the verification and closes the loop without infinite recursion.
