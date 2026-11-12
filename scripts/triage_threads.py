@@ -72,7 +72,7 @@ def main():
     if args.status:
         conn = connect_db(args.db)
         init_triage_table(conn)
-        print_reduction_report(conn)
+        print_reduction_report(conn, chat_id=args.chat_id)
         conn.close()
         return 0
 
