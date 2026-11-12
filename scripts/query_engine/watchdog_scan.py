@@ -17,16 +17,17 @@ def run_sequential_watchdog_scan(
     db_path: str,
     chat_id: str,
     limit: Optional[int] = None,
-    reset: bool = False
+    reset: bool = False,
+    sweep: bool = False
 ) -> Dict[str, Any]:
-    """Run sequential System-1 entity watchdog scan on third-party threads.
+    """Run sequential or sweep System-1 entity watchdog scan on third-party threads.
 
     Iterates thread-by-thread:
     1. Checks if thread contains any entity NOT in currently registered list S.
     2. If NO -> thread is marked 'cleared' and scan automatically advances.
-    3. If YES -> stops immediately at this thread, prints dialogue excerpt and profiler directives.
-    4. Profiler identifies/registers new entity, then re-runs --watchdog-check on same thread.
-    5. If all entities in thread are registered, System-1 returns NO and scan resumes.
+    3. If YES:
+       - If sweep=False: stops immediately at this thread, prints dialogue excerpt and profiler directives.
+       - If sweep=True: records detection, prints brief alert, and continues sweeping subsequent threads.
     """
     if verify_unregistered_entities_decider is None:
         raise ImportError("verify_unregistered_entities_decider could not be imported from triage_threads.py")
@@ -77,14 +78,16 @@ def run_sequential_watchdog_scan(
 
     total_threads = len(rows)
     cleared_count = sum(1 for r in rows if r[4] in ('cleared', 'skipped'))
+    mode_label = "FULL SWEEP / CATCH-UP" if sweep else "SEQUENTIAL (STOP ON DETECTION)"
     print("\n" + "=" * 80)
-    print(f"🔍 SEQUENTIAL ENTITY WATCHDOG SCANNER [Chat: {chat_id}]")
+    print(f"🔍 ENTITY WATCHDOG SCANNER [{mode_label}] [Chat: {chat_id}]")
     print(f"   Total Third-Party Threads: {total_threads}")
     print(f"   Already Cleared / Skipped: {cleared_count}")
     print(f"   Model (System-1 Decider):  {model}")
     print("=" * 80)
 
     processed_in_this_run = 0
+    detected_in_sweep = []
 
     for idx, (tid, sdate, diag_text, participants, audit_status) in enumerate(rows, 1):
         if audit_status in ('cleared', 'skipped'):
@@ -144,6 +147,16 @@ def run_sequential_watchdog_scan(
             VALUES (?, ?, 'unregistered_detected', ?, ?, ?);
             """, (tid, chat_id, len(known_names), prob, now_str))
             conn.commit()
+
+            if sweep:
+                print(f" [🚨 DETECTED: {tid}] (p={prob:.2f})")
+                detected_in_sweep.append({
+                    "thread_id": tid,
+                    "date": sdate,
+                    "probability": prob
+                })
+                continue
+
             print(f" [🚨 NEW ENTITY DETECTED] (p={prob:.2f})\n")
 
             print("-" * 80)
@@ -181,5 +194,23 @@ def run_sequential_watchdog_scan(
             }
 
     conn.close()
+    if sweep:
+        print("\n" + "=" * 80)
+        print(f"🔍 SWEEP SCAN COMPLETE [Chat: {chat_id}]")
+        print(f"   Processed Threads:         {processed_in_this_run}")
+        print(f"   Unregistered Detected:     {len(detected_in_sweep)}")
+        if detected_in_sweep:
+            print("   Detected Thread IDs:       " + ", ".join([d["thread_id"] for d in detected_in_sweep]))
+            print("   👉 Dispatch investigators to review these specific detected threads.")
+        else:
+            print("   [✓] All scanned threads cleared against registered entities!")
+        print("=" * 80 + "\n")
+        return {
+            "status": "sweep_completed",
+            "processed": processed_in_this_run,
+            "detected_count": len(detected_in_sweep),
+            "detected_threads": detected_in_sweep
+        }
+
     print("\n[✓] Sequential Watchdog Scan iteration complete.")
     return {"status": "completed", "processed": processed_in_this_run}
