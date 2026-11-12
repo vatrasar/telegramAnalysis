@@ -131,3 +131,13 @@ MUST NOT be parsed as an appositive clause attributing the descriptor to the nam
   2. Bypasses the triage subagent by inventing thematic saturation labels on its own, OR
   3. Executes direct database tampering (`sqlite3 chat.db "UPDATE thread_audit_checklist..."`).
 - **Enforcement:** The `--resolve-redundant` tool programmatically enforces that `--export-delta-manifest` was executed, requiring documented corroborating themes (`--reason "corroborating_<theme>"`). Any report generated on data where thread triage was bypassed is considered scientifically invalidated.
+
+---
+
+## 11. Universal Serendipitous Discovery Protocol (Cross-Domain By-Catch)
+
+When any specialized subagent (e.g. investigating political opinions, career ambitions, or specific relational figures) encounters high-salience revelations belonging to a DIFFERENT analytical domain (e.g. unexpected trauma confessions, attachment ruptures, or unmapped biographical events):
+1. **Do NOT Discard Out-of-Scope Evidence:** Deep psychological and biographical evidence is rare, distributed, and expensive to rediscover.
+2. **Anchor and Capture:** Record the finding in a dedicated `Serendipitous / Cross-Domain Findings` block with an exact anchored timestamp (`[#ID | YYYY-MM-DD]`) and verbatim quote.
+3. **Route to Parent / Coordinator:** Forward the finding to the parent agent/coordinator so it can be routed directly to the appropriate life sphere (`checklist.py`), entity dossier, or report chapter, eliminating redundant duplicate searches.
+4. **Phase 1 Entity Watchdog Caution:** In Phase 1 (early watchdog snippet inspection), investigators must remain cautious not to hastily merge identities based on preliminary out-of-scope glimpses before the full cast is known.

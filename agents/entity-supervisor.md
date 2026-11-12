@@ -138,6 +138,11 @@ Formulate explicit negative boundaries for each entity:
 
 #### Step 9: Wave-Based Parallel Profiling Dispatch (Waves of up to 4 Workers)
 Process the salient entity queue in parallel waves of up to 4 concurrent subagents:
+Maintain a running state:
+- `audited_thread_ids`: set of thread IDs already deeply inspected.
+- `accumulated_entity_clues`: dictionary of cross-entity discoveries to pass forward to upcoming workers.
+- `accumulated_biographical_facts`: list of subject revelations uncovered as by-catch.
+
 For each entity in the current wave:
 1. Launch an `entity-deep-profiler` subagent via `invoke_subagent`:
    - `TypeName`: `"entity-deep-profiler"`
@@ -147,13 +152,22 @@ For each entity in the current wave:
      - Target entity canonical name, verified role, known aliases.
      - Negative disambiguation boundaries.
      - Suggested semantic role queries (e.g. functional workplace conflict, romantic abandonment, parental expectations).
+     - Any accumulated clues from previous workers about this entity.
+     - List of already audited threads to avoid redundant reading.
 2. Wait for the wave to complete before launching the next wave if more than 4 salient entities exist.
 
-#### Step 10: Dossier Consolidation & Persistence
-1. As each `entity-deep-profiler` returns its structured Relational Dossier Markdown, compile them into a unified directory or record:
-   - Persist modular files into `reports/<chat_id>_entities/<Entity_Name>.md`.
+#### Step 10: Dossier Consolidation, Serendipity Ingestion & Thread Tracking
+As each `entity-deep-profiler` returns its structured Relational Dossier Markdown:
+1. **Ingest Cross-Entity Serendipity:**
+   - Extract `### 5. Serendipitous Cross-Entity & Biographical Findings`.
+   - If findings mention an upcoming entity in the queue: append them to `accumulated_entity_clues` so the next wave's worker receives them upfront without needing to re-search.
+   - If findings reveal major biographical events (trauma, health, moves): append to `accumulated_biographical_facts`.
+   - Add inspected threads/message ranges to `audited_thread_ids`.
+2. **Persist Relational Dossier:**
+   - Write modular files into `reports/<chat_id>_entities/<Entity_Name>.md`.
    - Update `notes` in SQLite via `query_chat.py --register-entity` if new aliases or descriptors were uncovered.
-2. Verify that all salient entities have anchored verbatim quotes (`[#ID | YYYY-MM-DD]`).
+3. If `accumulated_biographical_facts` exist, persist them into `reports/<chat_id>_entities/00_biographical_bycatch.md` for the Main Coordinator.
+4. Verify that all salient entities have anchored verbatim quotes (`[#ID | YYYY-MM-DD]`).
 
 ---
 
@@ -161,4 +175,5 @@ For each entity in the current wave:
 Output a structured summary containing:
 - **Phase A Results:** Total threads audited, cleared, skipped, and confirmation of Watchdog Gate exit code 0.
 - **Phase B Results:** Full Cast of Characters table and inventory of generated Deep Relational Dossiers.
+- **Serendipitous Discoveries:** Summary of captured biographical by-catch forwarded for downstream Life Spheres (`checklist.py`) and chapter drafting.
 - Confirmation that Step B.2 is 100% complete and the Main Coordinator can proceed directly to Life Spheres Investigation (`checklist.py --init`) and chapter drafting.
