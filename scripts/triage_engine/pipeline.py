@@ -212,26 +212,50 @@ def run_enrichment(
     init_triage_table(conn)
     cur = conn.cursor()
 
-    sql = """
+    cur.execute("PRAGMA table_info(thread_triage)")
+    tcols = {col[1] for col in cur.fetchall()}
+
+    anom_parts = ["tr.salience_score >= 2.0", "tr.is_atypical = 1", "tr.interlocutor_surprised = 1"]
+    if "emotional_peak" in tcols:
+        anom_parts.append("(tr.emotional_peak IS NOT NULL AND tr.emotional_peak != 'none')")
+    if "is_advice_seeking" in tcols:
+        anom_parts.append("tr.is_advice_seeking = 1")
+    if "is_relational_conflict" in tcols:
+        anom_parts.append("tr.is_relational_conflict = 1")
+    if "is_medical_or_grief_crisis" in tcols:
+        anom_parts.append("tr.is_medical_or_grief_crisis = 1")
+    if "is_bizarre_or_boundary_violation" in tcols:
+        anom_parts.append("tr.is_bizarre_or_boundary_violation = 1")
+    if "is_acute_vulnerability_or_breakdown" in tcols:
+        anom_parts.append("tr.is_acute_vulnerability_or_breakdown = 1")
+
+    anomaly_expr = " OR ".join(anom_parts)
+    has_tp = "mentions_third_party" in tcols
+    tp_expr = "tr.mentions_third_party = 1" if has_tp else "0"
+
+    sql = f"""
     SELECT t.thread_id, t.chat_id, t.start_date, t.message_count, t.dialogue_text,
-           tr.salience_score, tr.summary_short, tr.candidate_entities
+           tr.salience_score, tr.summary_short, tr.candidate_entities,
+           CASE WHEN {tp_expr} THEN 1 ELSE 0 END as is_third_party,
+           CASE WHEN ({anomaly_expr}) THEN 1 ELSE 0 END as is_anomaly
     FROM threads t
     JOIN thread_triage tr ON t.thread_id = tr.thread_id
-    WHERE (
-        tr.salience_score >= 2.0
-        OR tr.is_atypical = 1
-        OR tr.interlocutor_surprised = 1
-        OR tr.emotional_peak IN ('profound_sadness', 'euphoric_joy', 'intense_rage')
-        OR tr.is_advice_seeking = 1
-    )
+    WHERE ({tp_expr} OR {anomaly_expr})
     """
     where_extra = []
     params = []
     if chat_id:
         where_extra.append("t.chat_id = ?")
         params.append(chat_id)
+
     if not force:
-        where_extra.append("(tr.summary_short IS NULL OR tr.candidate_entities IS NULL)")
+        unprocessed_clauses = []
+        if do_extraction and has_tp:
+            unprocessed_clauses.append(f"({tp_expr} AND tr.candidate_entities IS NULL)")
+        if do_summary:
+            unprocessed_clauses.append("(tr.summary_short IS NULL)")
+        if unprocessed_clauses:
+            where_extra.append(f"({' OR '.join(unprocessed_clauses)})")
 
     if where_extra:
         sql += " AND " + " AND ".join(where_extra)
@@ -248,7 +272,11 @@ def run_enrichment(
         conn.close()
         return 0
 
-    print(f"[*] Starting Scaledown Batch Enrichment on {len(rows)} salient threads:")
+    tp_count = sum(1 for r in rows if r[8] == 1)
+    anom_count = sum(1 for r in rows if r[9] == 1)
+    print(f"[*] Starting Scaledown Batch Enrichment on {len(rows)} qualifying threads:")
+    print(f"    - Third-Party Threads (Extraction + Summary): {tp_count}")
+    print(f"    - Salient Anomaly Threads (Summary):           {anom_count}")
     if do_summary:
         print(f"    - Summary Model:    {summary_model}")
     if do_extraction:
@@ -257,15 +285,18 @@ def run_enrichment(
     print("-" * 80)
 
     def process_item(item):
-        tid, cid, sdate, mcount, dtext, score, curr_sum, curr_ent = item
+        tid, cid, sdate, mcount, dtext, score, curr_sum, curr_ent, is_tp, is_anom = item
         new_sum = curr_sum
         new_ent = curr_ent
-        if do_summary and (force or not curr_sum):
+        needs_sum = do_summary and (is_tp or is_anom) and (force or not curr_sum)
+        needs_ent = do_extraction and is_tp and (force or not curr_ent)
+
+        if needs_sum:
             try:
                 new_sum = call_openrouter_summary(dtext, summary_model, api_key)
             except Exception as e:
                 new_sum = f"[Summary failed: {e}]"
-        if do_extraction and (force or not curr_ent):
+        if needs_ent:
             try:
                 new_ent = call_openrouter_extraction(dtext, extraction_model, api_key)
             except Exception as e:
@@ -279,7 +310,8 @@ def run_enrichment(
             tid, s_val, e_val = fut.result()
             cur.execute("""
             UPDATE thread_triage
-            SET summary_short = ?, candidate_entities = ?
+            SET summary_short = COALESCE(?, summary_short),
+                candidate_entities = COALESCE(?, candidate_entities)
             WHERE thread_id = ?;
             """, (s_val, e_val, tid))
             conn.commit()

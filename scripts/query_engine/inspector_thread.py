@@ -97,6 +97,16 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> 
                 "text": arow[5] or ""
             }
 
+    summary_short = None
+    candidate_entities = None
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
+    if cur.fetchone()[0] > 0:
+        cur.execute("SELECT summary_short, candidate_entities FROM thread_triage WHERE thread_id = ?;", (actual_tid,))
+        trow = cur.fetchone()
+        if trow:
+            summary_short = trow[0]
+            candidate_entities = trow[1]
+
     conn.close()
 
     return {
@@ -105,6 +115,8 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> 
         "chat_name": row[2],
         "anchor_message_id": row[3],
         "anchor_message": anchor_msg,
+        "summary_short": summary_short,
+        "candidate_entities": candidate_entities,
         "messages": thread_msgs,
         "start_date": row[4],
         "end_date": row[5],
@@ -130,6 +142,10 @@ def print_thread(t: Dict[str, Any]) -> None:
     print(f"Timeframe:         {t['start_date'][:16].replace('T', ' ')} to {t['end_date'][:16].replace('T', ' ')}")
     print(f"Messages:          {t['message_count']}")
     print(f"Participants:      {t['participants']} (Initiator: {t['initiator']})")
+    if t.get("summary_short"):
+        print(f"📋 Summary:          {t['summary_short']}")
+    if t.get("candidate_entities") and t["candidate_entities"] not in ("[]", "None", ""):
+        print(f"👥 Extracted Entities: {t['candidate_entities']}")
     print("=" * 70)
 
     if t.get("messages"):
