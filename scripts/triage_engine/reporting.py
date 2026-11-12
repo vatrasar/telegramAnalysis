@@ -1,71 +1,140 @@
 """Reduction and diagnostic radar reporting."""
 
 import sqlite3
+from typing import Optional
 
 
-def print_reduction_report(conn: sqlite3.Connection):
+def print_reduction_report(conn: sqlite3.Connection, chat_id: Optional[str] = None):
     """Generate and display comprehensive reduction and diagnostic radar statistics."""
     cur = conn.cursor()
 
-    cur.execute("SELECT count(*) FROM threads")
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
+    if cur.fetchone()[0] == 0:
+        c_label = f" [Chat: {chat_id}]" if chat_id else ""
+        print("\n" + "=" * 80)
+        print(f"🎯 SYSTEM 1 TRIAGE REDUCTION & DIAGNOSTIC REPORT{c_label}")
+        print("=" * 80)
+        print("[!] No threads have been triaged yet (thread_triage table does not exist).")
+        cid_flag = f" -C {chat_id}" if chat_id else ""
+        print("    To run System-1 triage, execute:")
+        print(f"    python3 project/scripts/triage_threads.py{cid_flag}")
+        print("=" * 80 + "\n")
+        return
+
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='threads';")
+    if cur.fetchone()[0] == 0:
+        print("[!] Error: threads table does not exist in the database.")
+        return
+
+    t_where = " WHERE chat_id = ?" if chat_id else ""
+    t_params = (chat_id,) if chat_id else ()
+
+    cur.execute(f"SELECT count(*) FROM threads{t_where}", t_params)
     total_threads = cur.fetchone()[0]
 
-    cur.execute("SELECT count(*) FROM thread_triage")
+    cur.execute(f"SELECT count(*) FROM thread_triage{t_where}", t_params)
     total_triaged = cur.fetchone()[0]
 
     if total_triaged == 0:
-        print("[!] No threads have been triaged yet. Run without --status to start triage.")
+        c_label = f" [Chat: {chat_id}]" if chat_id else ""
+        print("\n" + "=" * 80)
+        print(f"🎯 SYSTEM 1 TRIAGE REDUCTION & DIAGNOSTIC REPORT{c_label}")
+        print("=" * 80)
+        print(f"Total Threads in Database:   {total_threads:,}")
+        print("Threads Evaluated by Triage: 0")
+        print("[!] No threads have been triaged yet for this chat.")
+        cid_flag = f" -C {chat_id}" if chat_id else ""
+        print("    To run System-1 triage, execute:")
+        print(f"    python3 project/scripts/triage_threads.py{cid_flag}")
+        print("=" * 80 + "\n")
         return
 
-    cur.execute("SELECT count(*) FROM thread_triage WHERE escalate = 1")
+    def scope_where(extra_cond: Optional[str] = None) -> tuple:
+        conds = []
+        params = []
+        if chat_id:
+            conds.append("chat_id = ?")
+            params.append(chat_id)
+        if extra_cond:
+            conds.append(extra_cond)
+        clause = f" WHERE {' AND '.join(conds)}" if conds else ""
+        return clause, tuple(params)
+
+    # Escalated count
+    cl, pr = scope_where("escalate = 1")
+    cur.execute(f"SELECT count(*) FROM thread_triage{cl}", pr)
     escalated_count = cur.fetchone()[0]
     rejected_count = total_triaged - escalated_count
 
     # Radar 1: Anomalies & Shock
-    cur.execute("SELECT count(*) FROM thread_triage WHERE is_atypical = 1")
+    cl, pr = scope_where("is_atypical = 1")
+    cur.execute(f"SELECT count(*) FROM thread_triage{cl}", pr)
     atypical_count = cur.fetchone()[0]
-    cur.execute("SELECT count(*) FROM thread_triage WHERE interlocutor_surprised = 1")
+
+    cl, pr = scope_where("interlocutor_surprised = 1")
+    cur.execute(f"SELECT count(*) FROM thread_triage{cl}", pr)
     surprised_count = cur.fetchone()[0]
 
     # Radar 2: Emotional Peaks
-    cur.execute("SELECT count(*) FROM thread_triage WHERE emotional_peak != 'none'")
+    cl, pr = scope_where("emotional_peak != 'none'")
+    cur.execute(f"SELECT count(*) FROM thread_triage{cl}", pr)
     peaks_count = cur.fetchone()[0]
-    cur.execute("SELECT emotional_peak, count(*) FROM thread_triage WHERE emotional_peak != 'none' GROUP BY emotional_peak")
+
+    cur.execute(f"SELECT emotional_peak, count(*) FROM thread_triage{cl} GROUP BY emotional_peak", pr)
     peak_map = dict(cur.fetchall())
     sadness_count = peak_map.get("profound_sadness", 0)
     joy_count = peak_map.get("euphoric_joy", 0)
     rage_count = peak_map.get("intense_rage", 0)
 
     # Radar 3: Advice Seeking & Confessions
-    cur.execute("SELECT count(*) FROM thread_triage WHERE is_advice_seeking = 1")
+    cl, pr = scope_where("is_advice_seeking = 1")
+    cur.execute(f"SELECT count(*) FROM thread_triage{cl}", pr)
     advice_count = cur.fetchone()[0]
 
     # Radar 4: Third-Party Mentions
-    cur.execute("SELECT count(*) FROM thread_triage WHERE mentions_third_party = 1")
+    cl, pr = scope_where("mentions_third_party = 1")
+    cur.execute(f"SELECT count(*) FROM thread_triage{cl}", pr)
     third_party_count = cur.fetchone()[0]
 
-    cur.execute("""
-    SELECT sum(m.word_count)
-    FROM messages m
-    WHERE m.thread_id IN (SELECT thread_id FROM thread_triage)
-    """)
+    # Word counts
+    if chat_id:
+        cur.execute("""
+        SELECT sum(m.word_count)
+        FROM messages m
+        WHERE m.thread_id IN (SELECT thread_id FROM thread_triage WHERE chat_id = ?)
+        """, (chat_id,))
+    else:
+        cur.execute("""
+        SELECT sum(m.word_count)
+        FROM messages m
+        WHERE m.thread_id IN (SELECT thread_id FROM thread_triage)
+        """)
     triaged_words = cur.fetchone()[0] or 0
 
-    cur.execute("""
-    SELECT sum(m.word_count)
-    FROM messages m
-    WHERE m.thread_id IN (SELECT thread_id FROM thread_triage WHERE escalate = 1)
-    """)
+    if chat_id:
+        cur.execute("""
+        SELECT sum(m.word_count)
+        FROM messages m
+        WHERE m.thread_id IN (SELECT thread_id FROM thread_triage WHERE escalate = 1 AND chat_id = ?)
+        """, (chat_id,))
+    else:
+        cur.execute("""
+        SELECT sum(m.word_count)
+        FROM messages m
+        WHERE m.thread_id IN (SELECT thread_id FROM thread_triage WHERE escalate = 1)
+        """)
     escalated_words = cur.fetchone()[0] or 0
 
     reduction_thread_pct = (rejected_count / total_triaged * 100.0) if total_triaged > 0 else 0.0
     word_reduction_pct = ((triaged_words - escalated_words) / triaged_words * 100.0) if triaged_words > 0 else 0.0
 
+    c_label = f" [Chat: {chat_id}]" if chat_id else ""
     print("\n" + "=" * 80)
-    print("🎯 SYSTEM 1 TRIAGE (DECIDER / ROUTER) REDUCTION & DIAGNOSTIC REPORT")
+    print(f"🎯 SYSTEM 1 TRIAGE (DECIDER / ROUTER) REDUCTION & DIAGNOSTIC REPORT{c_label}")
     print("=" * 80)
+    cov_pct = (total_triaged / total_threads * 100.0) if total_threads > 0 else 0.0
     print(f"Total Threads in Database:      {total_threads:,}")
-    print(f"Threads Evaluated by Triage:    {total_triaged:,} ({total_triaged / total_threads * 100.0:.1f}% coverage)")
+    print(f"Threads Evaluated by Triage:    {total_triaged:,} ({cov_pct:.1f}% coverage)")
     print("-" * 80)
     print(f"🟢 Threads Escalated to LLM:    {escalated_count:,} ({escalated_count / total_triaged * 100.0:.1f}%)")
     print(f"🔴 Threads Filtered as Noise:   {rejected_count:,} ({rejected_count / total_triaged * 100.0:.1f}%)")
@@ -79,12 +148,15 @@ def print_reduction_report(conn: sqlite3.Connection):
     print(f"  👤 Radar 4 (Third-Party Mentions):     {third_party_count} threads")
     print("=" * 80)
 
-    cur.execute("""
+    cat_where = " WHERE chat_id = ?" if chat_id else ""
+    cat_params = (chat_id,) if chat_id else ()
+    cur.execute(f"""
     SELECT primary_category, count(*), sum(case when escalate = 1 then 1 else 0 end), avg(salience_score)
     FROM thread_triage
+    {cat_where}
     GROUP BY primary_category
     ORDER BY count(*) DESC
-    """)
+    """, cat_params)
     rows = cur.fetchall()
 
     print("\n📊 CATEGORY BREAKDOWN:")
@@ -95,15 +167,21 @@ def print_reduction_report(conn: sqlite3.Connection):
         print(f"{cat:<32} {total:<8} {esc:<12} {filt:<10} {avg_score:.2f}")
 
     # Showcase Radar 2: Acute Emotional Peaks
-    cur.execute("""
+    peak_where = " WHERE tr.emotional_peak != 'none'"
+    peak_params = []
+    if chat_id:
+        peak_where += " AND t.chat_id = ?"
+        peak_params.append(chat_id)
+
+    cur.execute(f"""
     SELECT t.thread_id, t.start_date, t.message_count, tr.salience_score, tr.emotional_peak,
            tr.reason, substr(t.dialogue_text, 1, 120)
     FROM thread_triage tr
     JOIN threads t ON tr.thread_id = t.thread_id
-    WHERE tr.emotional_peak != 'none'
+    {peak_where}
     ORDER BY tr.salience_score DESC, t.message_count ASC
     LIMIT 4
-    """)
+    """, tuple(peak_params))
     peak_samples = cur.fetchall()
 
     if peak_samples:
@@ -118,15 +196,21 @@ def print_reduction_report(conn: sqlite3.Connection):
             print(f"  Teaser:  \"{teaser}...\" [UNVERIFIED RADAR HIT - DO NOT CITE WITHOUT AUDIT]\n")
 
     # Showcase Radar 3: Confessions & Advice Seeking
-    cur.execute("""
+    adv_where = " WHERE tr.is_advice_seeking = 1"
+    adv_params = []
+    if chat_id:
+        adv_where += " AND t.chat_id = ?"
+        adv_params.append(chat_id)
+
+    cur.execute(f"""
     SELECT t.thread_id, t.start_date, t.message_count, tr.salience_score, tr.primary_category,
            tr.reason, substr(t.dialogue_text, 1, 120)
     FROM thread_triage tr
     JOIN threads t ON tr.thread_id = t.thread_id
-    WHERE tr.is_advice_seeking = 1
+    {adv_where}
     ORDER BY tr.salience_score DESC, t.message_count ASC
     LIMIT 3
-    """)
+    """, tuple(adv_params))
     advice_samples = cur.fetchall()
 
     if advice_samples:
@@ -140,16 +224,22 @@ def print_reduction_report(conn: sqlite3.Connection):
             print(f"  Teaser:  \"{teaser}...\" [UNVERIFIED RADAR HIT - DO NOT CITE WITHOUT AUDIT]\n")
 
     # Showcase Radar 1: Anomalies & Shock
-    cur.execute("""
+    anom_where = " WHERE (tr.is_atypical = 1 OR tr.interlocutor_surprised = 1)"
+    anom_params = []
+    if chat_id:
+        anom_where += " AND t.chat_id = ?"
+        anom_params.append(chat_id)
+
+    cur.execute(f"""
     SELECT t.thread_id, t.start_date, t.message_count, tr.salience_score, tr.primary_category,
            tr.is_atypical, tr.interlocutor_surprised, tr.anomaly_notes, tr.reason,
            substr(t.dialogue_text, 1, 120)
     FROM thread_triage tr
     JOIN threads t ON tr.thread_id = t.thread_id
-    WHERE tr.is_atypical = 1 OR tr.interlocutor_surprised = 1
+    {anom_where}
     ORDER BY tr.salience_score DESC, t.message_count ASC
     LIMIT 3
-    """)
+    """, tuple(anom_params))
     anomalies = cur.fetchall()
 
     if anomalies:
@@ -171,15 +261,21 @@ def print_reduction_report(conn: sqlite3.Connection):
             print(f"  Teaser:  \"{teaser}...\" [UNVERIFIED RADAR HIT - DO NOT CITE WITHOUT AUDIT]\n")
 
     # Showcase of filtered noise
-    cur.execute("""
+    noise_where = " WHERE tr.escalate = 0"
+    noise_params = []
+    if chat_id:
+        noise_where += " AND t.chat_id = ?"
+        noise_params.append(chat_id)
+
+    cur.execute(f"""
     SELECT t.thread_id, t.start_date, t.message_count, tr.salience_score, tr.primary_category,
            substr(t.dialogue_text, 1, 100)
     FROM thread_triage tr
     JOIN threads t ON tr.thread_id = t.thread_id
-    WHERE tr.escalate = 0
+    {noise_where}
     ORDER BY tr.salience_score ASC
     LIMIT 3
-    """)
+    """, tuple(noise_params))
     noise_samples = cur.fetchall()
 
     if noise_samples:

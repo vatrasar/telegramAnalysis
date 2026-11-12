@@ -215,12 +215,15 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
     # 5b. System-1 Triaged Threads (Jev Qualified)
     if run_triage_status:
         try:
-            from triage_threads import print_reduction_report
+            from triage_threads import print_reduction_report, init_triage_table
             t_conn = sqlite3.connect(args.db)
-            print_reduction_report(t_conn)
+            init_triage_table(t_conn)
+            print_reduction_report(t_conn, chat_id=resolved_chat_id)
             t_conn.close()
         except ImportError:
             print("[!] Could not import print_reduction_report from triage_threads.")
+        except Exception as e:
+            print(f"[!] Error displaying triage status: {e}")
 
     if run_triaged:
         triaged_data = get_triaged_threads(
