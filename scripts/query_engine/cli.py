@@ -262,16 +262,20 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
         if args.json:
             aggregated["search_threads"] = st_results
 
-    # 8. Retrieve Full Threads
+    # 8. Retrieve Full Threads (or Summaries only)
     if thread_ids:
         thread_results: Dict[str, Any] = {}
         for t_id in thread_ids:
             t_obj = get_thread(args.db, t_id, chat_id=resolved_chat_id)
             if t_obj:
                 if args.json:
-                    thread_results[t_id] = t_obj
+                    if getattr(args, "summary_only", False):
+                        summary_obj = {k: v for k, v in t_obj.items() if k not in ("messages", "dialogue_text")}
+                        thread_results[t_id] = summary_obj
+                    else:
+                        thread_results[t_id] = t_obj
                 else:
-                    print_thread(t_obj)
+                    print_thread(t_obj, summary_only=getattr(args, "summary_only", False))
             else:
                 if args.json:
                     thread_results[t_id] = None
