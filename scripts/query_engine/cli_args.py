@@ -14,8 +14,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Analytical flags
     parser.add_argument("--stats", action="store_true", help="Display Phase 1 quantitative metrics")
-    parser.add_argument("--gaps", action="store_true", help="Display silence and reconnection initiative analysis")
+    parser.add_argument("--gaps", action="store_true", help="Display silence and reconnection initiative analysis across duration brackets")
     parser.add_argument("--min-hours", type=float, default=24.0, help="Minimum silence duration in hours (default: 24)")
+    parser.add_argument("--min-days", type=float, help="Minimum silence duration in days (convenience alias for --min-hours = days * 24)")
     parser.add_argument("--timeline", action="store_true", help="Display monthly activity timeline")
     parser.add_argument("--burning-days", action="store_true", help="Display statistically anomalous high-activity days (burning days)")
     parser.add_argument("--intensive-threads", action="store_true", help="Display substantive dialogue threads ranked by volume (anti-noise)")
