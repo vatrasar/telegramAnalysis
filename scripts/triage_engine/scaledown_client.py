@@ -2,6 +2,25 @@
 
 import json
 import time
+from typing import Optional
+
+try:
+    import requests
+    from requests.adapters import HTTPAdapter
+    _SESSION: Optional[requests.Session] = None
+
+    def get_requests_session() -> requests.Session:
+        global _SESSION
+        if _SESSION is None:
+            _SESSION = requests.Session()
+            adapter = HTTPAdapter(pool_connections=64, pool_maxsize=64)
+            _SESSION.mount("https://", adapter)
+            _SESSION.mount("http://", adapter)
+        return _SESSION
+except ImportError:
+    requests = None
+    get_requests_session = None
+
 import urllib.request
 import urllib.error
 
@@ -37,6 +56,26 @@ def call_openrouter_summary(
         "temperature": 0.2,
         "max_tokens": 120
     }
+
+    if requests is not None:
+        session = get_requests_session()
+        for attempt in range(max_retries):
+            try:
+                resp = session.post(url, headers=headers, json=payload, timeout=30)
+                if resp.status_code == 429 and attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                if resp.status_code != 200:
+                    raise RuntimeError(f"OpenRouter Summary API error {resp.status_code}: {resp.text}")
+                resp_data = resp.json()
+                return resp_data["choices"][0]["message"]["content"].strip()
+            except requests.RequestException as e:
+                if attempt < max_retries - 1:
+                    time.sleep(1.5 ** attempt)
+                    continue
+                raise RuntimeError(f"OpenRouter Summary connection failure: {e}")
+        raise RuntimeError("Max retries exceeded calling call_openrouter_summary.")
+
     req_data = json.dumps(payload).encode("utf-8")
     for attempt in range(max_retries):
         try:
@@ -119,6 +158,44 @@ def call_openrouter_extraction(
             }
         }
 
+    def _parse_content(content: str) -> str:
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:].strip()
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, dict):
+                if "structured_result" in parsed and isinstance(parsed["structured_result"], dict) and "people" in parsed["structured_result"]:
+                    parsed = parsed["structured_result"]["people"]
+                elif "people" in parsed:
+                    parsed = parsed["people"]
+                elif "entities" in parsed:
+                    parsed = parsed["entities"]
+            return json.dumps(parsed, ensure_ascii=False)
+        except Exception:
+            return json.dumps([{"mention": content[:80], "role": "unparsed"}], ensure_ascii=False)
+
+    if requests is not None:
+        session = get_requests_session()
+        for attempt in range(max_retries):
+            try:
+                resp = session.post(url, headers=headers, json=payload, timeout=30)
+                if resp.status_code == 429 and attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                if resp.status_code != 200:
+                    raise RuntimeError(f"OpenRouter Extraction API error {resp.status_code}: {resp.text}")
+                resp_data = resp.json()
+                content = resp_data["choices"][0]["message"]["content"].strip()
+                return _parse_content(content)
+            except requests.RequestException as e:
+                if attempt < max_retries - 1:
+                    time.sleep(1.5 ** attempt)
+                    continue
+                raise RuntimeError(f"OpenRouter Extraction connection failure: {e}")
+        raise RuntimeError("Max retries exceeded calling call_openrouter_extraction.")
+
     req_data = json.dumps(payload).encode("utf-8")
     for attempt in range(max_retries):
         try:
@@ -126,22 +203,7 @@ def call_openrouter_extraction(
             with urllib.request.urlopen(req, timeout=30) as resp:
                 resp_data = json.loads(resp.read().decode("utf-8"))
             content = resp_data["choices"][0]["message"]["content"].strip()
-            if content.startswith("```"):
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:].strip()
-            try:
-                parsed = json.loads(content)
-                if isinstance(parsed, dict):
-                    if "structured_result" in parsed and isinstance(parsed["structured_result"], dict) and "people" in parsed["structured_result"]:
-                        parsed = parsed["structured_result"]["people"]
-                    elif "people" in parsed:
-                        parsed = parsed["people"]
-                    elif "entities" in parsed:
-                        parsed = parsed["entities"]
-                return json.dumps(parsed, ensure_ascii=False)
-            except Exception:
-                return json.dumps([{"mention": content[:80], "role": "unparsed"}], ensure_ascii=False)
+            return _parse_content(content)
         except urllib.error.HTTPError as e:
             if e.code == 429 and attempt < max_retries - 1:
                 time.sleep(2 ** attempt)
@@ -154,3 +216,4 @@ def call_openrouter_extraction(
                 continue
             raise e
     raise RuntimeError("Max retries exceeded calling call_openrouter_extraction.")
+

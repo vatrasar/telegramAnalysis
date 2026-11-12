@@ -35,7 +35,7 @@ def run_triage(
         return 2
 
     model = model_override or str(config.get("triage_model", "perplexity/pplx-decider-v1.2")).strip()
-    concurrency = concurrency_override or int(config.get("concurrency", 4))
+    concurrency = concurrency_override or int(config.get("concurrency", 8))
     salience_threshold = threshold_override if threshold_override is not None else float(config.get("salience_threshold", 2.0))
 
     conn = sqlite3.connect(db_path)
@@ -206,7 +206,7 @@ def run_enrichment(
 
     summary_model = str(config.get("summary_model", "scaledown/summarize")).strip()
     extraction_model = str(config.get("extraction_model", "scaledown/extract")).strip()
-    concurrency = concurrency_override or int(config.get("concurrency", 4))
+    concurrency = concurrency_override or int(config.get("concurrency", 8))
 
     conn = sqlite3.connect(db_path)
     init_triage_table(conn)
@@ -272,11 +272,28 @@ def run_enrichment(
         conn.close()
         return 0
 
-    tp_count = sum(1 for r in rows if r[8] == 1)
-    anom_count = sum(1 for r in rows if r[9] == 1)
-    print(f"[*] Starting Scaledown Batch Enrichment on {len(rows)} qualifying threads:")
-    print(f"    - Third-Party Threads (Extraction + Summary): {tp_count}")
-    print(f"    - Salient Anomaly Threads (Summary):           {anom_count}")
+    tasks = []
+    for r in rows:
+        tid, cid, sdate, mcount, dtext, score, curr_sum, curr_ent, is_tp, is_anom = r
+        needs_sum = do_summary and (is_tp or is_anom) and (force or not curr_sum)
+        needs_ent = do_extraction and is_tp and (force or not curr_ent)
+        if needs_sum:
+            tasks.append((tid, "summary", dtext))
+        if needs_ent:
+            tasks.append((tid, "extraction", dtext))
+
+    if not tasks:
+        print("[✓] All qualifying threads already have requested enrichment data! (Use --force to regenerate).")
+        conn.close()
+        return 0
+
+    sum_tasks_count = sum(1 for t in tasks if t[1] == "summary")
+    ext_tasks_count = sum(1 for t in tasks if t[1] == "extraction")
+    unique_thread_count = len({t[0] for t in tasks})
+
+    print(f"[*] Starting Scaledown Batch Enrichment on {unique_thread_count} threads ({len(tasks)} parallel tasks):")
+    print(f"    - Summary tasks:    {sum_tasks_count}")
+    print(f"    - Extraction tasks: {ext_tasks_count}")
     if do_summary:
         print(f"    - Summary Model:    {summary_model}")
     if do_extraction:
@@ -284,40 +301,45 @@ def run_enrichment(
     print(f"    - Concurrency:      {concurrency} workers")
     print("-" * 80)
 
-    def process_item(item):
-        tid, cid, sdate, mcount, dtext, score, curr_sum, curr_ent, is_tp, is_anom = item
-        new_sum = curr_sum
-        new_ent = curr_ent
-        needs_sum = do_summary and (is_tp or is_anom) and (force or not curr_sum)
-        needs_ent = do_extraction and is_tp and (force or not curr_ent)
-
-        if needs_sum:
+    def execute_task(task_item):
+        tid, task_type, dtext = task_item
+        if task_type == "summary":
             try:
-                new_sum = call_openrouter_summary(dtext, summary_model, api_key)
+                res = call_openrouter_summary(dtext, summary_model, api_key)
             except Exception as e:
-                new_sum = f"[Summary failed: {e}]"
-        if needs_ent:
+                res = f"[Summary failed: {e}]"
+            return tid, task_type, res
+        elif task_type == "extraction":
             try:
-                new_ent = call_openrouter_extraction(dtext, extraction_model, api_key)
+                res = call_openrouter_extraction(dtext, extraction_model, api_key)
             except Exception as e:
-                new_ent = json.dumps([{"error": str(e)}])
-        return tid, new_sum, new_ent
+                res = json.dumps([{"error": str(e)}])
+            return tid, task_type, res
+        return tid, task_type, None
 
-    completed = 0
+    completed_tasks = 0
+    total_tasks = len(tasks)
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
-        future_map = {executor.submit(process_item, r): r[0] for r in rows}
+        future_map = {executor.submit(execute_task, task): task for task in tasks}
         for fut in as_completed(future_map):
-            tid, s_val, e_val = fut.result()
-            cur.execute("""
-            UPDATE thread_triage
-            SET summary_short = COALESCE(?, summary_short),
-                candidate_entities = COALESCE(?, candidate_entities)
-            WHERE thread_id = ?;
-            """, (s_val, e_val, tid))
+            tid, ttype, val = fut.result()
+            if ttype == "summary":
+                cur.execute("""
+                UPDATE thread_triage
+                SET summary_short = ?
+                WHERE thread_id = ?;
+                """, (val, tid))
+            elif ttype == "extraction":
+                cur.execute("""
+                UPDATE thread_triage
+                SET candidate_entities = ?
+                WHERE thread_id = ?;
+                """, (val, tid))
             conn.commit()
-            completed += 1
-            print(f"[{completed}/{len(rows)}] Enriched thread {tid}")
+            completed_tasks += 1
+            icon = "📋" if ttype == "summary" else "👤"
+            print(f"[{completed_tasks:4d}/{total_tasks}] {icon} [{ttype.upper():<10}] Thread {tid[:16]}")
 
     conn.close()
-    print(f"[✓] Successfully enriched {completed} threads with summaries and entity candidates.")
+    print(f"[✓] Successfully completed {completed_tasks} enrichment tasks across {unique_thread_count} threads.")
     return 0

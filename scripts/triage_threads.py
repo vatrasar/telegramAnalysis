@@ -54,7 +54,7 @@ def main():
     parser.add_argument("--db", default=DEFAULT_DB_PATH, help=f"Path to SQLite database (default: {DEFAULT_DB_PATH})")
     parser.add_argument("--limit", "-l", type=int, help="Limit number of threads to triage (useful for quick pilot test)")
     parser.add_argument("--force", action="store_true", help="Force re-evaluation of already triaged threads")
-    parser.add_argument("--concurrency", "-c", type=int, help="Number of concurrent API workers (default: 4)")
+    parser.add_argument("--concurrency", "-c", type=int, help="Number of concurrent API workers (default: 8)")
     parser.add_argument("--threshold", "-t", type=float, help="Override salience score threshold for escalation")
     parser.add_argument("--model", "-m", help="Override triage model name")
     parser.add_argument("--chat-id", help="Filter by specific chat ID")
