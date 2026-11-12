@@ -70,10 +70,11 @@ Triggered **ONLY** when the user explicitly requests an in-depth personality pro
 #### Step B.3: Life Spheres Baseline Investigation (`checklist.py`)
 - Activate `life-spheres-investigation` skill for criteria, lexicons, and vector queries.
 - Init: `python3 project/scripts/checklist.py --init -C <chat_id>` (Enforces completed Watchdog Gate)
+- **Warm-Start Context Budget (2000-Token Discipline):** The Main Agent injects prior knowledge from Phase B.2 as a foundation (capped at ~2000 tokens with explicit truncation notice pointing to `query_chat.py --entities`). Subagents use this to formulate deeper queries without re-asking basic facts, but MUST execute genuine vector and lexical searches to uncover full depth.
 - Audit items via primary vector search (`query_chat.py --semantic`) and targeted lexical queries (`-s`).
 - Record findings: `python3 project/scripts/checklist.py -C <chat_id> --update <id> --set-status completed --notes "..." --queries "..." --semantic-queries "..."`
 - **Ban on Keyword-Only `no_data`:** Concluding absence requires documented semantic vector search.
-- **Subagent Delegation for Sphere Clusters:** To avoid coordinator context exhaustion across 46 spheres, delegate thematic clusters to `life-sphere-investigator` subagents (`Model: "flash"`), which execute probes and update `checklist.py` in isolated sandboxes.
+- **Subagent Delegation for Sphere Clusters:** To avoid coordinator context exhaustion across 46 spheres, delegate thematic clusters to `life-sphere-investigator` subagents (`Model: "flash"`), which execute probes and update `checklist.py` in isolated sandboxes. Workers report cross-sphere discoveries back to the Coordinator.
 - Completing the 46 spheres establishes the core psychological baseline.
 
 #### Step B.4: Subagent Thread Delta Audit & Forensic Deep Dives (`thread_checklist.py`)
@@ -83,15 +84,19 @@ Triggered **ONLY** when the user explicitly requests an in-depth personality pro
 - **Phase 1 (Delta Triage):** Export manifest (`--export-delta-manifest`) and delegate classification to an Antigravity subagent (`Model: "flash"`, `TypeName: "thread-delta-triage"`). Resolve redundant threads formally using:
   `python3 project/scripts/thread_checklist.py -C <chat_id> --resolve-redundant <id1> <id2> ... --reason "<theme>"`
 - **Anti-Fraud Invariant on Delta Triage:** The Main Agent is strictly forbidden from closing or resolving threads without delegating the manifest to `thread-delta-triage`.
-- **Phase 2 (Deep Dive):** For all novel/anomalous threads identified by triage, invoke dedicated forensic subagents (`Model: "flash"`, `TypeName: "forensic-thread-investigator"`) to inspect raw text (`query_chat.py -t <id>`), extract anchored quotes, register novel entities, and update the checklist item.
+- **Phase 2 (Snipers' Deep Dive with Adversarial Anomaly Post-Check):** For all novel/anomalous threads identified by triage, invoke dedicated forensic subagents (`Model: "flash"`, `TypeName: "forensic-thread-investigator"`):
+  - Subagents inspect windowed snippets ($\pm 4$ turns) around the anomaly epicenter instead of reading 100 messages linearly.
+  - Subagents run the **Adversarial Post-Check** (`query_chat.py -C <chat_id> --anomaly-check <id> --identified "<primary_anomaly>"`) to ensure secondary crises were not prematurely overlooked.
 
-#### Step B.5: Mandatory Triple Hard-Stop Gate & Evidence Ingestion
+#### Step B.5: Mandatory Triple Hard-Stop Gate, Fact Blackboard & Evidence Ingestion
 Drafting final profile chapters is **STRICTLY FORBIDDEN** until all three investigative gates pass verification (exit code 0):
 ```bash
-python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
+python3 project/scripts/query_chat.py --check-watchdog-gate -C <chat_id>
 python3 project/scripts/thread_checklist.py --check -C <chat_id>
 python3 project/scripts/checklist.py --check -C <chat_id>
 ```
+- **Fact Blackboard Generation:** Compile a dense, structured fact snapshot: `reports/<chat_id>_facts_snapshot.md` containing metrics, timeline anchors, and the Cast of Characters:
+  - *Character Threshold Rule:* If $\le 50$ characters, list all with 1-line verified role/descriptor. If $> 50$, list the most salient characters and add an explicit truncation disclaimer referencing `chat_entities`.
 Once all gates pass, export the complete bank of verified evidence:
 ```bash
 python3 project/scripts/thread_checklist.py -C <chat_id> --export-evidence
