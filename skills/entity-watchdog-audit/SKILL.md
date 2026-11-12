@@ -45,26 +45,28 @@ Using analytical reasoning, the Supervisor consolidates raw mentions into logica
 ### Step 3: Parallel Investigator Dispatch on Clusters (Supervisor $\to$ Up to 4 Workers)
 The Supervisor invokes up to 4 parallel `entity-investigator` subagents (`Model: "flash"`):
 - Each worker receives one specific character cluster and its associated thread IDs.
+- **Conflation Risk Flagging:** If the target character shares traits or roles with an existing known entity (e.g. another *Indian suitor*, another *sister*), the Supervisor flags this in the prompt so the worker verifies antecedents strictly.
 - Workers inspect the full thread transcripts (`query_chat.py -C <chat_id> -t <thread_id>`) or run targeted keyword probes (`-s "<keyword>"`).
 - Workers verify human identity vs. bystander/noise, extract quote anchors (`[#ID | YYYY-MM-DD]`), and report back. Workers never write to SQLite.
 
-### Step 4: Atomic Registration & IMMEDIATE Anti-Conflation Audit
-1. **Atomic Registration:**
+### Step 4: Atomic Registration & Consolidated Anti-Conflation Audit
+1. **Initial Registration of All Vetted Candidates:**
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> \
      --register-entity "<Name>" --role "<Role>" --desc "<Anchors & Context>"
    ```
-2. **🚨 Immediate Anti-Conflation Audit:**
+2. **🚨 Consolidated Anti-Conflation Audit (Single Pass Across All Entities):**
+   Once initial vetting of candidate entities is completed, run the audit across the entire cast before deep research:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit
    ```
    If any collision risk is flagged (e.g. two entities sharing a role like *sister* or trait like *Indian*):
-   - **HALT immediately before deep research.**
-   - Audit the colliding threads to verify separation and ensure no attributes or quotes bled between them.
+   - Review threads for each flagged group together to separate individuals.
+   - **⚠️ Explicitly Mark Ambiguities:** If any quote, event, or trait cannot be definitively pinned to one specific person due to ambiguous pronouns, **DO NOT guess**. Explicitly record it in `--desc` as `[AMBIGUOUS ATTRIBUTION: <fact>]`.
    - Enforce explicit **Negative Boundaries** in `--desc`:
      ```bash
      python3 project/scripts/query_chat.py -C <chat_id> \
-       --register-entity "<Name>" --desc "<Existing desc>; NOT <Other_Entity>"
+       --register-entity "<Name>" --desc "<Existing desc>; NOT <Other_Entity>; [AMBIGUOUS ATTRIBUTION: <uncertain fact>]"
      ```
 
 ### Step 5: System-1 Catch-up Sweep Scan (Gap Fill)

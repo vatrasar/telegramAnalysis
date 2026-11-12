@@ -170,10 +170,12 @@ def print_conflation_audit(report: Dict[str, Any]) -> None:
         print(f"   Collision Factor: {'; '.join(p['reasons'])}")
 
         if p["risk_level"] == "HIGH_RISK":
-            print("   👉 ACTION REQUIRED (BEFORE DEEP PROFILING):")
-            print("      1. Verify threads to confirm whether these are 2 distinct people or 1 person under aliases.")
-            print("      2. Ensure traits/quotes from one haven't bled into the other.")
-            print("      3. Inject explicit negative boundaries in descriptors:")
+            print("   👉 CONSOLIDATED DISAMBIGUATION ACTIONS:")
+            print("      1. Trace evidence threads: confirm whether these are 2 distinct people or 1 person under aliases.")
+            print("      2. Disambiguate attributes: map which facts and timeline milestones belong strictly to which entity.")
+            print("      3. ⚠️ Flag ambiguous traits: if an event/quote cannot be definitively assigned, explicitly mark it")
+            print("         as '[AMBIGUOUS ATTRIBUTION]' rather than guessing or force-assigning.")
+            print("      4. Inject explicit negative boundaries in descriptors:")
             print(f"         python3 project/scripts/query_chat.py -C {report.get('chat_id')} \\")
             print(f"           --register-entity \"{e1['name']}\" --desc \"{e1['descriptors'] or '...'} (NOT {e2['name']})\"")
 

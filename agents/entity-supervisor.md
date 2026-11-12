@@ -28,9 +28,10 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
 - **Candidate-First Processing:** Do NOT run slow, sequential System-1 watchdog loops stopping thread-by-thread. Instead, ingest candidate entities extracted during triage, group them into logical character clusters, and dispatch parallel subagents.
 - Consolidate overlapping mentions (e.g. *"Dr. Sarah"* in Thread A, *"the pediatrician"* in Thread B) into a unified canonical entity with aliases mapped into `--desc`.
 
-### 1.3 🚨 Immediate Anti-Conflation Mandate (Prior to Deep Research)
-- **Conflation is a Critical Failure Mode:** If two or more individuals share a name (e.g. two *Mareks*), a kinship role (e.g. two *sisters*), a professional title (e.g. two *doctors*), or a demographic descriptor (e.g. two *Indian suitors*), LLMs are prone to attribute bleeding.
-- **Immediate Disambiguation Check:** You MUST run an immediate anti-conflation audit (`--conflation-audit`) as soon as an overlapping trait is detected. Do NOT defer disambiguation to downstream stages.
+### 1.3 🚨 Anti-Conflation Flagging & Consolidated Audit Mandate
+- **Conflation Risk Flagging During Investigation:** When grouping candidates or processing reports, if you notice two or more individuals sharing a name, kinship role (e.g. *sisters*), profession (e.g. *doctors*), or demographic descriptor (e.g. *Indian suitors*), **flag this risk immediately**. Pass a warning to upcoming subagents: *"⚠️ Caution: another entity in this chat shares trait [X]; verify antecedents to prevent attribute bleeding."*
+- **Consolidated Audit (Single Pass After Initial Vetting):** Do NOT launch disruptive micro-audits at every single newly registered character. Instead, complete the initial vetting of all candidate entities first, then run a **single consolidated Anti-Conflation Audit** (`--conflation-audit`) across all flagged groups prior to deep research.
+- **Explicit Uncertainty Marking (No Guessing):** If a specific event, trait, or quote cannot be attributed with 100% confidence to either figure due to pronoun ambiguity, **explicitly mark it as `[AMBIGUOUS ATTRIBUTION]`** in `--desc` rather than guessing or force-assigning.
 - **Mandatory Negative Boundaries:** Every entity sharing traits with another MUST have an explicit negative boundary in `--desc` (e.g. `"...; NOT Sister_Epileptic; lives in Gdańsk"`).
 - **Subject Rebuttal is Law:** If the subject in any thread rebuts an interlocutor assumption (*"that's not my ex"*, *"to nie ten"*), you are strictly forbidden from attributing that rejected role or trait to that entity.
 
@@ -73,35 +74,37 @@ Dispatch up to 4 parallel investigator subagents via `invoke_subagent`:
 - `TypeName`: `"entity-investigator"`
 - `Model`: `"flash"`
 - `Role`: `"Entity Investigator - Cluster <Cluster_Name>"`
-- `Prompt`: Provide the target character cluster, associated candidate names/roles, relevant thread IDs, thread summaries, and known entities $S$. Instruct the worker:
-  - Inspect the provided threads (using `query_chat.py -C <chat_id> -t <thread_id>` or targeted `-s` searches).
+- `Prompt`: Provide the target character cluster, associated candidate names/roles, relevant thread IDs, thread summaries, and known entities $S$.
+  - **Conflation Warning Flag:** If this character shares traits, roles, or names with an already known or suspected figure (e.g. another *Indian suitor*, another *sister*), explicitly instruct the worker:
+    *"⚠️ CONFLATION CAUTION: Another entity in this archive shares the trait/role '[Trait]'. Scrutinize all pronoun antecedents carefully to ensure traits or actions of the other person are NOT attributed here."*
+  - Instruct worker to inspect the provided threads (using `query_chat.py -C <chat_id> -t <thread_id>` or targeted `-s` searches).
   - Verify whether this is a real human entity vs. episodic bystander vs. false positive token.
   - Determine canonical name/alias, verified role, exact quote anchors (`[#ID | YYYY-MM-DD]`), and differentiating traits.
   - Return structured JSON findings.
 
-#### Step 4: Atomic Registration & IMMEDIATE Anti-Conflation Audit
-1. **Register Verified Characters:**
+#### Step 4: Atomic Registration & Consolidated Anti-Conflation Audit
+1. **Register All Vetted Candidates from Extraction:**
+   As workers return reports, perform initial database registrations:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> \
      --register-entity "<Canonical Name or Descriptor>" \
      --role "<Verified Role>" \
-     --desc "<Anchor evidence [#ID], aliases, key context, and explicit negative distinctions>"
+     --desc "<Anchor evidence [#ID], aliases, key context>"
    ```
-2. **🚨 Run Immediate Anti-Conflation Audit:**
+2. **🚨 Run Consolidated Anti-Conflation Audit (Single Pass Across All Entities):**
+   Once all candidate clusters have completed initial vetting, run the audit across the entire cast:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit
    ```
-   - If the audit reports `HIGH RISK (UNRESOLVED)` for any pair (e.g. two entities sharing a nationality like *Indian*, a kinship term like *Sister*, or similar names):
-     - **STOP immediately before proceeding to deep research.**
-     - Dispatch a targeted verification check to audit the colliding threads.
-     - Ensure quotes, traits, or timeline events from one person have not bled into the other.
-     - Check and respect all subject rebuttals (*"to nie ten"*).
-     - Inject explicit negative boundaries into `--desc` for both entities:
-       ```bash
-       python3 project/scripts/query_chat.py -C <chat_id> \
-         --register-entity "<Entity_A>" --desc "<Existing desc>; NOT <Entity_B>; lives in X"
-       ```
-     - Re-run `--conflation-audit` until status is `OK` or all collision pairs are `[🛡️ GUARDED]`.
+   If any collision risk is flagged (e.g. multiple entities sharing nationality like *Indian*, kinship like *Sister*, or similar names):
+   - **Trace and Disambiguate:** Review threads for each flagged group together.
+   - **⚠️ Explicitly Mark Ambiguities:** If any quote, event, or trait cannot be definitively assigned to one specific individual (e.g. ambiguous pronoun *"he said..."*), **DO NOT guess or force-assign**. Explicitly record it in `--desc` as `[AMBIGUOUS ATTRIBUTION: <fact>]`.
+   - **Inject Negative Boundaries:** Update `--desc` for both colliding entities with explicit negative bounds:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> \
+       --register-entity "<Entity_A>" --desc "<Existing desc>; NOT <Entity_B>; [AMBIGUOUS ATTRIBUTION: <any uncertain event>]"
+     ```
+   - Re-run `--conflation-audit` until status is `OK` or all collision pairs are `[🛡️ GUARDED]`.
 
 #### Step 5: System-1 Catch-up Sweep Scan (Gap Fill)
 Now that candidates from extraction are registered in $S$, perform a non-blocking catch-up sweep over third-party threads:
