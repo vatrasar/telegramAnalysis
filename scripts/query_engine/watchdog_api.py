@@ -238,17 +238,21 @@ def print_watchdog_status(db_path: str, chat_id: str) -> None:
     cur = conn.cursor()
 
     cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
-    if cur.fetchone()[0] == 0:
-        print(f"[*] 'thread_triage' table not found in '{db_path}'. Run triage first via: python3 project/scripts/triage_threads.py")
-        conn.close()
-        return
+    has_triage = cur.fetchone()[0] > 0
 
-    cur.execute("""
-    SELECT COUNT(*) FROM threads t
-    JOIN thread_triage tt ON t.thread_id = tt.thread_id
-    WHERE t.chat_id = ? AND tt.mentions_third_party = 1;
-    """, (chat_id,))
-    total_third_party = cur.fetchone()[0]
+    if has_triage:
+        cur.execute("""
+        SELECT COUNT(*) FROM threads t
+        LEFT JOIN thread_triage tt ON t.thread_id = tt.thread_id
+        WHERE t.chat_id = ? AND (tt.mentions_third_party = 1 OR tt.thread_id IS NULL);
+        """, (chat_id,))
+        total_third_party = cur.fetchone()[0]
+    else:
+        cur.execute("""
+        SELECT COUNT(*) FROM threads t
+        WHERE t.chat_id = ? AND length(trim(t.dialogue_text)) > 0;
+        """, (chat_id,))
+        total_third_party = cur.fetchone()[0]
 
     cur.execute("""
     SELECT status, COUNT(*) FROM thread_entity_audit
@@ -304,11 +308,6 @@ def check_watchdog_gate(conn_or_db: Any, chat_id: str) -> int:
 
     cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
     has_triage = cur.fetchone()[0] > 0
-    if not has_triage:
-        print(f"[!] Warning: 'thread_triage' table does not exist. Thread triage must be run before watchdog audit.")
-        if should_close:
-            conn.close()
-        return 1
 
     target_chats = [chat_id]
     if chat_id == "global" or not chat_id:
@@ -327,11 +326,17 @@ def check_watchdog_gate(conn_or_db: Any, chat_id: str) -> int:
     overall_failed = False
 
     for cid in target_chats:
-        cur.execute("""
-        SELECT COUNT(*) FROM threads t
-        JOIN thread_triage tt ON t.thread_id = tt.thread_id
-        WHERE t.chat_id = ? AND tt.mentions_third_party = 1;
-        """, (cid,))
+        if has_triage:
+            cur.execute("""
+            SELECT COUNT(*) FROM threads t
+            LEFT JOIN thread_triage tt ON t.thread_id = tt.thread_id
+            WHERE t.chat_id = ? AND (tt.mentions_third_party = 1 OR tt.thread_id IS NULL);
+            """, (cid,))
+        else:
+            cur.execute("""
+            SELECT COUNT(*) FROM threads t
+            WHERE t.chat_id = ? AND length(trim(t.dialogue_text)) > 0;
+            """, (cid,))
         total_third_party = cur.fetchone()[0]
 
         if total_third_party == 0:

@@ -41,26 +41,34 @@ def run_sequential_watchdog_scan(
         print(f"[✓] Reset watchdog scan audit progress for chat '{chat_id}'.")
 
     cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
-    if cur.fetchone()[0] == 0:
-        print(f"[!] Error: 'thread_triage' table not found in '{db_path}'. Run triage first via: python3 project/scripts/triage_threads.py")
-        conn.close()
-        return {"status": "no_triage_table"}
+    has_triage = cur.fetchone()[0] > 0
 
-    # Get all threads with mentions_third_party = 1
-    cur.execute("""
-    SELECT t.thread_id, t.start_date, t.dialogue_text, t.participants,
-           COALESCE(a.status, 'pending') as audit_status
-    FROM threads t
-    JOIN thread_triage tt ON t.thread_id = tt.thread_id
-    LEFT JOIN thread_entity_audit a ON t.thread_id = a.thread_id
-    WHERE t.chat_id = ? AND tt.mentions_third_party = 1
-    ORDER BY t.start_date ASC;
-    """, (chat_id,))
+    if has_triage:
+        # Get threads with mentions_third_party = 1 or new untriaged threads
+        cur.execute("""
+        SELECT t.thread_id, t.start_date, t.dialogue_text, t.participants,
+               COALESCE(a.status, 'pending') as audit_status
+        FROM threads t
+        LEFT JOIN thread_triage tt ON t.thread_id = tt.thread_id
+        LEFT JOIN thread_entity_audit a ON t.thread_id = a.thread_id
+        WHERE t.chat_id = ? AND (tt.mentions_third_party = 1 OR tt.thread_id IS NULL)
+        ORDER BY t.start_date ASC;
+        """, (chat_id,))
+    else:
+        # Triage not run: scan all substantive dialogue threads directly
+        cur.execute("""
+        SELECT t.thread_id, t.start_date, t.dialogue_text, t.participants,
+               COALESCE(a.status, 'pending') as audit_status
+        FROM threads t
+        LEFT JOIN thread_entity_audit a ON t.thread_id = a.thread_id
+        WHERE t.chat_id = ? AND length(trim(t.dialogue_text)) > 0
+        ORDER BY t.start_date ASC;
+        """, (chat_id,))
     rows = cur.fetchall()
 
     if not rows:
         conn.close()
-        print(f"[*] No threads flagged with mentions_third_party = 1 for chat '{chat_id}'.")
+        print(f"[*] No pending threads found to scan for chat '{chat_id}'.")
         return {"status": "empty"}
 
     cfg = load_config()
