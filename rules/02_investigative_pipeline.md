@@ -54,15 +54,23 @@ When a chat is updated with new messages or threads:
 
 ### 3.2 Profiling Execution Workflow
 
-#### Step B.1: Macro-Reconnaissance & Anomaly Detection
+#### Step B.1: Macro-Reconnaissance, System-1 Triage & Batch Enrichment
 - Quantitative baselines: `query_chat.py --stats`, `--gaps` (audit duration intervals & prolonged pauses via `--min-days 7`), `--timeline`, `--burning-days`.
 - Salience radars: `--anomalies-only`, `--emotional-peaks`, `--advice-seeking`, `--triaged-threads`.
+- **System-1 Screening & Scaledown Batch Enrichment:**
+  1. System-1 evaluates all conversation threads for salience anomalies and third-party flags (`triage_threads.py`).
+  2. Immediately following System-1 completion, the Main Coordinator runs batch enrichment:
+     ```bash
+     python3 project/scripts/triage_threads.py -C <chat_id> --enrich
+     ```
+     - **Extraction (`candidate_entities`):** Executed on all threads flagged with third parties (`mentions_third_party = 1`).
+     - **Summaries (`summary_short`):** Generated for all third-party threads AND all anomaly threads.
 - Always audit metrics per dyad via `-C <chat_id>`. Inspect entity baselines via `--entities` and `--descriptors`.
 
 #### Step B.2: Entity Disambiguation & Watchdog Loop (Prerequisite)
 - **Mandatory Entity Watchdog Delegation:** To protect primary context and prevent token exhaustion, the Main Agent does NOT process individual threads or register entities directly.
 - Activate `entity-watchdog-audit` skill and invoke the dedicated **Entity Registry Supervisor** (`entity-supervisor`, `Model: "flash"`):
-  - **Phase B.2a (Discovery & Clearance):** The Supervisor orchestrates System-1 scans and dispatches suspect threads to up to 4 parallel `entity-investigator` subagents on focused snippets (`query_chat.py --thread-snippets <id>`). The Supervisor deduplicates characters across threads, enforces cardinality ($K=1$ vs $K \ge 2$), registers verified entities (`--register-entity`), and clears the Watchdog Gate (`--check-watchdog-gate` exits 0).
+  - **Phase B.2a (Discovery & Clearance):** The Supervisor orchestrates System-1 scans and dispatches suspect threads to up to 4 parallel `entity-investigator` subagents by providing the `thread_id`, the thread `summary_short`, and the extracted `candidate_entities` (as well as known registered entities). The supervisor does NOT truncate or slice messages into micro-snippets; subagents investigate the thread autonomously (`query_chat.py -C <chat_id> -t <thread_id>`, `-s "<keyword>"`, etc.) to locate and verify the entities. The Supervisor deduplicates characters across threads, enforces cardinality ($K=1$ vs $K \ge 2$), registers verified entities (`--register-entity`), and clears the Watchdog Gate (`--check-watchdog-gate` exits 0).
   - **Phase B.2b (Deep Relational Profiling):** The Supervisor screens the registered cast via noise rejection (retaining ALL psychologically salient figures without artificial limits), injects explicit negative boundaries, and launches wave-based parallel `entity-deep-profiler` subagents. Workers use a dual-search engine (lexical FTS + semantic role queries) to synthesize complete Relational Dossiers (`reports/<chat_id>_entities/`).
 - Step B.2 is complete when the Watchdog Gate exits 0 and all salient relational dossiers are synthesized.
 - *Note:* Step B.3 initialization (`checklist.py --init` and `thread_checklist.py --init`) is **programmatically blocked** until the watchdog gate returns exit code 0.

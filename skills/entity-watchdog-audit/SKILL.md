@@ -32,20 +32,21 @@ For threads flagged with `mentions_third_party = 1`:
 - **Outcome NO (0):** Thread contains only known entities. It is marked `cleared` automatically. Zero investigator tokens spent.
 - **Outcome YES (1):** Novel person detected. Flagged for snippet investigation.
 
-### Step 2: Focused Snippet Extraction & Parallel Dispatch (Supervisor $\to$ 4 Workers)
+### Step 2: Thread Summary & Extraction Dispatch (Supervisor $\to$ 4 Workers)
 For suspect threads (in batches of up to 4 concurrently):
-1. The Supervisor extracts windowed context snippets ($\pm 4$ turns) around candidate entities:
+1. The Supervisor retrieves the thread summary and extracted candidate entities (populated by batch enrichment):
    ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> --thread-snippets <thread_id> --json
+   python3 project/scripts/query_chat.py -C <chat_id> -t <thread_id> --json
    ```
 2. The Supervisor invokes up to 4 parallel `entity-investigator` subagents (`Model: "flash"`), passing each worker:
-   - Target `thread_id` and focused candidate snippets.
+   - Target `thread_id` and `chat_id`.
+   - Thread `summary_short` and extracted `candidate_entities`.
    - List of known registered characters.
 
-### Step 3: Forensic Snippet Inspection & Pragmatic Boundedness (Workers)
-Each investigator subagent analyzes the window around candidate mentions:
-- **Baseline Window ($4 + 1 + 4$):** Subagents start with a minimum window of 4 messages before, the target mention message, and 4 messages after ($4+1+4$).
-- **Active Within-Thread Probing:** While subagents avoid reading the full thread sequentially, they can and should run targeted lexical searches (`-s "<keyword>"`) across the thread or check alternative candidate mentions (`--thread-snippets <id> --mentions "<alt>"`) if the person might be named elsewhere in the same thread.
+### Step 3: Autonomous Thread Investigation & Pragmatic Boundedness (Workers)
+Each investigator subagent analyzes the thread autonomously:
+- **Full Thread Inspection:** Reads the conversation thread transcript (`query_chat.py -C <chat_id> -t <thread_id>`).
+- **Targeted Lexical Probing:** Searches for specific candidate terms, descriptors, or aliases within the thread (`-s "<keyword>"`).
 - **Context Expansion & Direct Split Continuity:**
   - *Direct Thread Splits:* Threads are chunked (~50 messages limit). If discussion of a person starts at the immediate beginning or cuts off at the immediate end of a thread, the investigator MAY inspect the seam with the directly adjacent thread chunk (`--around <anchor_msg_id> -n 8`).
   - *Information Continuation Criterion:* Continue following turns ONLY as long as the dialogue *actively continues to discuss and provide informative details* about this specific entity.

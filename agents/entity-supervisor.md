@@ -65,19 +65,19 @@ python3 project/scripts/query_chat.py -C <chat_id> --watchdog-scan --limit 4
 - If a thread contains only known registered entities, System 1 marks it `[✓ CLEARED]` automatically at near-zero token cost.
 - If a thread halts with `[🚨 NEW ENTITY DETECTED]`, note the `thread_id` and date.
 
-#### Step 3: Focused Snippet Extraction & Parallel Investigator Dispatch
+#### Step 3: Summary & Extraction Retrieval & Parallel Investigator Dispatch
 For suspect threads (up to 4 concurrently):
-1. Extract windowed context snippets (baseline $4 + 1 + 4$ turns around candidate mentions):
+1. Retrieve thread summary and extracted candidate entities (populated by batch enrichment):
    ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> --thread-snippets <thread_id> --json
+   python3 project/scripts/query_chat.py -C <chat_id> -t <thread_id> --json
    ```
 2. Launch up to 4 parallel investigator subagents via `invoke_subagent`:
    - `TypeName`: `"entity-investigator"`
    - `Model`: `"flash"`
    - `Role`: `"Entity Investigator - Thread <thread_id>"`
-   - `Prompt`: Provide the thread ID, the extracted snippets JSON, and the current list of known registered entities. Instruct the investigator:
-     - Baseline context is $4 + 1 + 4$ messages.
-     - **Context expansion:** If there is doubt regarding antecedent or identity, expand context (`-w 8` or probe within thread via `-s "<keyword>"`), but stop if conversation shifts topics.
+   - `Prompt`: Provide the `thread_id`, `chat_id`, the thread `summary_short`, the extracted `candidate_entities`, and the current list of known registered entities $S$. Instruct the investigator:
+     - You are provided with the thread summary and extracted candidate entities.
+     - You have full analytical autonomy on how to inspect the thread (reading the transcript via `query_chat.py -C <chat_id> -t <thread_id>`, targeted keyword searches `-s`, or checking causal context) to locate and verify the entity. The supervisor does NOT truncate or pre-slice messages.
      - Determine real human entity vs. bystander vs. false positive token (drug, place, meme) vs. `insufficient_data`.
      - Determine canonical name / alias, verified role / relationship, exact quote anchors (`[#ID | YYYY-MM-DD]`), and negative boundaries.
 
