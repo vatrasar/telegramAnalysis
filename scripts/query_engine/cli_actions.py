@@ -15,6 +15,14 @@ from .entities import (
     audit_descriptor,
     print_descriptor_audit,
 )
+from .candidate_inspect import (
+    get_candidate_entities_data,
+    print_candidate_entities_summary,
+)
+from .conflation_audit import (
+    run_conflation_audit,
+    print_conflation_audit,
+)
 from .watchdog_api import (
     run_watchdog_check,
     print_watchdog_result,
@@ -82,6 +90,28 @@ def handle_entity_actions(args: Any, batch_config: Dict[str, Any], resolved_chat
             print_descriptor_audit(audit_res)
         return True
 
+    if args.candidates or batch_config.get("candidates", False):
+        if not resolved_chat_id:
+            print("[!] Error: Please specify target chat via -C <chat_id> for --candidates.")
+            sys.exit(1)
+        cdata = get_candidate_entities_data(args.db, resolved_chat_id)
+        if args.json:
+            print(json.dumps(cdata, indent=2, ensure_ascii=False))
+        else:
+            print_candidate_entities_summary(cdata, chat_name=resolved_chat_name)
+        return True
+
+    if args.conflation_audit or batch_config.get("conflation_audit", False):
+        if not resolved_chat_id:
+            print("[!] Error: Please specify target chat via -C <chat_id> for --conflation-audit.")
+            sys.exit(1)
+        caudit = run_conflation_audit(args.db, resolved_chat_id)
+        if args.json:
+            print(json.dumps(caudit, indent=2, ensure_ascii=False))
+        else:
+            print_conflation_audit(caudit)
+        return True
+
     return False
 
 
@@ -138,7 +168,8 @@ def handle_watchdog_actions(args: Any, resolved_chat_id: Optional[str]) -> bool:
             db_path=args.db,
             chat_id=resolved_chat_id,
             limit=args.limit,
-            reset=args.reset_watchdog_scan
+            reset=args.reset_watchdog_scan,
+            sweep=bool(getattr(args, "sweep", False))
         )
         if args.json:
             print(json.dumps(scan_res, indent=2, ensure_ascii=False))
