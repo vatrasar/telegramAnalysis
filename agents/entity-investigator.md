@@ -80,10 +80,15 @@ must **NEVER** be parsed as an appositive attributing the descriptor to the name
 When assigned a `thread_id` and `chat_id` with candidate hints:
 
 ### Step 1: Inspect Focused Candidate Snippets & Active Within-Thread Probing
-Do NOT dump the entire dialogue thread on the terminal without need. Retrieve windowed context snippets around candidate mentions:
-```bash
-python3 project/scripts/query_chat.py -C <chat_id> --thread-snippets <thread_id>
-```
+Do NOT dump the entire dialogue thread on the terminal without need.
+- **Batch Thread Reconnaissance (Summary-First):** If assigned multiple suspect threads, inspect their summaries and candidate entities first in a single call to identify the most relevant threads:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> -t <tid1> -t <tid2> ... --summary-only
+  ```
+- **Focused Snippets:** Retrieve windowed context snippets around candidate mentions:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> --thread-snippets <thread_id>
+  ```
 If candidate hints are already provided in the prompt, or if you need to search for a specific candidate term:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --thread-snippets <thread_id> --mentions "<Candidate_Mention>"

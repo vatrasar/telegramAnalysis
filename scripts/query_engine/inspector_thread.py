@@ -129,7 +129,7 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> 
     }
 
 
-def print_thread(t: Dict[str, Any]) -> None:
+def print_thread(t: Dict[str, Any], summary_only: bool = False) -> None:
     """Print ASCII transcript of a dialogue thread."""
     print("\n" + "=" * 70)
     c_label = f" [Chat: {t.get('chat_name', t.get('chat_id'))}]" if t.get("chat_name") else ""
@@ -147,6 +147,11 @@ def print_thread(t: Dict[str, Any]) -> None:
     if t.get("candidate_entities") and t["candidate_entities"] not in ("[]", "None", ""):
         print(f"👥 Extracted Entities: {t['candidate_entities']}")
     print("=" * 70)
+
+    if summary_only:
+        print(f"💡 [Summary-only mode: use `python3 project/scripts/query_chat.py -t {t['thread_id']}` to view full transcript]")
+        print("=" * 70)
+        return
 
     if t.get("messages"):
         if t.get("anchor_message"):

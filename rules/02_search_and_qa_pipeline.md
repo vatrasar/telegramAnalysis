@@ -109,9 +109,10 @@ Whenever a relevant match is located:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --around <message_id> -n 5
 ```
-Or view the full thread:
+Or view the full thread (or summary only):
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> -t <thread_id>
+python3 project/scripts/query_chat.py -C <chat_id> -t <thread_id> --summary-only  # Rapid reconnaissance
 ```
 Verify the speaker, the context, whether forwarded or quoted, and whether confirmed or rebutted in subsequent turns ($N+1 \dots N+5$).
 

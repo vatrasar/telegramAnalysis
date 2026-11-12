@@ -77,7 +77,7 @@ For suspect threads (up to 4 concurrently):
    - `Role`: `"Entity Investigator - Thread <thread_id>"`
    - `Prompt`: Provide the thread ID, the extracted snippets JSON, and the current list of known registered entities. Instruct the investigator:
      - Baseline context is $4 + 1 + 4$ messages.
-     - **Context expansion:** If there is doubt regarding antecedent or identity, expand context (`-w 8` or probe within thread via `-s "<keyword>"`), but stop if conversation shifts topics.
+     - **Context expansion & reconnaissance:** If multiple threads are assigned, use `query_chat.py -C <chat_id> -t <id1> -t <id2> ... --summary-only` first for rapid reconnaissance. If there is doubt regarding antecedent or identity, expand context (`-w 8` or probe within thread via `-s "<keyword>"` or full transcript `-t`), but stop if conversation shifts topics.
      - Determine real human entity vs. bystander vs. false positive token (drug, place, meme) vs. `insufficient_data`.
      - Determine canonical name / alias, verified role / relationship, exact quote anchors (`[#ID | YYYY-MM-DD]`), and negative boundaries.
 
