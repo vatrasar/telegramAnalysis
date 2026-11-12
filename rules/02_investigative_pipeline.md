@@ -35,24 +35,22 @@ python3 project/scripts/setup_config.py
 
 ---
 
-## 3. Operational Modes: Mode A (Ad-Hoc) vs. Mode B (Full Profiling)
+## 3. Personality Profiling Pipeline Architecture
 
-### 3.1 Mode A: Ad-Hoc Inquiries & Fact-Checking (Default)
-Triggered when the user asks specific factual questions (e.g. *"What did X say about Y?"*, *"When did event Z happen?"*, *"Compare message volume"*):
-1. **Targeted Query Execution:** Run relevant `query_chat.py` calls (`-s`, `--semantic`, `--stats`, `--gaps`).
-2. **Context Audit:** Audit retrieved turns ($N-5 \dots N+5$ via `--around <msg_id> -n 5` or `-c <msg_id>`).
-3. **Direct Response:** Answer concisely with exact dates and message anchors (`[#ID | YYYY-MM-DD]`).
-4. **Prohibitions in Mode A:** Do NOT initialize section drafts, life spheres checklist, or 8-part dossier templates.
-5. **Safety Waiver Mechanism:** If an active checklist from prior sessions blocks execution, safely exempt it:
+This branch is dedicated to comprehensive personality profiling and psychological dossier synthesis.
+
+### 3.1 Incremental Chat Updates & Entity Delta Scan
+When a chat is updated with new messages or threads:
+1. Run ingestion & embedding update (`scripts/db_builder.py`, `scripts/vector_indexer.py --incremental`).
+2. **Delta Entity Scan:** Run the entity watchdog scan ONLY on the newly arrived threads:
    ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> --waive-checklist --reason "Ad-hoc Q&A inquiry"
-   python3 project/scripts/query_chat.py -C <chat_id> --waive-threads-checklist --reason "Ad-hoc Q&A inquiry"
+   python3 scripts/query_chat.py -C <chat_id> --watchdog-scan
    ```
+   The engine automatically skips previously cleared/skipped threads using `thread_entity_audit`, auditing only the newly introduced threads to detect any new people or relation figures without re-scanning previously audited history.
 
 ---
 
-### 3.2 Mode B: Comprehensive Personality Profiling (Explicit Request Only)
-Triggered **ONLY** when the user explicitly requests an in-depth personality profile, psychological portrait, or behavioral dossier.
+### 3.2 Profiling Execution Workflow
 
 #### Step B.1: Macro-Reconnaissance & Anomaly Detection
 - Quantitative baselines: `query_chat.py --stats`, `--gaps`, `--timeline`, `--burning-days`.
