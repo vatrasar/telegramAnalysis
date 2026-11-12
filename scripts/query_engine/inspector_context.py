@@ -3,9 +3,42 @@
 import re
 import json
 import sqlite3
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
 
 from .formatters import format_message_text
+
+
+HEURISTIC_ENTITY_PATTERNS = [
+    r"\b(?:online\s+)?friend(?:s)?\b",
+    r"\b(?:best\s+)?friend(?:s)?\b",
+    r"\b(?:ex[- ]?)?(?:boyfriend|girlfriend|partner|husband|wife|fianc[eé]e?)\b",
+    r"\b(?:sister|brother|mother|father|mom|dad|cousin|aunt|uncle|daughter|son|parent|parents)\b",
+    r"\b(?:boss|manager|colleague|coworker|landlord|landlady|lawyer|scammer|stranger|neurologist|therapist|psychologist|psychiatrist|doctor|physician)\b",
+    r"\b(?:przyjaciel|przyjaci[oó][lł]k[aey]|znajom[yae]|koleg[aei]|kole[zż]ank[aey])\b",
+    r"\b(?:ch[lł]opak|dziewczyn[aey]|partner(?:ka)?|m[aą][zż]|m[eę][zż][a|em]|[zż]on[aey]|narzeczon[ya])\b",
+    r"\b(?:by[lł][yae]|by[lł]eg[o]|by[lł]ej)\b",
+    r"\b(?:siostr[aey]|brat(?:a)?|mam[aey]|matk[aei]|tat[aey]|ojc(?:a|iec)|rodzic(?:e|[oó]w)|c[oó]rk[aei]|syn(?:a)?)\b",
+    r"\b(?:szef(?:owa)?|kierownik|wsp[oó][lł]pracownik|lekarz(?:a)?|doktor(?:a)?|neurolog(?:a)?|terapeut[aey]|psycholog(?:a)?|psychiatr[aey]|prawnik(?:a)?|oszust(?:ka)?)\b",
+]
+_COMPILED_ENTITY_REGEX = re.compile("|".join(HEURISTIC_ENTITY_PATTERNS), re.IGNORECASE)
+
+
+def _detect_heuristic_entities(msg_rows: List[Any], participants: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Scan message texts for heuristic third-party entity indicators (roles, kinship, and suspect terms)."""
+    found_mentions: Set[str] = set()
+    for row in msg_rows:
+        text = row[3] or ""
+        for match in _COMPILED_ENTITY_REGEX.finditer(text):
+            mention = match.group(0).strip().lower()
+            if len(mention) > 2:
+                found_mentions.add(mention)
+
+    part_set = {p.strip().lower() for p in (participants or "").split(",") if p.strip()}
+    candidates = []
+    for m in sorted(list(found_mentions)):
+        if m not in part_set:
+            candidates.append({"mention": m, "role": "heuristic_candidate"})
+    return candidates
 
 
 def get_thread_snippets(
@@ -79,28 +112,57 @@ def get_thread_snippets(
             "snippets": []
         }
 
+    # If no candidate entities from explicit mentions or thread_triage, run heuristic scan
+    if not candidates:
+        heuristic_cands = _detect_heuristic_entities(msg_rows, participants)
+        if heuristic_cands:
+            candidates.extend(heuristic_cands)
+
     snippets: List[Dict[str, Any]] = []
 
     if not candidates:
-        sample_indices = sorted(list(set(range(min(5, len(msg_rows)))) | set(range(max(0, len(msg_rows) - 5), len(msg_rows)))))
-        sample_msgs = [{
-            "id": msg_rows[i][0], "date": msg_rows[i][1], "sender": msg_rows[i][2], "text": msg_rows[i][3]
-        } for i in sample_indices]
-        return {
-            "thread_id": thread_id,
-            "chat_id": c_id,
-            "chat_name": chat_name,
-            "start_date": sdate,
-            "end_date": edate,
-            "message_count": len(msg_rows),
-            "candidates": [],
-            "note": "No candidate entities found in thread_triage; displaying thread boundary sample.",
-            "snippets": [{
-                "candidate": {"mention": "(thread sample)", "role": "sample"},
-                "matched_msg_ids": [m["id"] for m in sample_msgs],
-                "messages": sample_msgs
-            }]
-        }
+        # If thread is within standard chunk limit (<= 60 msgs), return complete thread to prevent context loss
+        if len(msg_rows) <= 60:
+            full_msgs = [{
+                "id": m[0], "date": m[1], "sender": m[2], "text": m[3], "is_direct_match": False
+            } for m in msg_rows]
+            return {
+                "thread_id": thread_id,
+                "chat_id": c_id,
+                "chat_name": chat_name,
+                "start_date": sdate,
+                "end_date": edate,
+                "message_count": len(msg_rows),
+                "candidates": [],
+                "note": f"No candidate entities pre-extracted; returning complete thread transcript ({len(msg_rows)} msgs).",
+                "snippets": [{
+                    "candidate": {"mention": "(full thread)", "role": "complete_thread"},
+                    "matched_msg_ids": [m["id"] for m in full_msgs],
+                    "messages": full_msgs,
+                    "status": "complete_thread"
+                }]
+            }
+        else:
+            sample_indices = sorted(list(set(range(min(5, len(msg_rows)))) | set(range(max(0, len(msg_rows) - 5), len(msg_rows)))))
+            sample_msgs = [{
+                "id": msg_rows[i][0], "date": msg_rows[i][1], "sender": msg_rows[i][2], "text": msg_rows[i][3], "is_direct_match": False
+            } for i in sample_indices]
+            return {
+                "thread_id": thread_id,
+                "chat_id": c_id,
+                "chat_name": chat_name,
+                "start_date": sdate,
+                "end_date": edate,
+                "message_count": len(msg_rows),
+                "candidates": [],
+                "note": "No candidate entities found in thread_triage; displaying thread boundary sample.",
+                "snippets": [{
+                    "candidate": {"mention": "(thread sample)", "role": "sample"},
+                    "matched_msg_ids": [m["id"] for m in sample_msgs],
+                    "messages": sample_msgs,
+                    "status": "sample"
+                }]
+            }
 
     for cand in candidates:
         mention = cand.get("mention", "").strip()
@@ -198,13 +260,21 @@ def print_thread_snippets(data: Dict[str, Any]) -> None:
             print(f"   [!] Mention \"{cand.get('mention')}\" was not directly found in raw message text (likely in summary or parent).")
             continue
 
+        if status == "complete_thread":
+            print(f"   Note: {data.get('note', 'Displaying full thread transcript.')}")
+            print("   --- Complete Thread Transcript ---")
+            for m in snip.get("messages", []):
+                fmt_text = format_message_text(m['text'], m['id'])
+                print(f"   [#{m['id']} | {m['date'][:16].replace('T', ' ')}] {m['sender']}: {fmt_text}")
+            continue
+
         matched_ids = snip.get("matched_msg_ids", [])
         print(f"   Anchor Messages with Matches: {matched_ids}")
         print("   --- Windowed Conversational Context (±window turns) ---")
         for m in snip.get("messages", []):
-            marker = "👉 [*HIT*]" if m.get("is_direct_match") else "   "
+            marker = "👉 [*HIT*] " if m.get("is_direct_match") else "          "
             fmt_text = format_message_text(m['text'], m['id'])
-            print(f"{marker} [#{m['id']} | {m['date'][:16].replace('T', ' ')}] {m['sender']}: {fmt_text}")
+            print(f"{marker}[#{m['id']} | {m['date'][:16].replace('T', ' ')}] {m['sender']}: {fmt_text}")
     print("=" * 80 + "\n")
 
 

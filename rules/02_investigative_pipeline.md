@@ -22,12 +22,14 @@ These rules define the technical pipeline boundaries, pre-flight configuration g
 
 ---
 
-## 2. Pre-Flight Configuration & Startup Gate
+## 2. Pre-Flight Configuration & Startup Gate (Main Coordinator ONLY)
 
-Before performing any ingestion, indexing, or chat analysis, the agent **MUST** run:
+Before performing any ingestion, indexing, or initiating chat analysis, the Main Coordinator **MUST** run:
 ```bash
 python3 project/scripts/setup_config.py
 ```
+- **Main Coordinator ONLY:** Executed exactly once at session startup before initiating pipeline steps.
+- **Subagent Invariant:** Subagents (supervisors, investigators, profilers, drafters, triage workers) **MUST NEVER** run `setup_config.py`. Subagents operate under the strict invariant that runtime configuration and OpenRouter connectivity have already been pre-flight verified and approved by the Main Coordinator.
 - **Exit Code 0 (`SUCCESS`):** Verified. Proceed with analysis.
 - **Exit Code 2 (`ACTION_REQUIRED`):** Halt immediately and prompt the user to configure `config/embeddings_config.json` with their OpenRouter API key.
 - **Exit Codes 3–6 (`ERROR`):** Report exact diagnostic (401 auth, 402 credits, 404 model, 6 network) and halt.
