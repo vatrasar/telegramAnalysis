@@ -121,8 +121,10 @@ def print_watchdog_result(res: Dict[str, Any]) -> None:
         print(f"🚨 ALERT: UNREGISTERED THIRD-PARTY ENTITY DETECTED! (Confidence: {res['probability'] * 100:.1f}%)")
         print("   This thread appears to discuss or mention an external individual NOT present")
         print("   in your registered entities list.")
-        print("   ACTION REQUIRED: Inspect thread (query_chat.py -t <id>), identify the new person,")
-        print("   and register them via --register-entity.")
+        print("   ACTION REQUIRED: Inspect context to identify the new person (register via --register-entity):")
+        print(f"     • Focused snippets:      python3 project/scripts/query_chat.py -C {res.get('chat_id', '<chat_id>')} --thread-snippets {res['thread_id']}")
+        print(f"     • Full thread dialogue:  python3 project/scripts/query_chat.py -C {res.get('chat_id', '<chat_id>')} -t {res['thread_id']}")
+        print(f"     • Local causal window:   python3 project/scripts/query_chat.py --around <msg_id> -n 5")
     else:
         print(f"✅ PASSED: No unregistered third-party entities detected. (Confidence: {(1.0 - res['probability']) * 100:.1f}%)")
         print("   All discussed individuals are accounted for in the registered entities set.")
