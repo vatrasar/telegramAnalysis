@@ -50,6 +50,11 @@ Evaluate the subject against the 4 empirical attachment styles based on behavior
 ### 4. Fearful-Avoidant Attachment / Disorganized (Lękowo-Unikający)
 - **Chat Markers:** Volatile push-pull dynamics; intense craving for deep emotional intimacy paired with acute terror of engulfment and betrayal; presents a guarded, cynical exterior until deep trust is formed, followed by sudden vulnerability, panic, and abrupt retreat; high sensitivity to perceived shifts in partner warmth.
 
+### Silence Gap Tiers & Reconnection Invariants (`--gaps`):
+- **Short Gaps (1–3d):** Reflect daily communication cadence and anxious pursuit / reassurance seeking.
+- **Prolonged Gaps (1–4w, >1m):** Reflect cooling-off periods, stonewalling, or avoidant deactivation. Cross-examine whether the initiative ratio reverses between short pauses and multi-week estrangements (`--gaps --min-days 7`).
+- **Self-Reconnection vs. Normal Reply:** Check whether silence was broken by the person who spoke last (self-reconnection / double-texting after being left on read) vs the recipient finally answering.
+
 ### Deactivating Strategies & Intimacy Sabotage:
 Actively probe the archive for these specific intimacy-limiting defenses:
 - **Checklist Perfectionism:** Compulsively identifying minor flaws in prospective or present partners to justify terminating deepening bonds.

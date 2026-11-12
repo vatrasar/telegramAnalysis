@@ -133,6 +133,11 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
     min_salience = float(batch_config.get("min_salience", args.min_salience))
     triage_category = batch_config.get("triage_category", args.triage_category)
     min_hours = batch_config.get("min_hours", args.min_hours)
+    min_days = batch_config.get("min_days", getattr(args, "min_days", None))
+    if min_days is not None:
+        min_hours = float(min_days) * 24.0
+    else:
+        min_hours = float(min_hours)
     min_words = batch_config.get("min_words", args.min_words)
     min_messages = batch_config.get("min_messages", args.min_messages)
     limit = batch_config.get("limit", args.limit)

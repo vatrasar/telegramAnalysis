@@ -53,7 +53,7 @@ When a chat is updated with new messages or threads:
 ### 3.2 Profiling Execution Workflow
 
 #### Step B.1: Macro-Reconnaissance & Anomaly Detection
-- Quantitative baselines: `query_chat.py --stats`, `--gaps`, `--timeline`, `--burning-days`.
+- Quantitative baselines: `query_chat.py --stats`, `--gaps` (audit duration intervals & prolonged pauses via `--min-days 7`), `--timeline`, `--burning-days`.
 - Salience radars: `--anomalies-only`, `--emotional-peaks`, `--advice-seeking`, `--triaged-threads`.
 - Always audit metrics per dyad via `-C <chat_id>`. Inspect entity baselines via `--entities` and `--descriptors`.
 

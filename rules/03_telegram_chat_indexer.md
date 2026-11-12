@@ -64,8 +64,12 @@ python3 project/scripts/query_chat.py --stats -s "keyword" --json # Machine-read
 python3 project/scripts/query_chat.py --stats
 python3 project/scripts/query_chat.py -C "<chat_id>" --stats --gaps
 
-# Silence gaps (>= 24h) & initiative tracking (% who broke silence):
+# Silence gaps & tiered initiative tracking (1-3d, 3-7d, 1-2w, 2-4w, 1-3m, >3m):
 python3 project/scripts/query_chat.py --gaps
+python3 project/scripts/query_chat.py -C "<chat_id>" --gaps
+# Filter for prolonged silence gaps (e.g. >= 7 days or >= 30 days):
+python3 project/scripts/query_chat.py -C "<chat_id>" --gaps --min-days 7
+python3 project/scripts/query_chat.py -C "<chat_id>" --gaps --min-days 30
 
 # Longitudinal density & crisis spike detection:
 python3 project/scripts/query_chat.py --timeline

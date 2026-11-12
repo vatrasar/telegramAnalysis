@@ -17,10 +17,12 @@ from .catalog import (
 from .stats_overview import (
     get_stats,
     print_stats,
-    get_silence_gaps,
-    print_silence_gaps,
     get_timeline,
     print_timeline,
+)
+from .silence_gaps import (
+    get_silence_gaps,
+    print_silence_gaps,
 )
 from .stats_triage import (
     get_burning_days,
