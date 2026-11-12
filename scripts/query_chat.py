@@ -1023,6 +1023,172 @@ def get_thread_slice(
     }
 
 
+def get_thread_snippets(
+    db_path: str,
+    thread_id: str,
+    mentions: Optional[List[str]] = None,
+    window: int = 4,
+    chat_id: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """Fetch windowed context snippets (±window messages) around candidate entity mentions in a thread."""
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id), t.anchor_message_id,
+           t.start_date, t.end_date, t.message_count, t.participants
+    FROM threads t
+    LEFT JOIN chats c ON t.chat_id = c.chat_id
+    WHERE t.thread_id = ?;
+    """, (thread_id,))
+    t_row = cur.fetchone()
+    if not t_row:
+        conn.close()
+        return None
+
+    tid, c_id, chat_name, anchor_id, sdate, edate, mcount, participants = t_row
+
+    candidates: List[Dict[str, Any]] = []
+    if mentions:
+        for m in mentions:
+            if m.strip():
+                candidates.append({"mention": m.strip(), "role": "explicit_query"})
+    else:
+        cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
+        if cur.fetchone()[0] > 0:
+            cur.execute("SELECT candidate_entities FROM thread_triage WHERE thread_id = ?;", (thread_id,))
+            cand_row = cur.fetchone()
+            if cand_row and cand_row[0]:
+                raw_cands = cand_row[0].strip()
+                try:
+                    parsed = json.loads(raw_cands)
+                    if isinstance(parsed, list):
+                        for item in parsed:
+                            if isinstance(item, dict) and "mention" in item:
+                                candidates.append(item)
+                            elif isinstance(item, str):
+                                candidates.append({"mention": item, "role": "unspecified"})
+                    elif isinstance(parsed, dict) and "people" in parsed:
+                        candidates = parsed.get("people", [])
+                except Exception:
+                    for token in raw_cands.split(","):
+                        if token.strip():
+                            candidates.append({"mention": token.strip(), "role": "unspecified"})
+
+    cur.execute("""
+    SELECT id, date, sender, text, timestamp
+    FROM messages
+    WHERE thread_id = ?
+    ORDER BY timestamp ASC, id ASC;
+    """, (thread_id,))
+    msg_rows = cur.fetchall()
+    conn.close()
+
+    if not msg_rows:
+        return {
+            "thread_id": thread_id,
+            "chat_id": c_id,
+            "chat_name": chat_name,
+            "message_count": 0,
+            "candidates": candidates,
+            "snippets": []
+        }
+
+    snippets: List[Dict[str, Any]] = []
+
+    if not candidates:
+        sample_indices = sorted(list(set(range(min(5, len(msg_rows)))) | set(range(max(0, len(msg_rows) - 5), len(msg_rows)))))
+        sample_msgs = [{
+            "id": msg_rows[i][0], "date": msg_rows[i][1], "sender": msg_rows[i][2], "text": msg_rows[i][3]
+        } for i in sample_indices]
+        return {
+            "thread_id": thread_id,
+            "chat_id": c_id,
+            "chat_name": chat_name,
+            "start_date": sdate,
+            "end_date": edate,
+            "message_count": len(msg_rows),
+            "candidates": [],
+            "note": "No candidate entities found in thread_triage; displaying thread boundary sample.",
+            "snippets": [{
+                "candidate": {"mention": "(thread sample)", "role": "sample"},
+                "matched_msg_ids": [m["id"] for m in sample_msgs],
+                "messages": sample_msgs
+            }]
+        }
+
+    for cand in candidates:
+        mention = cand.get("mention", "").strip()
+        if not mention:
+            continue
+        escaped_m = re.escape(mention)
+        pattern = re.compile(r'(?:\b|_)' + escaped_m + r'(?:\b|_)', re.IGNORECASE)
+        matching_indices = []
+        for idx, m in enumerate(msg_rows):
+            text = m[3] or ""
+            if pattern.search(text) or mention.lower() in text.lower():
+                matching_indices.append(idx)
+
+        if not matching_indices:
+            snippets.append({
+                "candidate": cand,
+                "matched_msg_ids": [],
+                "messages": [],
+                "status": "not_found_in_thread_messages"
+            })
+            continue
+
+        intervals = []
+        for idx in matching_indices:
+            start_i = max(0, idx - window)
+            end_i = min(len(msg_rows), idx + window + 1)
+            intervals.append((start_i, end_i))
+
+        merged: List[List[int]] = []
+        for s, e in sorted(intervals, key=lambda x: x[0]):
+            if not merged:
+                merged.append([s, e])
+            else:
+                prev = merged[-1]
+                if s <= prev[1]:
+                    prev[1] = max(prev[1], e)
+                else:
+                    merged.append([s, e])
+
+        cand_messages = []
+        seen_msg_ids = set()
+        for s, e in merged:
+            for i in range(s, e):
+                m = msg_rows[i]
+                if m[0] not in seen_msg_ids:
+                    seen_msg_ids.add(m[0])
+                    cand_messages.append({
+                        "id": m[0],
+                        "date": m[1],
+                        "sender": m[2],
+                        "text": m[3],
+                        "is_direct_match": (i in matching_indices)
+                    })
+
+        snippets.append({
+            "candidate": cand,
+            "matched_msg_ids": [msg_rows[i][0] for i in matching_indices],
+            "messages": cand_messages,
+            "status": "matched"
+        })
+
+    return {
+        "thread_id": thread_id,
+        "chat_id": c_id,
+        "chat_name": chat_name,
+        "start_date": sdate,
+        "end_date": edate,
+        "message_count": len(msg_rows),
+        "candidates": candidates,
+        "snippets": snippets
+    }
+
+
 def get_quote_chain(db_path: str, msg_id: int, chat_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Trace and extract the exact causal quote chain for a message within its chat stream."""
     conn = sqlite3.connect(db_path)
@@ -1530,6 +1696,39 @@ def print_thread_slice(s: Dict[str, Any]):
         fmt_text = format_message_text(m['text'], m['id'])
         print(f"{marker}[#{m['id']} | {m['date'][:16].replace('T', ' ')}] {m['sender']}: {prefix}{fmt_text}")
     print("=" * 70)
+
+
+def print_thread_snippets(data: Dict[str, Any]):
+    print("\n" + "=" * 80)
+    c_label = f" [Chat: {data.get('chat_name', data.get('chat_id'))}]" if data.get("chat_name") else ""
+    print(f"🎯 FOCUSED CANDIDATE SNIPPETS: Thread {data['thread_id']}{c_label}")
+    print(f"   Period: {data.get('start_date', '')} -> {data.get('end_date', '')} | Total Msgs in Thread: {data.get('message_count', 0)}")
+    cands_summary = [f"{c.get('mention')} ({c.get('role', 'unknown')})" for c in data.get("candidates", [])]
+    print(f"   Candidate Entities: [{', '.join(cands_summary) if cands_summary else 'None'}]")
+    print("=" * 80)
+
+    snippets = data.get("snippets", [])
+    if not snippets:
+        print("   (No snippets found)")
+        print("=" * 80 + "\n")
+        return
+
+    for snip in snippets:
+        cand = snip.get("candidate", {})
+        status = snip.get("status", "")
+        print(f"\n🔍 Candidate Mention: \"{cand.get('mention')}\" (Role Hint: {cand.get('role', 'none')})")
+        if status == "not_found_in_thread_messages":
+            print(f"   [!] Mention \"{cand.get('mention')}\" was not directly found in raw message text (likely in summary or parent).")
+            continue
+
+        matched_ids = snip.get("matched_msg_ids", [])
+        print(f"   Anchor Messages with Matches: {matched_ids}")
+        print("   --- Windowed Conversational Context (±window turns) ---")
+        for m in snip.get("messages", []):
+            marker = "👉 [*HIT*]" if m.get("is_direct_match") else "   "
+            fmt_text = format_message_text(m['text'], m['id'])
+            print(f"{marker} [#{m['id']} | {m['date'][:16].replace('T', ' ')}] {m['sender']}: {fmt_text}")
+    print("=" * 80 + "\n")
 
 
 def print_quote_chain(c: Dict[str, Any]):
@@ -2533,6 +2732,8 @@ def main():
     parser.add_argument("--sender", "-S", type=str, help="Filter message search (-s) by sender name or alias")
     parser.add_argument("--search-threads", "-st", action="append", help="Search full dialogue threads via FTS5 (can be repeated)")
     parser.add_argument("--thread", "-t", action="append", help="Display full transcript of a thread by thread_id or message_id (can be repeated)")
+    parser.add_argument("--thread-snippets", "-ts", action="append", help="Display windowed context snippets (±window msgs, default 4) around candidate entity mentions in a thread (can be repeated)")
+    parser.add_argument("--mentions", action="append", help="Explicit mention names to search snippets for in --thread-snippets (can be repeated)")
     parser.add_argument("--msg", "-m", action="append", type=int, help="Inspect a specific message by message_id with pagination (can be repeated)")
     parser.add_argument("--part", type=int, default=1, help="Part/page number to display for long messages (default: 1)")
     parser.add_argument("--part-size", type=int, default=1500, help="Character size per part for --msg (default: 1500)")
@@ -2849,6 +3050,8 @@ def main():
     search_queries = extract_list(args.search, "search")
     search_thread_queries = extract_list(args.search_threads, "search_threads")
     thread_ids = [str(x) for x in extract_list(args.thread, "thread")]
+    thread_snippets = [str(x) for x in extract_list(args.thread_snippets, "thread_snippets")]
+    explicit_mentions = [str(x) for x in extract_list(args.mentions, "mentions")]
     msg_ids = [int(x) for x in extract_list(args.msg, "msg")]
     from_msgs = [int(x) for x in extract_list(args.from_msg, "from_msg")]
     chains = [int(x) for x in extract_list(args.chain, "chain")]
@@ -2859,7 +3062,7 @@ def main():
     has_actions = any([
         run_stats, run_gaps, run_timeline, run_burning, run_intensive,
         run_triaged, run_triage_status,
-        search_queries, search_thread_queries, thread_ids, msg_ids,
+        search_queries, search_thread_queries, thread_ids, thread_snippets, msg_ids,
         from_msgs, chains, around_msgs, semantic_queries
     ])
 
@@ -3010,6 +3213,25 @@ def main():
                     print(f"\n[!] Message #{m_id} not found.")
         if args.json:
             aggregated["thread_slices"] = slice_results
+
+    # 9b. Retrieve Focused Thread Snippets around candidate entities
+    if thread_snippets:
+        snippet_window = window if window > 0 else 4
+        snippet_results: Dict[str, Any] = {}
+        for ts_id in thread_snippets:
+            snip_obj = get_thread_snippets(args.db, ts_id, mentions=explicit_mentions, window=snippet_window, chat_id=resolved_chat_id)
+            if snip_obj:
+                if args.json:
+                    snippet_results[str(ts_id)] = snip_obj
+                else:
+                    print_thread_snippets(snip_obj)
+            else:
+                if args.json:
+                    snippet_results[str(ts_id)] = None
+                else:
+                    print(f"\n[!] Thread '{ts_id}' not found.")
+        if args.json:
+            aggregated["thread_snippets"] = snippet_results
 
     # 10. Trace Causal Quote Chains
     if chains:

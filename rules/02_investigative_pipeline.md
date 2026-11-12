@@ -60,15 +60,12 @@ Triggered **ONLY** when the user explicitly requests an in-depth personality pro
 - Always audit metrics per dyad via `-C <chat_id>`. Inspect entity baselines via `--entities` and `--descriptors`.
 
 #### Step B.2: Entity Disambiguation & Watchdog Loop (Prerequisite)
-- Audit threads in small batches via `query_chat.py -t <id>`.
-- Cross-examine words vs. actions across the longitudinal timeline.
-- Enforce the Bare-Pronoun ban and Lazy On-Demand Cardinality checks (`--audit-descriptor "<term>"`).
-- **Mandatory Entity Watchdog Loop:** Activate `entity-watchdog-audit` skill. You MUST run:
-  ```bash
-  python3 project/scripts/query_chat.py -C <chat_id> --watchdog-scan
-  ```
-  Iterate until 100% of third-party threads are resolved (`[✓ CLEARED]` or skipped). When new entities are detected, delegate to the `entity-investigator` subagent.
-  *Note:* Step B.3 initialization (`checklist.py --init` and `thread_checklist.py --init`) is **programmatically blocked** until `query_chat.py -C <chat_id> --check-watchdog-gate` returns exit code 0.
+- **Mandatory Entity Watchdog Delegation:** To protect primary context and prevent token exhaustion, the Main Agent does NOT process individual threads or register entities directly.
+- Activate `entity-watchdog-audit` skill and invoke the dedicated **Entity Registry Supervisor** (`entity-supervisor`, `Model: "flash"`):
+  - **Phase B.2a (Discovery & Clearance):** The Supervisor orchestrates System-1 scans and dispatches suspect threads to up to 4 parallel `entity-investigator` subagents on focused snippets (`query_chat.py --thread-snippets <id>`). The Supervisor deduplicates characters across threads, enforces cardinality ($K=1$ vs $K \ge 2$), registers verified entities (`--register-entity`), and clears the Watchdog Gate (`--check-watchdog-gate` exits 0).
+  - **Phase B.2b (Deep Relational Profiling):** The Supervisor screens the registered cast via noise rejection (retaining ALL psychologically salient figures without artificial limits), injects explicit negative boundaries, and launches wave-based parallel `entity-deep-profiler` subagents. Workers use a dual-search engine (lexical FTS + semantic role queries) to synthesize complete Relational Dossiers (`reports/<chat_id>_entities/`).
+- Step B.2 is complete when the Watchdog Gate exits 0 and all salient relational dossiers are synthesized.
+- *Note:* Step B.3 initialization (`checklist.py --init` and `thread_checklist.py --init`) is **programmatically blocked** until the watchdog gate returns exit code 0.
 
 #### Step B.3: Life Spheres Baseline Investigation (`checklist.py`)
 - Activate `life-spheres-investigation` skill for criteria, lexicons, and vector queries.
