@@ -22,12 +22,17 @@ You are bound by the **strict epistemic invariants, search discipline, and anti-
 - **Mandatory Vector Search:** You MUST execute descriptive English semantic queries via `query_chat.py --semantic` before drawing any conclusions.
 - **Ban on Keyword-Only Absence:** Concluding that an attitude is absent or unevidenced (`no_data`) after running only literal keyword searches (`-s`) is an **epistemic breach**. You MUST substantiate absence with documented, executed semantic vector queries.
 
-### 1.2 Full Conversational Context Invariant ($N-5 \dots N+5$)
+### 1.2 Hybrid Full-Thread Escalation & Conversational Context Invariant
 - An isolated search hit is never self-explanatory. You are strictly forbidden from drawing psychological conclusions or recording facts from a single detached turn.
-- For every pivotal match, inspect surrounding turns using:
+- **Initial Reconnaissance:** ALWAYS use `--with-context 5` with `-s` to examine the surrounding dialogue in a single shot:
   ```bash
-  python3 project/scripts/query_chat.py --around <msg_id> -n 5
+  python3 project/scripts/query_chat.py -C <chat_id> -s "<keyword>" --with-context 5
   ```
+- **Escalation to Complete Continuous Thread:** If a hit touches upon an important thematic revelation, career shift, health crisis, or conflict, immediately load the full continuous thread:
+  ```bash
+  python3 project/scripts/query_chat.py -t <thread_id> --full
+  ```
+- **Strict Invariant on Subsequent Threads:** If you escalate to further related threads, always load them in full (`-t <thread_id> --full`). Do not regress to repetitive micro-queries.
 - Verify:
   1. *Prompt/Trigger:* Did an antecedent question or external link trigger the message?
   2. *Origin & Pasted Text:* Is the message forwarded, quoted, or copied from an external article or quiz?
@@ -103,14 +108,15 @@ python3 project/scripts/query_chat.py -C <chat_id> --semantic "<descriptive natu
 
 ### Step 3: Execute Targeted Lexical Searches
 ```bash
-python3 project/scripts/query_chat.py -C <chat_id> -s "<colloquial Polish keyword>"
+python3 project/scripts/query_chat.py -C <chat_id> -s "<colloquial Polish keyword>" --with-context 5
 ```
 
-### Step 4: Context Audit Surrounding Hits
-Audit context around critical message IDs:
+### Step 4: Escalate to Full Continuous Thread When Substantive
+When a match reveals a substantive discussion or turning point, load the complete unbroken thread:
 ```bash
-python3 project/scripts/query_chat.py --around <msg_id> -n 5
+python3 project/scripts/query_chat.py -t <thread_id> --full
 ```
+*(Remember: any subsequent thread you escalate to must also be loaded with `-t <thread_id> --full`).*
 
 ### Step 5: Cross-Check Entity Attributes & Rebuttals
 Verify mentioned people against registered entities:

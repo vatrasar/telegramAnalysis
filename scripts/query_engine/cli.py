@@ -245,8 +245,16 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
     # 6. Keyword Search (Individual Messages)
     if search_queries:
         search_results: Dict[str, Any] = {}
+        with_ctx = getattr(args, "with_context", 0)
         for q in search_queries:
-            msgs = get_search_messages(args.db, q, limit=limit, chat_id=resolved_chat_id, sender=sender_filter)
+            msgs = get_search_messages(
+                args.db,
+                q,
+                limit=limit,
+                chat_id=resolved_chat_id,
+                sender=sender_filter,
+                with_context=with_ctx
+            )
             if args.json:
                 search_results[q] = msgs
             else:
@@ -269,8 +277,9 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
     # 8. Retrieve Full Threads (or Summaries only)
     if thread_ids:
         thread_results: Dict[str, Any] = {}
+        full_mode = getattr(args, "full", False)
         for t_id in thread_ids:
-            t_obj = get_thread(args.db, t_id, chat_id=resolved_chat_id)
+            t_obj = get_thread(args.db, t_id, chat_id=resolved_chat_id, full=full_mode)
             if t_obj:
                 if args.json:
                     if getattr(args, "summary_only", False):

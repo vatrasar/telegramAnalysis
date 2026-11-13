@@ -41,14 +41,16 @@ python3 project/scripts/query_chat.py --semantic "political opinions, voting, go
 python3 project/scripts/query_chat.py --semantic "saving money, frugal habits, buying second-hand, guilt when spending"
 python3 project/scripts/query_chat.py --semantic "fear of commitment, deflecting intimacy with humor, emotional avoidance"
 
-# Lexical FTS5 Search (Reserved for concrete named entities and biographical nouns):
+# Lexical FTS5 Search (with optional windowed context):
+python3 project/scripts/query_chat.py -s "keyword" --with-context 5   # Search with immediate surrounding dialogue
 python3 project/scripts/query_chat.py -s "keyword1 OR keyword2" -s "must_have"
 python3 project/scripts/query_chat.py -s "keyword" -S "<SenderName>"
 python3 project/scripts/query_chat.py -st "topic keyword"
 
-# Context Verification (Mandatory N-5 ... N+5 Audit):
-python3 project/scripts/query_chat.py --around <msg_id> -n 5      # Chronological window across thread lines
-python3 project/scripts/query_chat.py -t <thread_id_or_msg_id>    # Full dialogue thread transcript
+# Context Verification & Thread Escalation:
+python3 project/scripts/query_chat.py -t <thread_id> --full           # Complete uninterrupted continuous conversation chain
+python3 project/scripts/query_chat.py --around <msg_id> -n 5          # Chronological window across thread lines
+python3 project/scripts/query_chat.py -t <thread_id_or_msg_id>        # Dialogue thread transcript
 python3 project/scripts/query_chat.py -c <msg_id>                 # Vertical parent quote & reply tree
 python3 project/scripts/query_chat.py -f <msg_id> -n 10 -w 5      # In-thread window with preceding turns
 

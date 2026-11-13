@@ -24,13 +24,13 @@ The agent is strictly forbidden from deriving analytical conclusions, biographic
   2. *Immediate Rebuttal Invalidation:* If a proposition in message $N$ is contradicted or rejected in turns $N+1 \dots N+5$ (*"No"*, *"Who said that"*), the agent is strictly forbidden from adopting it as fact.
 
 ### 1.1 Anti-Snippet Ingestion Rule
-- Text teasers or search match previews from CLI outputs are discovery pointers, NEVER admissible evidence.
-- The agent is unconditionally forbidden from quoting or extracting facts directly from search previews without inspecting full context via `query_chat.py --around <msg_id> -n 5` or `-t <thread_id>`.
+- Text teasers or bare search match previews from CLI outputs are discovery pointers, NEVER admissible evidence.
+- The agent is unconditionally forbidden from quoting or extracting facts directly from search previews without inspecting surrounding context via `query_chat.py -s ... --with-context 5` or full dialogue via `-t <thread_id> --full`.
 
-### 1.2 Thread Boundary & Parent-Child Lineage Protocol
+### 1.2 Thread Boundary & Continuous Thread Protocol
 - Dialogue threads are partitioned at 50 messages (`MAX_THREAD_MESSAGES = 50`) and linked via `parent_thread_id`.
-- If an analyzed message carries analytical weight and is within the first 5 or last 5 messages of a thread, the agent MUST audit adjacent turns across the boundary using `query_chat.py --around <msg_id> -n 5` or traversing parent/child threads (`-t <parent_or_child_thread_id>`).
-- Single-message threads require auditing $\pm 5$ chronological messages around them via `--around <msg_id> -n 5`.
+- Use `query_chat.py -t <thread_id> --full` to automatically retrieve the entire continuous conversation across all parent/child partitions.
+- **Strict Invariant on Subsequent Threads:** If escalating to further related or referenced threads during an audit, ALWAYS load each subsequent thread in its entirety (`-t <thread_id> --full`). Do not regress to fragmented micro-queries.
 
 ### 1.3 Bare-Pronoun Search Attribution Ban
 - When a keyword search returns a message dominated by a bare third-person pronoun (*"He works at"*, *"On ma kota"*, *"Ona studiuje"*), the agent is STRICTLY PROHIBITED from attributing that trait to a subject based on conversational inertia.

@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 from .formatters import format_message_text
 
 
-def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None, full: bool = False) -> Optional[Dict[str, Any]]:
     """Fetch full dialogue transcript of a thread by thread_id or message_id."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
@@ -63,13 +63,42 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> 
         cur.execute("SELECT thread_id FROM threads WHERE parent_thread_id = ? ORDER BY start_timestamp ASC;", (actual_tid,))
         children = [r[0] for r in cur.fetchall()]
 
-    # Fetch individual messages for the thread
-    cur.execute("""
+    chain_tids = [actual_tid]
+    is_full_chain = False
+
+    if full and has_parent:
+        # Walk up to root thread
+        curr_tid = actual_tid
+        while True:
+            cur.execute("SELECT parent_thread_id FROM threads WHERE thread_id = ?;", (curr_tid,))
+            p_row = cur.fetchone()
+            if not p_row or not p_row[0]:
+                break
+            curr_tid = p_row[0]
+        root_tid = curr_tid
+
+        # Walk down from root to gather all child partitions in sequence
+        chain_tids = [root_tid]
+        curr_p = root_tid
+        while True:
+            cur.execute("SELECT thread_id FROM threads WHERE parent_thread_id = ? ORDER BY start_timestamp ASC, start_date ASC;", (curr_p,))
+            c_row = cur.fetchone()
+            if not c_row:
+                break
+            chain_tids.append(c_row[0])
+            curr_p = c_row[0]
+
+        if len(chain_tids) > 1:
+            is_full_chain = True
+
+    # Fetch individual messages for the thread (or whole chain if full)
+    placeholders = ",".join("?" for _ in chain_tids)
+    cur.execute(f"""
     SELECT id, chat_id, date, sender, reply_to_id, text
     FROM messages
-    WHERE thread_id = ?
+    WHERE thread_id IN ({placeholders})
     ORDER BY timestamp ASC, id ASC;
-    """, (actual_tid,))
+    """, chain_tids)
     msg_rows = cur.fetchall()
     thread_msgs = [
         {
@@ -109,6 +138,10 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> 
 
     conn.close()
 
+    start_d = thread_msgs[0]["date"] if (is_full_chain and thread_msgs) else row[4]
+    end_d = thread_msgs[-1]["date"] if (is_full_chain and thread_msgs) else row[5]
+    msg_cnt = len(thread_msgs) if is_full_chain else row[6]
+
     return {
         "thread_id": actual_tid,
         "chat_id": row[1],
@@ -118,14 +151,16 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None) -> 
         "summary_short": summary_short,
         "candidate_entities": candidate_entities,
         "messages": thread_msgs,
-        "start_date": row[4],
-        "end_date": row[5],
-        "message_count": row[6],
+        "start_date": start_d,
+        "end_date": end_d,
+        "message_count": msg_cnt,
         "participants": row[7],
         "initiator": row[8],
         "dialogue_text": row[9],
         "parent_thread_id": parent_tid,
-        "child_thread_ids": children
+        "child_thread_ids": children,
+        "is_full_chain": is_full_chain,
+        "chain_thread_ids": chain_tids
     }
 
 
@@ -133,12 +168,16 @@ def print_thread(t: Dict[str, Any], summary_only: bool = False) -> None:
     """Print ASCII transcript of a dialogue thread."""
     print("\n" + "=" * 70)
     c_label = f" [Chat: {t.get('chat_name', t.get('chat_id'))}]" if t.get("chat_name") else ""
-    print(f"📜 CONVERSATION THREAD: {t['thread_id']}{c_label}")
-    if t.get("parent_thread_id"):
-        print(f"⬆️  Parent Thread:     {t['parent_thread_id']}  (Audit: python3 project/scripts/query_chat.py -t {t['parent_thread_id']})")
-    if t.get("child_thread_ids"):
-        children_str = ", ".join(t["child_thread_ids"])
-        print(f"⬇️  Child Thread(s):   {children_str}  (Audit: python3 project/scripts/query_chat.py -t {t['child_thread_ids'][0]})")
+    if t.get("is_full_chain"):
+        chain_desc = f" (Full Continuous Conversation: {len(t['chain_thread_ids'])} parts: {', '.join(t['chain_thread_ids'])})"
+        print(f"📜 CONVERSATION THREAD [FULL]: {t['thread_id']}{c_label}{chain_desc}")
+    else:
+        print(f"📜 CONVERSATION THREAD: {t['thread_id']}{c_label}")
+        if t.get("parent_thread_id"):
+            print(f"⬆️  Parent Thread:     {t['parent_thread_id']}  (Audit full: python3 project/scripts/query_chat.py -t {t['thread_id']} --full)")
+        if t.get("child_thread_ids"):
+            children_str = ", ".join(t["child_thread_ids"])
+            print(f"⬇️  Child Thread(s):   {children_str}  (Audit full: python3 project/scripts/query_chat.py -t {t['thread_id']} --full)")
     print(f"Timeframe:         {t['start_date'][:16].replace('T', ' ')} to {t['end_date'][:16].replace('T', ' ')}")
     print(f"Messages:          {t['message_count']}")
     print(f"Participants:      {t['participants']} (Initiator: {t['initiator']})")
@@ -166,14 +205,12 @@ def print_thread(t: Dict[str, Any], summary_only: bool = False) -> None:
     else:
         print(t["dialogue_text"])
 
-    # Boundary warning for first 5 / last 5 messages or linked threads
-    if t.get("parent_thread_id") or t.get("child_thread_ids") or t.get("message_count", 0) <= 1:
+    # Boundary warning for first 5 / last 5 messages or linked threads (only if NOT already full chain)
+    if not t.get("is_full_chain") and (t.get("parent_thread_id") or t.get("child_thread_ids") or t.get("message_count", 0) <= 1):
         print("\n⚠️  BOUNDARY AUDIT SAFEGUARD (±5 Messages Rule):")
         print("   If analyzing messages near thread start (first 5) or end (last 5) to draw conclusions:")
-        if t.get("parent_thread_id"):
-            print(f"   - Near start: Inspect antecedent in parent thread: python3 project/scripts/query_chat.py -t {t['parent_thread_id']}")
-        if t.get("child_thread_ids"):
-            print(f"   - Near end: Inspect subsequent turns in child thread: python3 project/scripts/query_chat.py -t {t['child_thread_ids'][0]}")
+        if t.get("parent_thread_id") or t.get("child_thread_ids"):
+            print(f"   💡 Load entire continuous sequence: python3 project/scripts/query_chat.py -t {t['thread_id']} --full")
         anc = t.get("anchor_message_id")
         tid_suffix = t['thread_id'].split('_')[-1]
         sugg_id = anc or (tid_suffix[1:] if tid_suffix.startswith(('s', 't')) and tid_suffix[1:].isdigit() else None)

@@ -33,9 +33,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Repeatable flags for multi-query execution
     parser.add_argument("--search", "-s", action="append", help="Search individual messages via FTS5 (can be repeated)")
+    parser.add_argument("--with-context", "-wc", type=int, nargs="?", const=5, default=0, help="Display windowed context (±N messages, default 5) around matching messages in search")
     parser.add_argument("--sender", "-S", type=str, help="Filter message search (-s) by sender name or alias")
     parser.add_argument("--search-threads", "-st", action="append", help="Search full dialogue threads via FTS5 (can be repeated)")
     parser.add_argument("--thread", "-t", action="append", help="Display full transcript of a thread by thread_id or message_id (can be repeated)")
+    parser.add_argument("--full", action="store_true", help="Display full uninterrupted conversation across all child/parent partitions for -t")
     parser.add_argument("--summary-only", "-so", action="store_true", help="Display only thread header, summary, and candidate entities without full message transcripts for -t")
     parser.add_argument("--thread-snippets", "-ts", action="append", help="Display windowed context snippets (±window msgs, default 4) around candidate entity mentions in a thread (can be repeated)")
     parser.add_argument("--mentions", action="append", help="Explicit mention names to search snippets for in --thread-snippets (can be repeated)")

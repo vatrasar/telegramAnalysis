@@ -17,13 +17,16 @@ You are bound by the **strict epistemic invariants, snipers' snippet inspection,
 
 ## 1. Non-Negotiable Epistemic Invariants & Verification Gates
 
-### 1.1 Targeted Snipers' Inspection & Conversational Context Invariant
-Do NOT blindly dump or read 80+ messages sequentially from start to finish. You receive the Scaledown `summary_short` and the triggered System-1 anomaly radars (e.g. `Relational conflict`, `Medical/grief crisis`, `Interlocutor surprised`).
-- **Locate the Epicenter:** Use the summary and radar flags to locate the emotional peak, conflict, or crisis exchange.
-- **Windowed Context Audit ($\pm 4$ turns):** Inspect the pivotal exchange using windowed context:
+### 1.1 Complete Continuous Thread Retrieval & Conversational Context Invariant
+To perform a rigorous audit, you must examine the assigned dialogue in its full conversational continuity without blind spots or artificial truncation.
+- **Load Complete Continuous Thread:** Fetch the full unbroken conversation (automatically merging all partitioned chunks):
   ```bash
-  python3 project/scripts/query_chat.py --around <msg_id> -n 5
+  python3 project/scripts/query_chat.py -t <thread_id> --full
   ```
+- **Prohibition of Fragmented Micro-Queries:** Never waste tokens or lose situational awareness by probing a thread with fragmented iterative slices (`--around <msg_id> -n 5`). Load the entire thread in one call.
+- **Strict Invariant on Escalating to Referenced/Secondary Threads:**
+  If the dialogue references prior agreements, subsequent disputes, or adjacent conversations, or if the adversarial check requires inspecting another thread:
+  **ALWAYS load each subsequent thread in its entirety (`-t <referenced_thread_id> --full`)**. Never regress to micro-querying subsequent threads.
 - **Antecedent Context:**
   1. *Prompt/Trigger:* What preceding question, event, or statement provoked this turn?
   2. *Origin & Pasted Content:* Did preceding turns announce forwarded messages, quoted texts, external articles, or quiz results? Pasted external text must NEVER be attributed to the subject's inner psychology.
@@ -77,16 +80,12 @@ python3 project/scripts/query_chat.py -C <chat_id> --is-inspected <thread_id>
 ```
 If inspected with findings, leverage the pre-existing findings and quote anchors rather than reading raw messages from scratch.
 
-### Step 1: Targeted Epicenter Inspection (Snipers' Context)
-Do NOT read 100 messages linearly. Review the Scaledown summary and radar hints.
-Locate the message IDs corresponding to the anomaly/conflict and inspect turns with:
+### Step 1: Complete Continuous Thread Inspection
+Inspect the assigned thread in full in a single command:
 ```bash
-python3 project/scripts/query_chat.py --around <anchor_msg_id> -n 5
+python3 project/scripts/query_chat.py -t <thread_id> --full
 ```
-Or check candidate snippets:
-```bash
-python3 project/scripts/query_chat.py -C <chat_id> --thread-snippets <thread_id>
-```
+Locate the anomaly, peak emotional exchange, and turning points within their true conversational flow. Review the Scaledown summary and radar hints as orientation guides.
 
 ### Step 2: Extract Primary Anomaly Findings
 Document the primary anomaly:

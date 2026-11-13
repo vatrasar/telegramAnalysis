@@ -17,24 +17,32 @@ You build a comprehensive **Relational Dossier** mapping the history, emotional 
 
 ## 1. Non-Negotiable Epistemic Invariants
 
-### 1.1 Dual-Search Engine Primacy (Lexical + Semantic)
+### 1.1 Dual-Search Engine Primacy (Lexical + Semantic) with Initial Context
 To build a complete profile, you MUST utilize both search modalities:
-1. **Lexical Engine (FTS5 / `-s`):**
+1. **Lexical Engine with Context (FTS5 / `-s ... --with-context 5`):**
    - Precise extraction of factual milestones, dates, locations, job details, and explicit name/alias occurrences.
-   - Example: `python3 project/scripts/query_chat.py -C <chat_id> -s "<Name_or_Alias>"`
+   - ALWAYS use `--with-context 5` to inspect immediate surrounding dialogue in a single shot without extra tool calls:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> -s "<Name_or_Alias>" --with-context 5
+     ```
 2. **Semantic Vector Engine (`--semantic`):**
-   - Captures the **functional and emotional field of the role**, especially in turns where participants do NOT speak the entity's name (e.g. using bare pronouns, role titles, or situational metaphors).
-   - *For Boss / Employer:* Query workplace demands, managerial conflict, deadline pressure, evaluations (`--semantic "conflict with manager boss workplace pressure demands"`).
-   - *For Partner / Ex:* Query intimacy, attachment anxiety, abandonment fears, breakups, boundaries (`--semantic "romantic partner intimacy conflict fear of rejection"`).
-   - *For Parents / Family:* Query parental guilt, childhood trauma, filial duty, criticism, expectations (`--semantic "parental expectations childhood guilt father mother tension"`).
+   - Captures the **functional and emotional field of the role**, returning candidate threads.
+   - *For Boss / Employer:* Query workplace demands, managerial conflict, deadline pressure (`--semantic "conflict with manager boss workplace pressure demands"`).
+   - *For Partner / Ex:* Query intimacy, attachment anxiety, breakups, boundaries (`--semantic "romantic partner intimacy conflict fear of rejection"`).
+   - *For Parents / Family:* Query parental guilt, childhood trauma, filial duty (`--semantic "parental expectations childhood guilt father mother tension"`).
 
-### 1.2 Mandatory Antecedent Verification on Semantic Hits
-- Semantic search retrieves relevant themes, but conversational participants may use bare pronouns (*"he"*, *"she"*, *"on"*).
-- For every semantic or thematic hit, you MUST verify the antecedent using:
+### 1.2 Hybrid Full-Thread Escalation Protocol & Invariant on Subsequent Threads
+- **Initial Reconnaissance:** Search hits with `--with-context 5` reveal whether a turn is a simple brief mention (e.g. confirming an age, job, or city) or part of a substantive interpersonal exchange.
+- **Escalation to Complete Continuous Thread:**
+  Whenever a search hit touches upon an important relationship dynamic, conflict, emotional turning point, or extended disclosure:
+  **DO NOT make repetitive micro-queries (`--around <msg_id> -n 5`)!**
+  Instead, immediately load the complete unbroken conversation thread:
   ```bash
-  python3 project/scripts/query_chat.py --around <msg_id> -n 5
+  python3 project/scripts/query_chat.py -t <thread_id> --full
   ```
-- Confirm that the message actually discusses **your assigned entity** and not a different character or an abstract topic.
+- **Strict Invariant on Escalating to Subsequent Threads:**
+  If the dialogue references prior agreements, subsequent disputes, or adjacent conversations, or if you investigate further threads:
+  **ALWAYS load each subsequent thread in its entirety (`-t <target_thread_id> --full`)**. Never regress to micro-querying subsequent threads.
 
 ### 1.3 Pre-Flight Overlap Audit (Anti-Glue Self-Reflection)
 Before launching any searches, you MUST inspect the current database of known entities:
@@ -73,22 +81,26 @@ python3 project/scripts/query_chat.py -C <chat_id> --entities
 ```
 List in your thoughts which other characters could be confused with this one and formulate distinguishing anchors.
 
-### Step 1: Lexical Mapping (Names, Aliases, Explicit References)
-Execute targeted searches across the longitudinal archive:
+### Step 1: Lexical Mapping with Immediate Context
+Execute targeted searches with `--with-context 5` to inspect matches and surrounding context in a single call:
 ```bash
-# Query exact name and known aliases:
-python3 project/scripts/query_chat.py -C <chat_id> -s "<Canonical_Name>"
-python3 project/scripts/query_chat.py -C <chat_id> -s "<Known_Alias>"
+# Query exact name and known aliases with surrounding context:
+python3 project/scripts/query_chat.py -C <chat_id> -s "<Canonical_Name>" --with-context 5
+python3 project/scripts/query_chat.py -C <chat_id> -s "<Known_Alias>" --with-context 5
 # Query unique situational or biographical markers:
-python3 project/scripts/query_chat.py -C <chat_id> -s "<Unique_City_or_Workplace>"
+python3 project/scripts/query_chat.py -C <chat_id> -s "<Unique_City_or_Workplace>" --with-context 5
 ```
 
-### Step 2: Semantic Role Probing (Functional & Emotional Field)
+### Step 2: Semantic Role Probing & Full-Thread Escalation
 Execute 2–4 targeted semantic queries exploring the entity's relational role:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --semantic "<Role_and_Dynamics_Query>"
 ```
-Audit matches with `--around <msg_id> -n 5` to confirm identity. Note down any accidental discoveries about other entities or biographical facts.
+When a semantic candidate thread or lexical match contains an important relational discussion, conflict, or milestone, load the entire continuous thread:
+```bash
+python3 project/scripts/query_chat.py -t <thread_id> --full
+```
+*(Remember: any subsequent thread you escalate to must also be loaded with `-t <thread_id> --full` rather than probed piecemeal).* Note down any accidental discoveries about other entities or biographical facts.
 
 ### Step 3: Chronological Synthesis & Turning Points
 Trace the evolution of the relationship across time:
