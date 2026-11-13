@@ -62,29 +62,28 @@ must **NEVER** be parsed as an appositive attributing the descriptor to the name
 - **Direct Split Continuity (Chunk Boundary Handling):** Threads in the database are chunked with a length limit (e.g. ~50 messages). A coherent discussion about an individual may occasionally be split across directly adjacent thread chunks ($T_{n-1} \leftrightarrow T_n \leftrightarrow T_{n+1}$).
   - **Permitted Adjacent Check:** If the introduction or discussion of a character occurs right at the boundary of a thread (e.g. first 1–3 messages referring back via bare pronouns, or discussion cutting off abruptly at the end), you MAY inspect the immediate seam using `query_chat.py --around <anchor_msg_id> -n 8` or checking the immediate predecessor/successor thread.
 - **The Information Continuation Criterion (When to Probe vs. When to Stop):**
-  - **Continue probing within thread if:** You see that the dialogue is actively describing or clarifying this new person, OR if substantive biographical/psychological facts about the subject are being discussed. Thoroughly harvest both entity data and life sphere findings within the assigned thread.
-  - **STOP Distant Digging:**
-    1. NEVER go digging into distant past threads (e.g. 5, 10, or 20 threads earlier) on a fishing expedition. If an entity was discussed weeks or months prior, they are either already in the known entity registry $S$ or will be audited in their own primary thread.
-    2. Once the thread content has been reviewed for entities and salient life facts, do not endlessly chase conversational tangents across unrelated threads.
+  - **Continue probing within thread ONLY if:** You see that the dialogue is actively continuing to describe, discuss, or clarify this specific new person, and following the turns will meaningfully expand knowledge about their identity or role.
+  - **STOP IMMEDIATELY if:**
+    1. The discussion of this person was a brief mention in the thread and is not continued.
+    2. The topic shifts away from the person. Do NOT read further messages or chase conversational tangents once the person is no longer being discussed.
+    3. You have enough information to establish canonical name, role, and key quote anchors.
+  - **Strict Ban on Distant Retrospective Digging:** NEVER go digging into distant past threads (e.g. 5, 10, or 20 threads earlier) on a fishing expedition. If an entity was discussed weeks or months prior, they are either already in the known entity registry $S$ or will be audited in their own primary thread.
 - **Reporting Unidentifiable / Sparse Mentions:** If a mention is fleeting, anonymous, or casual (e.g. *"someone told me"*, *"rozmawiałem z jednym typem"*), and the thread discussion does not continue or provide further identifying facts:
   - **NEVER fabricate, guess, or force an entity into existence.**
   - Report `status: "insufficient_data"` with `reason: "Fleeting mention not continued in thread; no further identifying information available."`
   - The Supervisor will safely clear/skip the thread without creating ghost entries.
 
-### 1.9 Serendipitous Life Evidence & Cross-Domain Fact Capture Mandate
-- Reading and searching chat logs is the single most time-consuming and computationally expensive phase of the profiling pipeline.
-- **MANDATORY FACT CAPTURE:** While reading the assigned thread(s) to verify persons, you are **strictly forbidden from ignoring or discarding** high-salience biographical, psychological, or life sphere facts about the subject.
-- Whenever you encounter declarations or evidence regarding:
-  - **Career / Ambition / Finances (Sphere B):** Job changes, burnout, work ethic, income, debt, entrepreneurial plans.
-  - **Worldview / Politics / Technology (Sphere C):** Political affiliations, voting, cynicism, tech skepticism, philosophical stances.
-  - **Family Roots / Parental Imprints (Sphere D):** Childhood memories, parental discipline, sibling dynamics, domestic environment.
-  - **Romantic / Relational Patterns (Sphere E):** Dating history, heartbreak, attachment style, intimacy conflicts.
-  - **Social Matrix / Friendships (Sphere A):** Inner circle, door-slamming, loyalty, altruism, peer envy.
-  - **Leisure / Lifestyle / Addictions (Sphere F):** Travel, sports, pets, substance use, gaming, routine.
-  - **Biography & Life Timeline:** Formative life crucibles, illness, relocation, educational background.
-  - **Psychodynamics & Defense Architecture:** Acute emotional crises, denial, projection, intellectualization.
-- **Capture Protocol:** Record each fact with an exact anchored verbatim quote (`[#<msg_id> | YYYY-MM-DD] "<verbatim quote>"`), a 1-sentence analytical summary, and the suggested sphere/category.
-- Report these under `discovered_facts` in your return payload. The Supervisor will index and tag them in SQLite so downstream specialists do not need to re-read this thread!
+### 1.9 Pure Incidental Capture Mandate (Zero Active Searching for Other Topics)
+- **Primary Mandate is Strictly Entities:** Your queries (`-s`, `-t`, `--thread-snippets`), reasoning, and turns must be **100% focused on verifying the third-party person**.
+- **STRICT BAN ON ACTIVE SEARCHING FOR LIFE SPHERES:** You are **strictly forbidden** from running searches (`--semantic` or `-s`), expanding context, or reading extra messages *specifically to find* career facts, politics, family history, or psychological traits. That is the job of later specialized agents.
+- **Incidental "Bycatch" Only:** If—and **ONLY IF**—in the specific messages you are already reading to identify the entity, you *incidentally stumble upon* an explicit, high-salience declaration about the subject:
+  - **Career / Ambition / Finances (Sphere B):** Explicit job resignation, burnout, debt.
+  - **Worldview / Politics (Sphere C):** Explicit voting declaration, strong political stance.
+  - **Family Roots (Sphere D):** Direct statement about parents, childhood trauma.
+  - **Romantic / Relational Patterns (Sphere E):** Direct breakup reason, attachment disclosure.
+  - **Social / Friendships (Sphere A), Leisure (Sphere F), Biography, Psychodynamics.**
+- **Capture Protocol:** Simply clip the anchored verbatim quote (`[#<msg_id> | YYYY-MM-DD] "<verbatim quote>"`), add a 1-sentence summary, and record it under `discovered_facts`.
+- **Zero Obligation:** If no incidental facts appear in the turns you read, simply return `discovered_facts: []`. Never search for, prolong reading for, or fabricate facts.
 
 ---
 
