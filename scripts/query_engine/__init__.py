@@ -78,6 +78,18 @@ from .watchdog_api import (
 from .watchdog_scan import (
     run_sequential_watchdog_scan,
 )
+from .facts_engine import (
+    ensure_facts_tables,
+    mark_thread_inspected,
+    get_inspected_threads,
+    is_thread_inspected,
+    record_discovered_fact,
+    record_facts_batch,
+    get_discovered_facts,
+    print_discovered_facts,
+    print_inspected_threads,
+)
+from .facts_actions import handle_facts_and_inspection_actions
 from .cli_args import build_parser
 from .cli import run_query_cli, main
 
@@ -134,6 +146,16 @@ __all__ = [
     "print_watchdog_status",
     "check_watchdog_gate",
     "run_sequential_watchdog_scan",
+    "ensure_facts_tables",
+    "mark_thread_inspected",
+    "get_inspected_threads",
+    "is_thread_inspected",
+    "record_discovered_fact",
+    "record_facts_batch",
+    "get_discovered_facts",
+    "print_discovered_facts",
+    "print_inspected_threads",
+    "handle_facts_and_inspection_actions",
     "build_parser",
     "run_query_cli",
     "main",

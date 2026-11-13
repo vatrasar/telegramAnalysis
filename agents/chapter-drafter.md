@@ -64,6 +64,10 @@ When assigned a chapter or section draft:
      ```bash
      python3 project/scripts/thread_checklist.py -C <chat_id> --export-evidence
      ```
+   - Ingest pre-extracted facts and quotes from the evidence repository:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --facts --category <category_or_sphere>
+     ```
    - Verify all character references against registered entities:
      ```bash
      python3 project/scripts/query_chat.py -C <chat_id> --entities

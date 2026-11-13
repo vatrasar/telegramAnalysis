@@ -12,6 +12,7 @@ from .cli_actions import (
     handle_watchdog_actions,
     handle_checklist_actions,
 )
+from .facts_actions import handle_facts_and_inspection_actions
 from .catalog import get_chats_catalog, resolve_chat, print_chats_catalog
 from .stats_overview import (
     get_stats,
@@ -110,6 +111,9 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
 
     # Delegate early-exit operations
     if handle_entity_actions(args, batch_config, resolved_chat_id, resolved_chat_name):
+        return
+
+    if handle_facts_and_inspection_actions(args, batch_config, resolved_chat_id, resolved_chat_name):
         return
 
     if handle_watchdog_actions(args, resolved_chat_id):

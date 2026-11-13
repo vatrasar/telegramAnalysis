@@ -70,7 +70,11 @@ When a chat is updated with new messages or threads:
 #### Step B.2: Entity Disambiguation & Watchdog Loop (Prerequisite)
 - **Mandatory Entity Watchdog Delegation:** To protect primary context and prevent token exhaustion, the Main Agent does NOT process individual threads or register entities directly.
 - Activate `entity-watchdog-audit` skill and invoke the dedicated **Entity Registry Supervisor** (`entity-supervisor`, `Model: "flash"`):
-  - **Phase B.2a (Discovery & Clearance):** The Supervisor orchestrates System-1 scans and dispatches suspect threads to up to 4 parallel `entity-investigator` subagents by providing the `thread_id`, the thread `summary_short`, and the extracted `candidate_entities` (as well as known registered entities). The supervisor does NOT truncate or slice messages into micro-snippets; subagents investigate the thread autonomously (`query_chat.py -C <chat_id> -t <thread_id>`, `-s "<keyword>"`, etc.) to locate and verify the entities. The Supervisor deduplicates characters across threads, enforces cardinality ($K=1$ vs $K \ge 2$), registers verified entities (`--register-entity`), and clears the Watchdog Gate (`--check-watchdog-gate` exits 0).
+  - **Phase B.2a (Discovery & Clearance):** The Supervisor orchestrates System-1 scans and dispatches suspect threads to up to 4 parallel `entity-investigator` subagents by providing the `thread_id`, the thread `summary_short`, and the extracted `candidate_entities` (as well as known registered entities). Subagents investigate the thread autonomously (`query_chat.py -C <chat_id> -t <thread_id>`, `-s "<keyword>"`, etc.) to locate and verify entities.
+  - **Thread Inspection Tracking & Discovered Facts Repository:** Reading chat logs is the most time-consuming pipeline operation. While reading threads, investigators are strictly forbidden from ignoring high-salience facts outside the entity scope (career, politics, family roots, attachment, health, addictions). Investigators return these under `discovered_facts`. The Supervisor:
+    1. Marks the audited thread as inspected in SQLite: `query_chat.py -C <chat_id> --mark-inspected <thread_id> --inspected-by "entity-investigator" --stage "entity_discovery" --findings "..." --covered-spheres "<spheres>"`.
+    2. Records and tags all discovered facts in the evidence repository: `query_chat.py -C <chat_id> --record-facts-batch '<json>' --fact-thread <thread_id> --discovered-by "entity-investigator"`.
+    The Supervisor deduplicates characters across threads, enforces cardinality ($K=1$ vs $K \ge 2$), registers verified entities (`--register-entity`), and clears the Watchdog Gate (`--check-watchdog-gate` exits 0).
   - **Phase B.2b (Deep Relational Profiling):** The Supervisor screens the registered cast via noise rejection (retaining ALL psychologically salient figures without artificial limits), injects explicit negative boundaries, and launches wave-based parallel `entity-deep-profiler` subagents. Workers use a dual-search engine (lexical FTS + semantic role queries) to synthesize complete Relational Dossiers (`reports/<chat_id>_entities/`).
 - Step B.2 is complete when the Watchdog Gate exits 0 and all salient relational dossiers are synthesized.
 - *Note:* Step B.3 initialization (`checklist.py --init` and `thread_checklist.py --init`) is **programmatically blocked** until the watchdog gate returns exit code 0.
@@ -78,7 +82,14 @@ When a chat is updated with new messages or threads:
 #### Step B.3: Life Spheres Baseline Investigation (`checklist.py`)
 - Activate `life-spheres-investigation` skill for criteria, lexicons, and vector queries.
 - Init: `python3 project/scripts/checklist.py --init -C <chat_id>` (Enforces completed Watchdog Gate)
-- **Warm-Start Context Budget (2000-Token Discipline):** The Main Agent injects prior knowledge from Phase B.2 as a foundation (capped at ~2000 tokens with explicit truncation notice pointing to `query_chat.py --entities`). Subagents use this to formulate deeper queries without re-asking basic facts, but MUST execute genuine vector and lexical searches to uncover full depth.
+- **Pre-Extracted Evidence First & Anti-Redundancy Mandate:**
+  Before executing new queries across the chat archive, subagents (`life-sphere-investigator`) MUST run:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> --facts-for-sphere <sphere_letter>
+  python3 project/scripts/query_chat.py -C <chat_id> --inspected-threads --sphere <sphere_letter>
+  ```
+  Subagents immediately integrate verified pre-extracted quotes and insights into `checklist.py`. Subagents are strictly prohibited from re-reading threads already marked as inspected; queries must focus exclusively on unaddressed criteria and uninspected threads.
+- **Warm-Start Context Budget (2000-Token Discipline):** The Main Agent injects prior knowledge from Phase B.2 as a foundation (capped at ~2000 tokens with explicit truncation notice pointing to `query_chat.py --entities`). Subagents use this to formulate deeper queries without re-asking basic facts, but MUST execute genuine vector and lexical searches to uncover full depth on remaining gaps.
 - Audit items via primary vector search (`query_chat.py --semantic`) and targeted lexical queries (`-s`).
 - Record findings: `python3 project/scripts/checklist.py -C <chat_id> --update <id> --set-status completed --notes "..." --queries "..." --semantic-queries "..."`
 - **Ban on Keyword-Only `no_data`:** Concluding absence requires documented semantic vector search.
@@ -87,12 +98,13 @@ When a chat is updated with new messages or threads:
 
 #### Step B.4: Subagent Thread Delta Audit & Forensic Deep Dives (`thread_checklist.py`)
 - Activate `subagent-thread-delta-audit` skill.
-- Init: `python3 project/scripts/thread_checklist.py --init -C <chat_id>`
+- Init: `python3 project/scripts/thread_checklist.py --init -C <chat_id>` (Automatically inherits inspected status and findings from `inspected_threads` for threads audited in Step B.2).
 - **Absolute Ban on Main Agent Context Flooding:** The Main Agent must NEVER sequentially read 50+ raw thread transcripts into its primary context window.
 - **Phase 1 (Delta Triage):** Export manifest (`--export-delta-manifest`) and delegate classification to an Antigravity subagent (`Model: "flash"`, `TypeName: "thread-delta-triage"`). Resolve redundant threads formally using:
   `python3 project/scripts/thread_checklist.py -C <chat_id> --resolve-redundant <id1> <id2> ... --reason "<theme>"`
 - **Anti-Fraud Invariant on Delta Triage:** The Main Agent is strictly forbidden from closing or resolving threads without delegating the manifest to `thread-delta-triage`.
 - **Phase 2 (Snipers' Deep Dive with Adversarial Anomaly Post-Check):** For all novel/anomalous threads identified by triage, invoke dedicated forensic subagents (`Model: "flash"`, `TypeName: "forensic-thread-investigator"`):
+  - Subagents check `--is-inspected <thread_id>` before reading; if already audited, they leverage existing findings.
   - Subagents inspect windowed snippets ($\pm 4$ turns) around the anomaly epicenter instead of reading 100 messages linearly.
   - Subagents run the **Adversarial Post-Check** (`query_chat.py -C <chat_id> --anomaly-check <id> --identified "<primary_anomaly>"`) to ensure secondary crises were not prematurely overlooked.
 

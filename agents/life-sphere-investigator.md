@@ -76,36 +76,59 @@ You are bound by the **strict epistemic invariants, search discipline, and anti-
 
 When assigned a batch/cluster of `item_id`s for a given `chat_id`:
 
-1. **Review Item Criteria & Search Lexicons:**
-   Consult `project/skills/life-spheres-investigation/SKILL.md` for definitions, criteria, and suggested queries for each assigned `item_id`.
-2. **Execute Primary Semantic Vector Queries:**
+### Step 0: Consult Pre-Extracted Tagged Facts & Inspected Threads (Anti-Redundancy Gate)
+Before executing raw searches across the chat archive:
+1. **Retrieve Pre-Extracted Evidence Tagged for Your Sphere:**
    ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> --semantic "<descriptive natural language query>" -k 5
+   python3 project/scripts/query_chat.py -C <chat_id> --facts-for-sphere <sphere_letter>
    ```
-3. **Execute Targeted Lexical Searches:**
+   (e.g. `--facts-for-sphere C` for Politics, `--facts-for-sphere B` for Career).
+   This provides all verified quotes, stories, and facts harvested by earlier agents (e.g. during Phase B.2 entity investigation) tagged specifically for your domain.
+2. **Check Inspected Threads:**
    ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> -s "<colloquial Polish keyword>"
+   python3 project/scripts/query_chat.py -C <chat_id> --inspected-threads --sphere <sphere_letter>
    ```
-4. **Context Audit Surrounding Hits:**
-   Audit context around critical message IDs:
-   ```bash
-   python3 project/scripts/query_chat.py --around <msg_id> -n 5
-   ```
-5. **Cross-Check Entity Attributes & Rebuttals:**
-   Verify mentioned people against registered entities:
-   ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> --entities
-   ```
-   Ensure no incidental geographic or biographical adjectives are imported from adjacent figures.
-6. **Update Checklist in SQLite:**
-   Record findings directly using `checklist.py`:
-   ```bash
-   python3 project/scripts/checklist.py -C <chat_id> --update <item_id> \
-     --set-status completed \
-     --notes "<Rigorous clinical synthesis of behavioral patterns, tensions, or declared vs actual habits>" \
-     --queries "<comma-separated lexical queries executed>" \
-     --semantic-queries "<comma-separated semantic queries executed>"
-   ```
-   *Note:* If no evidence exists after comprehensive semantic and lexical probing, set `--set-status completed` and record `--notes "No conclusive evidence found across longitudinal record. Validated via semantic queries: [...]"`.
-7. **Return Concise Receipt to Coordinator:**
-   Report audited item IDs, brief one-line conclusions per item, and confirmation that `checklist.py` was updated.
+   Identify which threads have already been read and summarized. **Never re-read inspected threads from scratch.**
+3. **Incorporate Existing Evidence:**
+   Directly integrate applicable pre-extracted quotes and insights into relevant `item_id`s in `checklist.py`.
+
+### Step 1: Review Item Criteria & Search Lexicons
+Consult `project/skills/life-spheres-investigation/SKILL.md` for definitions, criteria, and suggested queries for each assigned `item_id`.
+
+### Step 2: Execute Primary Semantic Vector Queries (Targeted on Gaps)
+For criteria still lacking evidence after Step 0:
+```bash
+python3 project/scripts/query_chat.py -C <chat_id> --semantic "<descriptive natural language query>" -k 5
+```
+
+### Step 3: Execute Targeted Lexical Searches
+```bash
+python3 project/scripts/query_chat.py -C <chat_id> -s "<colloquial Polish keyword>"
+```
+
+### Step 4: Context Audit Surrounding Hits
+Audit context around critical message IDs:
+```bash
+python3 project/scripts/query_chat.py --around <msg_id> -n 5
+```
+
+### Step 5: Cross-Check Entity Attributes & Rebuttals
+Verify mentioned people against registered entities:
+```bash
+python3 project/scripts/query_chat.py -C <chat_id> --entities
+```
+Ensure no incidental geographic or biographical adjectives are imported from adjacent figures.
+
+### Step 6: Update Checklist in SQLite
+Record findings directly using `checklist.py`:
+```bash
+python3 project/scripts/checklist.py -C <chat_id> --update <item_id> \
+  --set-status completed \
+  --notes "<Rigorous clinical synthesis of behavioral patterns, tensions, or declared vs actual habits>" \
+  --queries "<comma-separated lexical queries executed>" \
+  --semantic-queries "<comma-separated semantic queries executed>"
+```
+*Note:* If no evidence exists after comprehensive semantic and lexical probing, set `--set-status completed` and record `--notes "No conclusive evidence found across longitudinal record. Validated via semantic queries: [...]"`.
+
+### Step 7: Return Concise Receipt to Coordinator
+Report audited item IDs, brief one-line conclusions per item, and confirmation that `checklist.py` was updated.

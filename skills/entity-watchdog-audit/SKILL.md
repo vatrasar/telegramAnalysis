@@ -49,13 +49,31 @@ The Supervisor invokes up to 4 parallel `entity-investigator` subagents (`Model:
 - Workers inspect the full thread transcripts (`query_chat.py -C <chat_id> -t <thread_id>`) or run targeted keyword probes (`-s "<keyword>"`).
 - Workers verify human identity vs. bystander/noise, extract quote anchors (`[#ID | YYYY-MM-DD]`), and report back. Workers never write to SQLite.
 
-### Step 4: Atomic Registration & Consolidated Anti-Conflation Audit
+### Step 4: Atomic Registration, Inspected Thread Tracking & Fact Ingestion
 1. **Initial Registration of All Vetted Candidates:**
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> \
      --register-entity "<Name>" --role "<Role>" --desc "<Anchors & Context>"
    ```
-2. **🚨 Consolidated Anti-Conflation Audit (Single Pass Across All Entities):**
+2. **Mark Thread Inspected in SQLite:**
+   Record each audited thread so downstream life spheres and delta triage never re-read it:
+   ```bash
+   python3 project/scripts/query_chat.py -C <chat_id> \
+     --mark-inspected <thread_id> \
+     --inspected-by "entity-investigator" \
+     --stage "entity_discovery" \
+     --findings "<summary>" \
+     --covered-spheres "<spheres e.g. B,C>"
+   ```
+3. **Ingest Discovered Facts Tagged for Downstream Specialists:**
+   When workers return `discovered_facts` (career moves, worldview, family history, romantic patterns), persist them:
+   ```bash
+   python3 project/scripts/query_chat.py -C <chat_id> \
+     --record-facts-batch '<json_facts_array>' \
+     --fact-thread <thread_id> \
+     --discovered-by "entity-investigator"
+   ```
+4. **🚨 Consolidated Anti-Conflation Audit (Single Pass Across All Entities):**
    Once initial vetting of candidate entities is completed, run the audit across the entire cast before deep research:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit
@@ -124,6 +142,12 @@ python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
 
 # Register a verified third-party entity (Supervisor ONLY):
 python3 project/scripts/query_chat.py -C <chat_id> --register-entity "<Name>" --role "<Role>" --desc "<Notes>"
+
+# Mark a thread as inspected/read (Supervisor ONLY):
+python3 project/scripts/query_chat.py -C <chat_id> --mark-inspected <thread_id> --inspected-by "entity-investigator" --findings "<summary>" --covered-spheres "<e.g. B,C>"
+
+# Batch record discovered facts into evidence repository (Supervisor ONLY):
+python3 project/scripts/query_chat.py -C <chat_id> --record-facts-batch '<json_array>' --fact-thread <thread_id> --discovered-by "entity-investigator"
 
 # Skip false positive or episodic bystander thread (Supervisor ONLY):
 python3 project/scripts/query_chat.py -C <chat_id> --skip-thread <thread_id> --reason "episodic_bystander"

@@ -85,4 +85,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--reset-watchdog-scan", action="store_true", help="Reset watchdog scan progress for the target chat")
     parser.add_argument("--check-watchdog-gate", action="store_true", help="Run hard-stop gatekeeper check for Entity Watchdog (exit 0 on pass, exit 1 on fail)")
 
+    # Discovered Facts & Inspected Threads flags
+    parser.add_argument("--mark-inspected", type=str, metavar="THREAD_ID", help="Mark a thread as inspected/read")
+    parser.add_argument("--inspected-by", type=str, help="Agent/subagent role that inspected the thread")
+    parser.add_argument("--stage", type=str, help="Investigation stage for thread inspection or fact recording")
+    parser.add_argument("--findings", type=str, help="Summary findings / observations for inspected thread or fact")
+    parser.add_argument("--thematic-tags", "--tags", type=str, dest="thematic_tags", help="Thematic tags for inspected thread")
+    parser.add_argument("--covered-spheres", type=str, help="Comma-separated spheres covered by inspected thread (e.g. 'B,C')")
+    parser.add_argument("--inspected-threads", action="store_true", help="Display catalog of inspected threads")
+    parser.add_argument("--is-inspected", type=str, metavar="THREAD_ID", help="Check if a thread has already been inspected")
+    parser.add_argument("--record-fact", action="store_true", help="Record a single discovered fact into evidence repository")
+    parser.add_argument("--record-facts-batch", type=str, help="Batch record facts from a JSON string or file path")
+    parser.add_argument("--fact-summary", type=str, help="Summary of discovered fact for --record-fact")
+    parser.add_argument("--quote", "--quotes", type=str, dest="quote", help="Verbatim quote with anchor [#ID | YYYY-MM-DD] for --record-fact")
+    parser.add_argument("--category", type=str, help="Category for fact or filter for facts/evidence")
+    parser.add_argument("--sphere", type=str, help="Life sphere letter (A, B, C, D, E, F) for fact or inspection")
+    parser.add_argument("--target-agent", type=str, help="Target subagent role for fact")
+    parser.add_argument("--discovered-by", type=str, help="Agent role that discovered the fact")
+    parser.add_argument("--fact-thread", type=str, help="Thread ID where fact was discovered")
+    parser.add_argument("--anchor-id", type=int, help="Message ID anchor for fact")
+    parser.add_argument("--tag", type=str, help="Filter by thematic tag")
+    parser.add_argument("--facts", action="store_true", help="Display discovered facts repository")
+    parser.add_argument("--facts-for-sphere", type=str, help="Display pre-extracted facts tagged for a specific life sphere (A-F or name)")
+
     return parser

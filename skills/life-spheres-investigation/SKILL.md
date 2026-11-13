@@ -258,6 +258,13 @@ Informal messaging rarely uses clinical or ideological terms (e.g. users discuss
 
 ## 7. Probing Workflow & Step-by-Step Procedure
 
+0. **Consult Pre-Extracted Evidence & Inspected Threads (Anti-Redundancy Mandate):**
+   Before executing new queries or inspecting raw threads, check what earlier agents have already harvested and tagged for your domain:
+   ```bash
+   python3 project/scripts/query_chat.py -C <chat_id> --facts-for-sphere <sphere_letter>
+   python3 project/scripts/query_chat.py -C <chat_id> --inspected-threads --sphere <sphere_letter>
+   ```
+   Directly integrate verified quotes and facts into relevant `item_id`s in `checklist.py`. **Strictly avoid re-reading threads that have already been inspected and summarized.** Focus searches solely on remaining gaps.
 1. **Initialize Checklist (Mode B only):** Run `python3 project/scripts/checklist.py --init -C <chat_id>`.
 2. **Execute Primary Semantic Vector Queries:** Run descriptive English semantic queries via `query_chat.py --semantic "<concept>"`. Use batch queries to probe related dimensions simultaneously.
 3. **Execute Targeted Lexical Searches:** If probing for specific named entities (colleges, employers, pet names, devices), execute Polish lexical searches (`-s` / `-st`).

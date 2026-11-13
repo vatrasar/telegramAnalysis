@@ -12,6 +12,7 @@ These rules define the dual-layer accountability protocol, semantic vector searc
 
 ### A. Database Verification Layer (`chat.db` Checklist)
 - **Mandatory Mode B Enforcement:** In comprehensive profiling (Mode B), **100% of the 46 life sphere dimensions must be audited and resolved in SQLite** (`life_spheres_checklist`).
+- **Pre-Extracted Evidence Check (Anti-Redundancy):** Before issuing raw queries across the database, the investigator MUST check `query_chat.py -C <chat_id> --facts-for-sphere <sphere>` and `--inspected-threads` to absorb pre-extracted quotes from earlier pipeline phases and avoid re-reading previously audited threads.
 - **Evidence-Backed Items (`completed`):** Log findings and quote anchors (`[#ID | YYYY-MM-DD]`). Core attitudinal and psychological dimensions (Spheres B, C, E, key items in A, D) MUST record semantic vector search queries (`--semantic-queries`).
 - **Absolute Ban on Keyword-Only `no_data`:** To mark an item as `no_data`, the agent MUST execute and log at least one semantic vector query (`--semantic-queries`). Concluding absence based solely on lexical keyword search is an **Epistemic Invariant Violation**.
 - **Mode A Exemption:** In ad-hoc Q&A (Mode A), checklist is waived via `--waive-checklist`.

@@ -70,6 +70,13 @@ After identifying and documenting the primary anomaly in a thread, you MUST NOT 
 
 When assigned a `thread_id` and `chat_id`:
 
+### Step 0: Check Prior Inspection Status (Anti-Redundancy Check)
+Check if this thread was already inspected and summarized during Phase B.2:
+```bash
+python3 project/scripts/query_chat.py -C <chat_id> --is-inspected <thread_id>
+```
+If inspected with findings, leverage the pre-existing findings and quote anchors rather than reading raw messages from scratch.
+
 ### Step 1: Targeted Epicenter Inspection (Snipers' Context)
 Do NOT read 100 messages linearly. Review the Scaledown summary and radar hints.
 Locate the message IDs corresponding to the anomaly/conflict and inspect turns with:
