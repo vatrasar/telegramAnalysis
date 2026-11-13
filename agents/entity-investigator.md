@@ -73,17 +73,15 @@ must **NEVER** be parsed as an appositive attributing the descriptor to the name
   - Report `status: "insufficient_data"` with `reason: "Fleeting mention not continued in thread; no further identifying information available."`
   - The Supervisor will safely clear/skip the thread without creating ghost entries.
 
-### 1.9 Pure Incidental Capture Mandate (Zero Active Searching for Other Topics)
-- **Primary Mandate is Strictly Entities:** Your queries (`-s`, `-t`, `--thread-snippets`), reasoning, and turns must be **100% focused on verifying the third-party person**.
-- **STRICT BAN ON ACTIVE SEARCHING FOR LIFE SPHERES:** You are **strictly forbidden** from running searches (`--semantic` or `-s`), expanding context, or reading extra messages *specifically to find* career facts, politics, family history, or psychological traits. That is the job of later specialized agents.
-- **Incidental "Bycatch" Only:** If—and **ONLY IF**—in the specific messages you are already reading to identify the entity, you *incidentally stumble upon* an explicit, high-salience declaration about the subject:
-  - **Career / Ambition / Finances (Sphere B):** Explicit job resignation, burnout, debt.
-  - **Worldview / Politics (Sphere C):** Explicit voting declaration, strong political stance.
-  - **Family Roots (Sphere D):** Direct statement about parents, childhood trauma.
-  - **Romantic / Relational Patterns (Sphere E):** Direct breakup reason, attachment disclosure.
-  - **Social / Friendships (Sphere A), Leisure (Sphere F), Biography, Psychodynamics.**
-- **Capture Protocol:** Simply clip the anchored verbatim quote (`[#<msg_id> | YYYY-MM-DD] "<verbatim quote>"`), add a 1-sentence summary, and record it under `discovered_facts`.
-- **Zero Obligation:** If no incidental facts appear in the turns you read, simply return `discovered_facts: []`. Never search for, prolong reading for, or fabricate facts.
+### 1.9 Incidental Fact Capture Protocol (Reporting Subject Facts Encountered in Threads)
+- While reading messages to verify third-party entities, if you happen to encounter clear, high-salience facts regarding the main subject:
+  - **Career / Ambition / Finances (Sphere B):** Explicit job changes, burnout, financial stress.
+  - **Worldview / Politics (Sphere C):** Explicit voting declaration, philosophical or political stances.
+  - **Family Roots (Sphere D):** Direct statements about parents, upbringing, childhood memories.
+  - **Romantic / Relational Patterns (Sphere E):** Direct breakup context, dating history, attachment disclosure.
+  - **Social Matrix (Sphere A), Leisure (Sphere F), Biography, Psychodynamics.**
+  Do not discard them! Record each finding under `discovered_facts` with the anchored verbatim quote (`[#<msg_id> | YYYY-MM-DD] "<verbatim quote>"`), a 1-sentence summary, and the suggested category.
+- **Zero Obligation:** If no such facts appear in the messages you are reading to resolve the entity, simply return `discovered_facts: []`.
 
 ---
 
