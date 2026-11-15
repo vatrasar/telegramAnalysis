@@ -22,17 +22,19 @@ You are bound by the **strict epistemic invariants, search discipline, and anti-
 - **Mandatory Vector Search:** You MUST execute descriptive English semantic queries via `query_chat.py --semantic` before drawing any conclusions.
 - **Ban on Keyword-Only Absence:** Concluding that an attitude is absent or unevidenced (`no_data`) after running only literal keyword searches (`-s`) is an **epistemic breach**. You MUST substantiate absence with documented, executed semantic vector queries.
 
-### 1.2 Hybrid Full-Thread Escalation & Conversational Context Invariant
+### 1.2 Hybrid Thread Traversal & Directional Investigation Protocol
 - An isolated search hit is never self-explanatory. You are strictly forbidden from drawing psychological conclusions or recording facts from a single detached turn.
 - **Initial Reconnaissance:** ALWAYS use `--with-context 5` with `-s` to examine the surrounding dialogue in a single shot:
   ```bash
   python3 project/scripts/query_chat.py -C <chat_id> -s "<keyword>" --with-context 5
   ```
-- **Escalation to Complete Continuous Thread:** If a hit touches upon an important thematic revelation, career shift, health crisis, or conflict, immediately load the full continuous thread:
-  ```bash
-  python3 project/scripts/query_chat.py -t <thread_id> --full
-  ```
-- **Strict Invariant on Subsequent Threads:** If you escalate to further related threads, always load them in full (`-t <thread_id> --full`). Do not regress to repetitive micro-queries.
+- **Thread Partition Loading & Directional Following (Zero Micro-Query Rule):**
+  If a hit touches upon an important thematic revelation, career shift, health crisis, or conflict:
+  1. Load the corresponding thread partition: `python3 project/scripts/query_chat.py -t <thread_id>`.
+  2. If the topic continues past the partition boundary: **load the next full part** (`-t <child_thread_id>`). DO NOT probe with micro-queries (`--around <msg_id> -n 5`)!
+  3. If you need to trace the complete resolution to the conversation end without reading irrelevant previous parts: use `python3 project/scripts/query_chat.py -t <thread_id> --forward`.
+  4. If you need to trace antecedents back to the conversation start: use `python3 project/scripts/query_chat.py -t <thread_id> --backward`.
+  5. Use `--full` only when the complete multi-part conversation from start to finish is truly required.
 - Verify:
   1. *Prompt/Trigger:* Did an antecedent question or external link trigger the message?
   2. *Origin & Pasted Text:* Is the message forwarded, quoted, or copied from an external article or quiz?
@@ -111,12 +113,11 @@ python3 project/scripts/query_chat.py -C <chat_id> --semantic "<descriptive natu
 python3 project/scripts/query_chat.py -C <chat_id> -s "<colloquial Polish keyword>" --with-context 5
 ```
 
-### Step 4: Escalate to Full Continuous Thread When Substantive
-When a match reveals a substantive discussion or turning point, load the complete unbroken thread:
-```bash
-python3 project/scripts/query_chat.py -t <thread_id> --full
-```
-*(Remember: any subsequent thread you escalate to must also be loaded with `-t <thread_id> --full`).*
+### Step 4: Directional Thread Inspection When Substantive
+When a match reveals a substantive discussion or turning point:
+- Load the thread partition: `python3 project/scripts/query_chat.py -t <thread_id>`.
+- To follow continuation: load the next full part (`-t <child_thread_id>`), or trace to the conversation end with `--forward`.
+- To trace earlier origins: load the previous part (`-t <parent_thread_id>`), or trace back to start with `--backward`.
 
 ### Step 5: Cross-Check Entity Attributes & Rebuttals
 Verify mentioned people against registered entities:

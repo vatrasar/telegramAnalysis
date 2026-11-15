@@ -31,18 +31,18 @@ To build a complete profile, you MUST utilize both search modalities:
    - *For Partner / Ex:* Query intimacy, attachment anxiety, breakups, boundaries (`--semantic "romantic partner intimacy conflict fear of rejection"`).
    - *For Parents / Family:* Query parental guilt, childhood trauma, filial duty (`--semantic "parental expectations childhood guilt father mother tension"`).
 
-### 1.2 Hybrid Full-Thread Escalation Protocol & Invariant on Subsequent Threads
+### 1.2 Hybrid Thread Traversal & Directional Investigation Protocol
 - **Initial Reconnaissance:** Search hits with `--with-context 5` reveal whether a turn is a simple brief mention (e.g. confirming an age, job, or city) or part of a substantive interpersonal exchange.
-- **Escalation to Complete Continuous Thread:**
-  Whenever a search hit touches upon an important relationship dynamic, conflict, emotional turning point, or extended disclosure:
-  **DO NOT make repetitive micro-queries (`--around <msg_id> -n 5`)!**
-  Instead, immediately load the complete unbroken conversation thread:
-  ```bash
-  python3 project/scripts/query_chat.py -t <thread_id> --full
-  ```
-- **Strict Invariant on Escalating to Subsequent Threads:**
-  If the dialogue references prior agreements, subsequent disputes, or adjacent conversations, or if you investigate further threads:
-  **ALWAYS load each subsequent thread in its entirety (`-t <target_thread_id> --full`)**. Never regress to micro-querying subsequent threads.
+- **Thread Partition Loading & Directional Following (Zero Micro-Query Rule):**
+  Whenever a search hit touches upon an important relationship dynamic, conflict, or emotional milestone:
+  1. Load the corresponding thread partition (50 messages) via:
+     ```bash
+     python3 project/scripts/query_chat.py -t <thread_id>
+     ```
+  2. If the dialogue continues past the boundary into the next part: **load the next full part** (`-t <child_thread_id>`). DO NOT make fragmented micro-queries (`--around <msg_id> -n 5`)!
+  3. If you need to trace the complete resolution to the conversation end without reading irrelevant previous parts: use `python3 project/scripts/query_chat.py -t <thread_id> --forward`.
+  4. If you need to trace antecedents back to the conversation start: use `python3 project/scripts/query_chat.py -t <thread_id> --backward`.
+  5. Use `--full` only when the complete multi-part conversation from start to finish is truly required.
 
 ### 1.3 Pre-Flight Overlap Audit (Anti-Glue Self-Reflection)
 Before launching any searches, you MUST inspect the current database of known entities:
@@ -91,16 +91,16 @@ python3 project/scripts/query_chat.py -C <chat_id> -s "<Known_Alias>" --with-con
 python3 project/scripts/query_chat.py -C <chat_id> -s "<Unique_City_or_Workplace>" --with-context 5
 ```
 
-### Step 2: Semantic Role Probing & Full-Thread Escalation
+### Step 2: Semantic Role Probing & Directional Thread Inspection
 Execute 2–4 targeted semantic queries exploring the entity's relational role:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --semantic "<Role_and_Dynamics_Query>"
 ```
-When a semantic candidate thread or lexical match contains an important relational discussion, conflict, or milestone, load the entire continuous thread:
-```bash
-python3 project/scripts/query_chat.py -t <thread_id> --full
-```
-*(Remember: any subsequent thread you escalate to must also be loaded with `-t <thread_id> --full` rather than probed piecemeal).* Note down any accidental discoveries about other entities or biographical facts.
+When a semantic candidate thread or lexical match contains an important relational discussion:
+- Load the thread partition: `python3 project/scripts/query_chat.py -t <thread_id>`.
+- To follow continuation: load the next full part (`-t <child_thread_id>`), or trace to the conversation end with `--forward`.
+- To trace earlier origins: load the previous part (`-t <parent_thread_id>`), or trace back to start with `--backward`.
+*(Never probe continuing discussions with repetitive micro-queries).* Note down any accidental discoveries about other entities or biographical facts.
 
 ### Step 3: Chronological Synthesis & Turning Points
 Trace the evolution of the relationship across time:

@@ -47,10 +47,13 @@ python3 project/scripts/query_chat.py -s "keyword1 OR keyword2" -s "must_have"
 python3 project/scripts/query_chat.py -s "keyword" -S "<SenderName>"
 python3 project/scripts/query_chat.py -st "topic keyword"
 
-# Context Verification & Thread Escalation:
+# Thread Inspection & Directional Traversal:
+python3 project/scripts/query_chat.py -t <thread_id>                  # Load specific thread partition (50 messages)
+python3 project/scripts/query_chat.py -t <thread_id> --forward        # Load this partition + all subsequent parts to end
+python3 project/scripts/query_chat.py -t <thread_id> --backward       # Load this partition + all preceding parts to start
 python3 project/scripts/query_chat.py -t <thread_id> --full           # Complete uninterrupted continuous conversation chain
-python3 project/scripts/query_chat.py --around <msg_id> -n 5          # Chronological window across thread lines
-python3 project/scripts/query_chat.py -t <thread_id_or_msg_id>        # Dialogue thread transcript
+python3 project/scripts/query_chat.py -t <next_child_thread_id>       # Load the whole next partition (anti-micro-query)
+python3 project/scripts/query_chat.py --around <msg_id> -n 5          # Raw chronological window across thread lines
 python3 project/scripts/query_chat.py -c <msg_id>                 # Vertical parent quote & reply tree
 python3 project/scripts/query_chat.py -f <msg_id> -n 10 -w 5      # In-thread window with preceding turns
 

@@ -7,7 +7,14 @@ from typing import List, Dict, Any, Optional
 from .formatters import format_message_text
 
 
-def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None, full: bool = False) -> Optional[Dict[str, Any]]:
+def get_thread(
+    db_path: str,
+    identifier: str,
+    chat_id: Optional[str] = None,
+    full: bool = False,
+    forward: bool = False,
+    backward: bool = False
+) -> Optional[Dict[str, Any]]:
     """Fetch full dialogue transcript of a thread by thread_id or message_id."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
@@ -64,9 +71,9 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None, ful
         children = [r[0] for r in cur.fetchall()]
 
     chain_tids = [actual_tid]
-    is_full_chain = False
+    chain_mode = "single"
 
-    if full and has_parent:
+    if (full or forward or backward) and has_parent:
         # Walk up to root thread
         curr_tid = actual_tid
         while True:
@@ -78,18 +85,32 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None, ful
         root_tid = curr_tid
 
         # Walk down from root to gather all child partitions in sequence
-        chain_tids = [root_tid]
+        full_chain = [root_tid]
         curr_p = root_tid
         while True:
             cur.execute("SELECT thread_id FROM threads WHERE parent_thread_id = ? ORDER BY start_timestamp ASC, start_date ASC;", (curr_p,))
             c_row = cur.fetchone()
             if not c_row:
                 break
-            chain_tids.append(c_row[0])
+            full_chain.append(c_row[0])
             curr_p = c_row[0]
 
-        if len(chain_tids) > 1:
-            is_full_chain = True
+        try:
+            cur_idx = full_chain.index(actual_tid)
+        except ValueError:
+            cur_idx = 0
+
+        if full:
+            chain_tids = full_chain
+            chain_mode = "full"
+        elif forward:
+            chain_tids = full_chain[cur_idx:]
+            chain_mode = "forward"
+        elif backward:
+            chain_tids = full_chain[:cur_idx + 1]
+            chain_mode = "backward"
+
+    is_multi_part = len(chain_tids) > 1
 
     # Fetch individual messages for the thread (or whole chain if full)
     placeholders = ",".join("?" for _ in chain_tids)
@@ -138,9 +159,9 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None, ful
 
     conn.close()
 
-    start_d = thread_msgs[0]["date"] if (is_full_chain and thread_msgs) else row[4]
-    end_d = thread_msgs[-1]["date"] if (is_full_chain and thread_msgs) else row[5]
-    msg_cnt = len(thread_msgs) if is_full_chain else row[6]
+    start_d = thread_msgs[0]["date"] if (is_multi_part and thread_msgs) else row[4]
+    end_d = thread_msgs[-1]["date"] if (is_multi_part and thread_msgs) else row[5]
+    msg_cnt = len(thread_msgs) if is_multi_part else row[6]
 
     return {
         "thread_id": actual_tid,
@@ -159,7 +180,8 @@ def get_thread(db_path: str, identifier: str, chat_id: Optional[str] = None, ful
         "dialogue_text": row[9],
         "parent_thread_id": parent_tid,
         "child_thread_ids": children,
-        "is_full_chain": is_full_chain,
+        "chain_mode": chain_mode,
+        "is_full_chain": is_multi_part,
         "chain_thread_ids": chain_tids
     }
 
@@ -168,16 +190,23 @@ def print_thread(t: Dict[str, Any], summary_only: bool = False) -> None:
     """Print ASCII transcript of a dialogue thread."""
     print("\n" + "=" * 70)
     c_label = f" [Chat: {t.get('chat_name', t.get('chat_id'))}]" if t.get("chat_name") else ""
-    if t.get("is_full_chain"):
-        chain_desc = f" (Full Continuous Conversation: {len(t['chain_thread_ids'])} parts: {', '.join(t['chain_thread_ids'])})"
-        print(f"📜 CONVERSATION THREAD [FULL]: {t['thread_id']}{c_label}{chain_desc}")
+    chain_mode = t.get("chain_mode", "single")
+    if chain_mode == "forward":
+        chain_desc = f" [FORWARD: {len(t['chain_thread_ids'])} parts to conversation end: {', '.join(t['chain_thread_ids'])}]"
+        print(f"📜 CONVERSATION THREAD: {t['thread_id']}{c_label}{chain_desc}")
+    elif chain_mode == "backward":
+        chain_desc = f" [BACKWARD: {len(t['chain_thread_ids'])} parts from conversation start: {', '.join(t['chain_thread_ids'])}]"
+        print(f"📜 CONVERSATION THREAD: {t['thread_id']}{c_label}{chain_desc}")
+    elif chain_mode == "full":
+        chain_desc = f" [FULL CHAIN: {len(t['chain_thread_ids'])} parts: {', '.join(t['chain_thread_ids'])}]"
+        print(f"📜 CONVERSATION THREAD: {t['thread_id']}{c_label}{chain_desc}")
     else:
         print(f"📜 CONVERSATION THREAD: {t['thread_id']}{c_label}")
         if t.get("parent_thread_id"):
-            print(f"⬆️  Parent Thread:     {t['parent_thread_id']}  (Audit full: python3 project/scripts/query_chat.py -t {t['thread_id']} --full)")
+            print(f"⬆️  Parent Thread:     {t['parent_thread_id']}  (Audit previous: python3 project/scripts/query_chat.py -t {t['parent_thread_id']} | All backward: --backward)")
         if t.get("child_thread_ids"):
             children_str = ", ".join(t["child_thread_ids"])
-            print(f"⬇️  Child Thread(s):   {children_str}  (Audit full: python3 project/scripts/query_chat.py -t {t['thread_id']} --full)")
+            print(f"⬇️  Child Thread(s):   {children_str}  (Audit next part: python3 project/scripts/query_chat.py -t {t['child_thread_ids'][0]} | All forward: --forward)")
     print(f"Timeframe:         {t['start_date'][:16].replace('T', ' ')} to {t['end_date'][:16].replace('T', ' ')}")
     print(f"Messages:          {t['message_count']}")
     print(f"Participants:      {t['participants']} (Initiator: {t['initiator']})")
@@ -205,18 +234,18 @@ def print_thread(t: Dict[str, Any], summary_only: bool = False) -> None:
     else:
         print(t["dialogue_text"])
 
-    # Boundary warning for first 5 / last 5 messages or linked threads (only if NOT already full chain)
-    if not t.get("is_full_chain") and (t.get("parent_thread_id") or t.get("child_thread_ids") or t.get("message_count", 0) <= 1):
-        print("\n⚠️  BOUNDARY AUDIT SAFEGUARD (±5 Messages Rule):")
-        print("   If analyzing messages near thread start (first 5) or end (last 5) to draw conclusions:")
-        if t.get("parent_thread_id") or t.get("child_thread_ids"):
-            print(f"   💡 Load entire continuous sequence: python3 project/scripts/query_chat.py -t {t['thread_id']} --full")
-        anc = t.get("anchor_message_id")
-        tid_suffix = t['thread_id'].split('_')[-1]
-        sugg_id = anc or (tid_suffix[1:] if tid_suffix.startswith(('s', 't')) and tid_suffix[1:].isdigit() else None)
-        around_arg = sugg_id if sugg_id else "<msg_id>"
-        print(f"   - Raw chronological stream: python3 project/scripts/query_chat.py --around {around_arg} -n 5")
-    print("=" * 70)
+    # Directional continuation options for partitioned threads (only when viewing single part)
+    if not t.get("is_full_chain") and (t.get("parent_thread_id") or t.get("child_thread_ids")):
+        print("\n💡 THREAD CONTINUATION OPTIONS:")
+        if t.get("child_thread_ids"):
+            next_child = t['child_thread_ids'][0]
+            print(f"   • Load NEXT FULL PART (50 msgs):  python3 project/scripts/query_chat.py -t {next_child}")
+            print(f"   • Load ALL FORWARD PARTS to end:   python3 project/scripts/query_chat.py -t {t['thread_id']} --forward")
+        if t.get("parent_thread_id"):
+            prev_p = t['parent_thread_id']
+            print(f"   • Load PREVIOUS FULL PART:         python3 project/scripts/query_chat.py -t {prev_p}")
+            print(f"   • Load ALL BACKWARD PARTS to start: python3 project/scripts/query_chat.py -t {t['thread_id']} --backward")
+        print("=" * 70)
 
 
 def get_thread_slice(

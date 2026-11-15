@@ -17,16 +17,18 @@ You are bound by the **strict epistemic invariants, snipers' snippet inspection,
 
 ## 1. Non-Negotiable Epistemic Invariants & Verification Gates
 
-### 1.1 Complete Continuous Thread Retrieval & Conversational Context Invariant
-To perform a rigorous audit, you must examine the assigned dialogue in its full conversational continuity without blind spots or artificial truncation.
-- **Load Complete Continuous Thread:** Fetch the full unbroken conversation (automatically merging all partitioned chunks):
+### 1.1 Thread Partition Inspection & Directional Traversal Invariant
+To perform a rigorous audit without token waste or loss of situational awareness:
+- **Inspect the Assigned Partition First:** Examine the assigned thread partition (50 messages) in a single command:
   ```bash
-  python3 project/scripts/query_chat.py -t <thread_id> --full
+  python3 project/scripts/query_chat.py -t <thread_id>
   ```
-- **Prohibition of Fragmented Micro-Queries:** Never waste tokens or lose situational awareness by probing a thread with fragmented iterative slices (`--around <msg_id> -n 5`). Load the entire thread in one call.
-- **Strict Invariant on Escalating to Referenced/Secondary Threads:**
-  If the dialogue references prior agreements, subsequent disputes, or adjacent conversations, or if the adversarial check requires inspecting another thread:
-  **ALWAYS load each subsequent thread in its entirety (`-t <referenced_thread_id> --full`)**. Never regress to micro-querying subsequent threads.
+- **Following Continuation into Next Part (Anti-Micro-Query Invariant):**
+  - If the critical exchange, conflict, or confession continues past the end of the partition: **load the whole next part** via `python3 project/scripts/query_chat.py -t <child_thread_id>`.
+  - **PROHIBITION:** You are strictly forbidden from probing continuing dialogue with fragmented micro-queries (`--around <msg_id> -n 5`). Load the next full 50-message part.
+  - **Tracing Full Resolution to Conversation End:** If you need to trace the entire development or multi-part resolution to the end without reading irrelevant previous parts: use `python3 project/scripts/query_chat.py -t <thread_id> --forward`.
+  - **Tracing Antecedents Back to Conversation Start:** If you need to trace the initial trigger or premise from the start of the discussion: use `python3 project/scripts/query_chat.py -t <thread_id> --backward`.
+  - **Uninterrupted Conversation:** Use `--full` only when the complete multi-part conversation from start to finish is truly required.
 - **Antecedent Context:**
   1. *Prompt/Trigger:* What preceding question, event, or statement provoked this turn?
   2. *Origin & Pasted Content:* Did preceding turns announce forwarded messages, quoted texts, external articles, or quiz results? Pasted external text must NEVER be attributed to the subject's inner psychology.
@@ -80,12 +82,14 @@ python3 project/scripts/query_chat.py -C <chat_id> --is-inspected <thread_id>
 ```
 If inspected with findings, leverage the pre-existing findings and quote anchors rather than reading raw messages from scratch.
 
-### Step 1: Complete Continuous Thread Inspection
-Inspect the assigned thread in full in a single command:
+### Step 1: Thread Partition Inspection & Continuity Check
+Inspect the assigned thread partition in a single command:
 ```bash
-python3 project/scripts/query_chat.py -t <thread_id> --full
+python3 project/scripts/query_chat.py -t <thread_id>
 ```
-Locate the anomaly, peak emotional exchange, and turning points within their true conversational flow. Review the Scaledown summary and radar hints as orientation guides.
+Locate the anomaly, peak emotional exchange, and turning points. Review the Scaledown summary and radar hints as orientation guides.
+- If the discussion continues into subsequent parts: load the next full part (`-t <child_thread_id>`), or trace to the end with `--forward`.
+- If the discussion requires earlier antecedents: load the previous part (`-t <parent_thread_id>`), or trace back to start with `--backward`.
 
 ### Step 2: Extract Primary Anomaly Findings
 Document the primary anomaly:

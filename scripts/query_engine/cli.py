@@ -278,8 +278,17 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
     if thread_ids:
         thread_results: Dict[str, Any] = {}
         full_mode = getattr(args, "full", False)
+        fwd_mode = getattr(args, "forward", False)
+        bwd_mode = getattr(args, "backward", False)
         for t_id in thread_ids:
-            t_obj = get_thread(args.db, t_id, chat_id=resolved_chat_id, full=full_mode)
+            t_obj = get_thread(
+                args.db,
+                t_id,
+                chat_id=resolved_chat_id,
+                full=full_mode,
+                forward=fwd_mode,
+                backward=bwd_mode
+            )
             if t_obj:
                 if args.json:
                     if getattr(args, "summary_only", False):
