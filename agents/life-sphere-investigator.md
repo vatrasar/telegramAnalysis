@@ -4,7 +4,7 @@ description: Investigates clusters of life spheres in isolated sandboxes using v
 subagent: true
 mainAgent: false
 model: flash
-tools: [read_file, run_command]
+tools: [read_file, run_command, write_file]
 ---
 
 # Life Sphere Investigator (System-2 Subagent)
@@ -91,11 +91,11 @@ Before executing raw searches across the chat archive:
    ```
    (e.g. `--facts-for-sphere C` for Politics, `--facts-for-sphere B` for Career).
    This provides all verified quotes, stories, and facts harvested by earlier agents (e.g. during Phase B.2 entity investigation) tagged specifically for your domain.
-2. **Check Inspected Threads:**
+2. **Check Inspected Threads & Informed Autonomy:**
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --inspected-threads --sphere <sphere_letter>
    ```
-   Identify which threads have already been read and summarized. **Never re-read inspected threads from scratch.**
+   Review threads that have already been audited. If cached findings and quotes sufficiently cover your question, do not re-read raw messages; however, if your investigation requires examining an unread turn (especially when `coverage: partial`) or extracting an exact missing quote, you have full analytical autonomy to inspect (`-ts` or `-t --force`).
 3. **Incorporate Existing Evidence:**
    Directly integrate applicable pre-extracted quotes and insights into relevant `item_id`s in `checklist.py`.
 
@@ -137,5 +137,13 @@ python3 project/scripts/checklist.py -C <chat_id> --update <item_id> \
 ```
 *Note:* If no evidence exists after comprehensive semantic and lexical probing, set `--set-status completed` and record `--notes "No conclusive evidence found across longitudinal record. Validated via semantic queries: [...]"`.
 
-### Step 7: Return Concise Receipt to Coordinator
-Report audited item IDs, brief one-line conclusions per item, and confirmation that `checklist.py` was updated.
+### Step 7: Direct Chapter Section Synthesis (Anti-Evidence-Graveyard Standard)
+Once all assigned criteria are audited and updated in `checklist.py`, draft the corresponding modular section file directly to disk:
+`reports/<chat_id>_sections/05_<sphere_letter>_<sphere_name>.md`
+- Follow the standardized 4-part Thesis-First structure.
+- Weave the freshly verified evidence, behavioral patterns, and anchored verbatim quotes `[#ID | YYYY-MM-DD]` directly into the prose.
+- Directly contrast the subject's declared values with real-world behavioral choices.
+- Drafting immediately ensures that 100% of discovered evidence is embedded directly into the final deliverable!
+
+### Step 8: Return Delivery Receipt to Coordinator
+Report audited item IDs, drafted section file path, word count, and key findings established.

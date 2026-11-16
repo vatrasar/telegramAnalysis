@@ -19,7 +19,7 @@ Subagent Thread Delta Auditing must occur **strictly after completing Step B.4 L
 
 ---
 
-## 2. Phase 1: Delta Triage Subagent (Novelty vs. Redundancy)
+## 2. Phase 1: Delta Triage Subagent (Novelty vs. Redundancy - Up to 5 Threads per Worker)
 
 ### Step 1.1: Export Delta Manifest
 Export pending threads with their System-1 summaries and candidate entities:
@@ -27,23 +27,23 @@ Export pending threads with their System-1 summaries and candidate entities:
 python3 project/scripts/thread_checklist.py -C <chat_id> --export-delta-manifest
 ```
 
-### Step 1.2: Launch Delta Triage Subagent
-Invoke the custom Antigravity subagent using `invoke_subagent`:
+### Step 1.2: Launch Delta Triage Subagents in Batches of 5
+To maintain high precision and prevent attention degradation, slice pending threads into batches of **up to 5 threads per worker**. Invoke `thread-delta-triage` subagents in parallel using `invoke_subagent`:
 - **TypeName:** `thread-delta-triage`
-- **Role:** `Thread Delta Triage Evaluator`
+- **Role:** `Thread Delta Triage Evaluator (<batch_id>)`
 - **Model:** `flash`
 - **Prompt Structure:**
   ```text
-  You are evaluating a manifest of pending dialogue threads against an established psychological baseline.
+  You are evaluating a batch of up to 5 pending dialogue threads against an established psychological baseline.
 
   ESTABLISHED BASELINE:
   [Insert 300-500 word synthesis of subject's known history, relationships, and defenses from 46 spheres]
 
-  PENDING THREADS MANIFEST:
-  [Paste output of --export-delta-manifest]
+  PENDING THREADS (Max 5):
+  [Paste slice of up to 5 threads from --export-delta-manifest]
 
   TASK:
-  Classify every thread ID into one of two categories:
+  Classify each of the 5 threads into one of two categories:
   1. REDUNDANT / CORROBORATING: Threads confirming known patterns (e.g. repeated arguments with parents, routine small talk, known partner discussions). Specify the baseline theme corroborated.
   2. NOVELTY / DEEP DIVE: Threads indicating unmapped events, acute crises, contradictory behaviors, or unrecognized external individuals.
 
@@ -77,19 +77,30 @@ Invoke the custom Antigravity subagent using `invoke_subagent`:
   Perform an exhaustive forensic audit on thread <thread_id> for chat <chat_id>.
 
   EXECUTION INSTRUCTIONS:
-  1. Inspect the full raw thread:
-     python3 project/scripts/query_chat.py -t <thread_id>
+  1. Check audit cache first:
+     python3 project/scripts/query_chat.py -C <chat_id> --is-inspected <thread_id>
+     If already audited with complete coverage, review findings. If uninspected or partial, read with:
+     python3 project/scripts/query_chat.py -t <thread_id> --force
   2. Verify Scaledown summary claims against verbatim text. Do NOT trust unverified summary claims.
   3. Extract 2-4 key anchored quotes in [#ID | YYYY-MM-DD] format.
-  4. If any unmapped third-party individual or relational figure is introduced, register them:
+  4. Adversarial Post-Check:
+     python3 project/scripts/query_chat.py -C <chat_id> --anomaly-check <thread_id> --identified "<primary_finding>"
+  5. If any unmapped third-party individual or relational figure is introduced, register them:
      python3 project/scripts/query_chat.py -C <chat_id> --register-entity "<Name/Role>" --role "<Role>" --desc "<Context>"
-  5. Update the thread checklist status:
+  6. Targeted Evidence Routing (Zero Prompt Flooding):
+     Tag confirmed crisis anomalies by target agent role and category:
+     python3 project/scripts/thread_checklist.py -C <chat_id> --record-evidence <thread_id> \
+       --quote "[#ID | YYYY-MM-DD] text" \
+       --significance "..." \
+       --category "<timeline|attachment|playbook|crisis>" \
+       --target-agent "<chapter-drafter|operational-playbook-architect>"
+  7. Update the thread checklist status:
      python3 project/scripts/thread_checklist.py -C <chat_id> --update <thread_id> --set-status completed --findings "<Dynamics>" --quotes "<Anchored quotes>" --tags "<Tags>"
-  6. Return a concise (150-250 words) structured evidence summary to the coordinator.
+  8. Return a concise (150-250 words) structured evidence summary to the coordinator.
   ```
 
 ### Step 2.2: Main Agent Evidence Ingestion & Synthesis
-The Main Agent receives the returned evidence block, evaluates its value-add for the dossier, and synthesizes valuable findings with anchored quotes into the corresponding report chapters.
+The Main Agent verifies that all novel threads are marked `completed`, confirms the thread checklist gate exits 0 (`thread_checklist.py --check`), and ensures drafters query targeted anomalies selectively during Step B.6.
 
 ---
 

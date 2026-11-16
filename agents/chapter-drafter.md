@@ -64,6 +64,11 @@ When assigned a chapter or section draft:
      ```bash
      python3 project/scripts/thread_checklist.py -C <chat_id> --export-evidence
      ```
+   - **Selective Case Study & Anomaly Ingestion (Zero Prompt Flooding):**
+     Retrieve the 3–5 high-salience anomalies and crisis turning points tagged specifically for your chapter:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --facts --target-agent "chapter-drafter"
+     ```
    - Ingest pre-extracted facts and quotes from the evidence repository:
      ```bash
      python3 project/scripts/query_chat.py -C <chat_id> --facts --category <category_or_sphere>

@@ -134,17 +134,24 @@ Dispatch 3–4 parallel investigator subagents via `invoke_subagent` (run in wav
 
 Once the complete entity registry is established and the Watchdog Gate is resolved, proceed immediately to deep profiling of all salient characters.
 
-#### Step 6: Salience Screening & Noise Rejection (No Artificial Quotas)
+#### Step 6: Salience Screening & Full Relational Spectrum (No Artificial Quotas)
 Inspect the complete list of registered entities (`query_chat.py -C <chat_id> --entities`).
-- **Exclude Noise / Transients:** Discard one-off episodic contacts (e.g. delivery drivers, mechanics, single-consultation doctors with no emotional impact).
-- **Retain ALL Psychologically Salient Characters:** Keep every entity that impacts the subject's emotional states, attachment dynamics, self-esteem, life decisions, conflicts, or daily routine.
+- **Retain ALL Psychologically Salient Characters Across the Full Relational Spectrum:**
+  1. **Positive Support Anchors:** Mentors, confidants, and secure bases who provide grounding or emotional relief.
+  2. **Salient Antagonists & Toxic Foils:** Bullies, mobbers (e.g. "kolega Buc"), toxic managers, chronic adversaries, or exploitative figures who activate defenses, paranoia, or acute stress.
+  3. **The Interlocutor (Rozmówca w czacie):** The primary chat partner must ALWAYS be placed in the salient entity queue to profile the central conversational and relational dyad!
+  4. **Family & Romantic Partners / Suitors:** All central attachment figures.
+- Do NOT artificially cap the count (e.g. "top 4–6"). If 8 or 12 entities exert meaningful emotional, professional, or psychological influence, **ALL of them must be profiled**.
+- Discard only purely episodic bystanders (delivery couriers, one-time taxi drivers, random passersby).
 - Formulate the queue of $M$ salient entities to be profiled.
 
 #### Step 7: Formulate Explicit Negative Disambiguation Boundaries
 For each salient entity in the queue, inspect the rest of the cast to identify **potentially confusable figures** and formulate negative boundaries.
 
-#### Step 8: Wave-Based Parallel Profiling Dispatch (Waves of up to 4 Workers)
-Process the salient entity queue in parallel waves of up to 4 concurrent subagents (`entity-deep-profiler`).
+#### Step 8: Wave-Based Parallel Profiling Dispatch (1 Subagent = 1 Entity, Waves of up to 4 Workers)
+Process the salient entity queue in parallel waves of up to 4 concurrent subagents (`entity-deep-profiler`):
+- **Strict 1:1 Invariant:** Exactly **ONE subagent per salient entity** to ensure exhaustive longitudinal depth.
+- Provide the worker with the entity's canonical name, verified role, known aliases, thread hints, and collision reflection notes.
 
 #### Step 9: Dossier Consolidation, Serendipity Ingestion & Thread Tracking
 As each `entity-deep-profiler` returns its structured Relational Dossier Markdown:

@@ -54,11 +54,17 @@ Your output must be written in fluent, precise Polish and structured into the fo
 
 ## 3. Operational Workflow
 
-1. **Ingest Evidence Base:**
-   Retrieve exported evidence and earlier profile sections (specifically focusing on ego defenses, attachment style, and conflict dynamics):
-   ```bash
-   python3 project/scripts/thread_checklist.py -C <chat_id> --export-evidence
-   ```
+1. **Ingest Evidence Base & Target Playbook Triggers:**
+   - Retrieve exported evidence and earlier profile sections (specifically focusing on ego defenses, attachment style, and conflict dynamics):
+     ```bash
+     python3 project/scripts/thread_checklist.py -C <chat_id> --export-evidence
+     ```
+   - **Selective Crisis & Trigger Ingestion (Zero Prompt Flooding):**
+     Retrieve the 3–5 high-salience conflict and trigger case studies tagged specifically for the playbook:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --facts --target-agent "operational-playbook-architect"
+     ```
+     Use these real conversational crises to formulate the exact "Red Buttons", de-escalation protocols, and communication rules.
 2. **Generate Operational Playbook Section:**
    Draft the complete, comprehensive chapter and write it directly to disk:
    `reports/<subject>_sections/07_operational_playbook.md`

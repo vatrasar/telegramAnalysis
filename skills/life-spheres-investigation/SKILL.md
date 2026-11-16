@@ -1,28 +1,31 @@
 ---
 name: life-spheres-investigation
 description: >-
-  Forensic diagnostic criteria, bilingual search lexicons, and checklist management (checklist.py)
-  for the 6 core life spheres. Use during life spheres investigation and behavioral probing.
+  Investigates 6 core life spheres via two-tier delegation, checklist.py management,
+  and direct modular chapter section synthesis.
 ---
 
 # Life Spheres Investigation, Database Checklist & Behavioral Probing Skill
 
-This skill defines the operational workflow, forensic probing criteria, database checklist management, bilingual search vocabulary, and query recipes used to investigate longitudinal chat logs across foundational life spheres and behavioral dimensions.
+This skill defines the operational workflow, two-tier delegation structure, forensic probing criteria, database checklist management, bilingual search vocabulary, and direct chapter section synthesis used to investigate longitudinal chat logs across foundational life spheres.
 
 ---
 
-## 1. Overview & Semantic Vector Primacy
+## 1. Overview, Delegation & Direct Section Synthesis
 
-Longitudinal chat archives contain rich behavioral evidence, but critical indicators (politics, saving habits, work ethic, unfulfilled ambitions, attachment defenses) are dispersed across thousands of messages and almost never appear under textbook terminology.
+Longitudinal chat archives contain rich behavioral evidence across 6 life spheres (46 standardized criteria). To conduct a thorough, high-throughput investigation without context exhaustion or stranded findings:
 
-- **Lexical Search (`-s`):** Reserved for concrete named entities (cities, companies, pet names, devices). Fails on human attitudes because participants use colloquial expressions (e.g. taxes, OLX deals) rather than formal labels.
-- **Semantic Vector Search (`--semantic`):** **MANDATORY primary discovery engine**. Dense embeddings capture latent intent, behavioral stances, and emotional tone across threads even without literal keyword matches.
-
-This skill equips the agent with:
-1. **The 6 Core Life Spheres Probing Framework:** Forensic criteria and 46 standardized item IDs across lifestyle domains.
-2. **Database Checklist Manager (`checklist.py`):** SQLite persistence enforcing 100% resolution and strict semantic vector verification.
-3. **Master Bilingual Search Lexicon:** Polish lexical terms (`-s`, `-st`) and descriptive English vector queries (`--semantic`).
-4. **Query Toolchain Recipes:** CLI commands via `query_chat.py` for targeted thread retrieval and context verification.
+1. **Two-Tier Delegation Structure:**
+   - **Sphere Supervisor:** Coordinates sphere allocation across 6 life spheres (A–F), assigning focused subagents (`life-sphere-investigator`, `Model: "flash"`).
+   - **Sphere Investigators (2–3 Subagents per Sphere):** Execute targeted semantic/lexical probes, update `checklist.py`, and immediately synthesize the modular chapter section.
+2. **Informed Autonomy on Audit Cache:**
+   - Pre-extracted facts (`--facts-for-sphere`) and audited threads (`--inspected-threads`) are checked first. If cached findings answer the criteria, raw transcript reads are skipped; investigators retain informed autonomy to inspect (`-ts` or `-t --force`) for quote verification or unread turns.
+3. **Direct Chapter Section Synthesis (Anti-Evidence Graveyard):**
+   - As soon as a sphere's criteria are audited in `checklist.py`, the investigator immediately drafts the corresponding modular report section:
+     `reports/<chat_id>_sections/05_<sphere_letter>_<sphere_name>.md`
+   - This prevents evidence from remaining stranded in SQLite and ensures rich quotes are directly woven into the final profile.
+4. **Database Checklist Manager (`checklist.py`):** SQLite persistence enforcing 100% resolution and strict semantic vector verification.
+5. **Master Bilingual Search Lexicon:** Polish lexical terms (`-s`, `-st`) and descriptive English vector queries (`--semantic`).
 
 ---
 
@@ -258,22 +261,25 @@ Informal messaging rarely uses clinical or ideological terms (e.g. users discuss
 
 ## 7. Probing Workflow & Step-by-Step Procedure
 
-0. **Consult Pre-Extracted Evidence & Inspected Threads (Anti-Redundancy Mandate):**
+0. **Consult Pre-Extracted Evidence & Inspected Threads (Informed Autonomy):**
    Before executing new queries or inspecting raw threads, check what earlier agents have already harvested and tagged for your domain:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --facts-for-sphere <sphere_letter>
    python3 project/scripts/query_chat.py -C <chat_id> --inspected-threads --sphere <sphere_letter>
    ```
-   Directly integrate verified quotes and facts into relevant `item_id`s in `checklist.py`. **Strictly avoid re-reading threads that have already been inspected and summarized.** Focus searches solely on remaining gaps.
+   Directly integrate verified quotes and facts into relevant `item_id`s in `checklist.py`. If cached findings provide sufficient evidence, skip raw transcript re-reads. When deeper context or quote verification is needed (especially for threads marked `coverage: partial`), use `-ts` or `-t --force`.
 1. **Initialize Checklist (Mode B only):** Run `python3 project/scripts/checklist.py --init -C <chat_id>`.
 2. **Execute Primary Semantic Vector Queries:** Run descriptive English semantic queries via `query_chat.py --semantic "<concept>"`. Use batch queries to probe related dimensions simultaneously.
 3. **Execute Targeted Lexical Searches:** If probing for specific named entities (colleges, employers, pet names, devices), execute Polish lexical searches (`-s` / `-st`).
-4. **Contextual Verification ($N-5 \dots N+5$):** Inspect candidate matches via `-c <id>` or `-f <id> -w 5`. Verify speaker identity and genuine intent (rule out sarcasm, pasted text, and immediate rebuttals).
+4. **Contextual Verification ($N-5 \dots N+5$):** Inspect candidate matches via `-c <id>` or `-f <id> -w 5` or `-ts <thread_id>`. Verify speaker identity and genuine intent (rule out sarcasm, pasted text, and immediate rebuttals).
 5. **Update Checklist State in Database:**
    - If evidence is found: update item to `completed` with quote anchors `[#ID | YYYY-MM-DD]`, logging both `--queries` and `--semantic-queries`.
    - If unmentioned after exhaustive searches: update item to `no_data`, **strictly documenting the executed semantic vector search in `--semantic-queries`**.
-6. **Run Gate Verification:** Run `python3 project/scripts/checklist.py --check -C <chat_id>`. Ensure exit code 0 before proceeding to Step B.5. The gate will block if any `no_data` or core psychological/attitudinal items lack semantic vector probe verification.
-7. **Apply Evidentiary Inclusion / Omission in Final Report:** Synthesize confirmed dimensions into the narrative report. Completely omit `no_data` dimensions without placeholder text.
+6. **Direct Chapter Section Synthesis (Anti-Evidence Graveyard):**
+   Immediately after auditing criteria for a sphere, the investigator writes the modular markdown section:
+   `reports/<chat_id>_sections/05_<sphere_letter>_<sphere_name>.md`
+   Incorporate exact anchored quotes (`[#ID | YYYY-MM-DD]`), diagnostic analysis, behavioral patterns, and unfulfilled ambitions directly while context is fresh.
+7. **Run Gate Verification:** Run `python3 project/scripts/checklist.py --check -C <chat_id>`. Ensure exit code 0 before proceeding to Step B.5. The gate will block if any `no_data` or core psychological/attitudinal items lack semantic vector probe verification.
 
 ---
 

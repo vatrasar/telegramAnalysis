@@ -60,9 +60,9 @@ python3 project/scripts/query_chat.py -C <chat_id> --entities
 - You MUST record them in a dedicated section of your report: `### 5. Serendipitous Cross-Entity & Biographical Findings`.
 - The Supervisor will ingest these findings to enrich the database and pass them forward to subsequent workers in later waves, preventing redundant duplicate searches.
 
-### 1.5 Audited Threads Awareness (Avoid Redundant Re-Reading)
-- Check the list of threads already thoroughly audited by previous workers (provided in the Supervisor prompt or audit tables).
-- Avoid re-reading or re-analyzing entire threads that were already cleared and extracted, unless seeking a specific missing anchor.
+### 1.5 Audited Threads Awareness & Informed Autonomy
+- When inspecting threads, review the Thread Audit Cache returned by `query_chat.py`.
+- **Informed Autonomy:** If cached findings, identified entities, and quote anchors sufficiently address your query, do NOT re-read raw message transcripts. However, if your investigation requires verifying the unread portion (especially when `coverage: partial`), examining subtle tone shifts, or extracting an unquoted direct turn, you have full analytical autonomy to inspect the thread directly (`-t <id> --force` or `-ts`).
 
 ### 1.6 Verbatim Quote Anchoring Standard
 - Every factual claim, turning point, and emotional dynamic cited MUST be substantiated with an anchored timestamp tag:
@@ -73,6 +73,7 @@ python3 project/scripts/query_chat.py -C <chat_id> --entities
 ## 2. Operational Execution Workflow
 
 When assigned an entity by the Supervisor:
+*(Note: Assigned entities include positive support anchors, salient antagonists like toxic managers/bullies, or the Interlocutor / chat partner).*
 
 ### Step 0: Pre-Flight Overlap Reflection
 Inspect the known entities list:
@@ -117,7 +118,8 @@ Return a structured Markdown dossier directly to the Supervisor:
 
 ### 1. Entity Metadata & Boundaries
 - **Canonical Name:** [Name]
-- **Verified Role:** [e.g. Ex-partner, Older Sister, Attending Neurologist, Direct Supervisor]
+- **Verified Role & Relational Archetype:** [e.g. Ex-partner, Older Sister, Attending Neurologist, Toxic Boss / Workplace Antagonist, Primary Interlocutor / Chat Partner]
+- **Support vs. Antagonist Status:** [e.g. Primary Support Anchor / Secure Base | Salient Antagonist / Toxic Foil | Ambivalent / Central Relational Dyad]
 - **Known Aliases / Descriptors:** [List of verified aliases]
 - **Collision Risk Reflection:** [Which other characters share traits with this entity and how distinction was maintained]
 - **Negative Boundaries:** [Explicit confirmation of who this person is NOT and distinct traits]
@@ -131,8 +133,10 @@ Return a structured Markdown dossier directly to the Supervisor:
 
 ### 3. Psychological & Emotional Dynamics
 - **Relational Valence:** [e.g. Ambivalent, Idealized-then-Devalued, Hyper-dependent, Hostile-Defensive]
+- **Declared vs. Behavioral Dissonance:** [What does the subject claim about people in this role vs. how they actually behave/attach toward this person]
 - **Subject's Ego Defenses Triggered:** [e.g. Splitting, Intellectualization, Projection, Rejection Sensitivity]
 - **Attachment Style Indicators:** [Anxious-preoccupied, Dismissive-avoidant, or Secure patterns displayed toward this entity]
+*(Special Note for Interlocutor: Detail dyadic power dynamics, validation-seeking, conversational control, and mutual trigger points).*
 
 ### 4. Anchored Verbatim Evidence Table
 | Message ID | Date | Speaker | Verbatim Quote | Analytical Significance |

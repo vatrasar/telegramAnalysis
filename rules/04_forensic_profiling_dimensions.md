@@ -12,7 +12,10 @@ These rules govern the psychological profiling mindset, investigative thread ins
 
 1. **Active Hypothesis Formation & Longitudinal Cross-Examination:**
    - Detect anomalies, unusual silences, and emotional tone shifts. Cross-examine claims across the full timeline.
-   - **Words vs. Actions:** Never accept self-descriptions at face value (e.g. *"I never hold grudges"* vs. documented disputes). Expose fractures between conscious persona and recorded reality.
+   - **Words vs. Actions (Relational Dissonance):** Never accept self-descriptions at face value (e.g. *"I never hold grudges"* vs. documented disputes). Expose fractures between conscious persona and recorded reality.
+   - **Declared vs. Behavioral Interpersonal Preferences:** Explicitly analyze the discrepancy between who the subject claims to like/dislike (*"I hate drama; I seek peace and emotional maturity"*) versus who they actually pursue, tolerate, or become attached to in the chat logs (behavioral attraction to chaotic, volatile, or emotionally distant figures).
+   - **The Interlocutor Dyadic Primacy:** The interlocutor in the chat is the subject's primary conversational and emotional sparring partner. Always evaluate the dyadic dynamic: power balance, validation-seeking, emotional dependency, conversational steering, and mutual trigger patterns.
+   - **Full Relational Spectrum (Support Anchors & Antagonistic Foils):** Profile not only family and suitors, but also primary positive anchors (mentors, safe confidants, secure bases) AND salient antagonists (workplace bullies, toxic managers, exploitative acquaintances, adversaries).
 2. **Connecting the Dots (The Profiler's Board):**
    - Synthesize disparate biographical fragments: Connect early memories $\to$ career choices $\to$ relational defenses.
 3. **Heuristic Flexibility:**

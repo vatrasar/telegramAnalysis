@@ -75,12 +75,12 @@ After identifying and documenting the primary anomaly in a thread, you MUST NOT 
 
 When assigned a `thread_id` and `chat_id`:
 
-### Step 0: Check Prior Inspection Status (Anti-Redundancy Check)
-Check if this thread was already inspected and summarized during Phase B.2:
+### Step 0: Check Prior Inspection Status & Informed Autonomy
+Check if this thread was already inspected and summarized during earlier stages:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --is-inspected <thread_id>
 ```
-If inspected with findings, leverage the pre-existing findings and quote anchors rather than reading raw messages from scratch.
+If inspected with findings, review the cached notes and quote anchors. If they answer your inquiry, leverage them; however, if your investigation requires verifying the source text, examining emotional intensity, or extracting a direct unquoted turn, you have full analytical autonomy to inspect (`-t <thread_id> --force` or `-ts`).
 
 ### Step 1: Thread Partition Inspection & Continuity Check
 Inspect the assigned thread partition in a single command:
@@ -105,14 +105,27 @@ python3 project/scripts/query_chat.py -C <chat_id> --anomaly-check <thread_id> -
 - If PASSED: Proceed to Step 4.
 - If SECONDARY ANOMALY SUSPECTED: Inspect the remaining turns. Document the secondary anomaly or confirm it was a false alarm.
 
-### Step 4: Persist Findings into SQLite Checklist
-Record findings directly using the sanctioned checklist tool:
-```bash
-python3 project/scripts/thread_checklist.py -C <chat_id> --update <thread_id> \
-  --set-status completed \
-  --findings "<Synthesized clinical findings, turning point analysis, and anchored quotes>" \
-  --quotes "[#<msg_id> | YYYY-MM-DD] \"<quote 1>\" | [#<msg_id> | YYYY-MM-DD] \"<quote 2>\""
-```
+### Step 4: Persist Findings & Route Targeted Case Studies
+1. Record findings directly into the thread checklist:
+   ```bash
+   python3 project/scripts/thread_checklist.py -C <chat_id> --update <thread_id> \
+     --set-status completed \
+     --findings "<Synthesized clinical findings, turning point analysis, and anchored quotes>" \
+     --quotes "[#<msg_id> | YYYY-MM-DD] \"<quote 1>\" | [#<msg_id> | YYYY-MM-DD] \"<quote 2>\""
+   ```
+2. **Selective Evidence Routing (Zero Prompt Flooding for Drafters):**
+   If this anomaly constitutes a major relational, crisis, or behavioral turning point, ingest it into the evidence repository tagged for the specific downstream author:
+   - For explosive triggers, red buttons, or conflict de-escalation: tag `--target-agent "operational-playbook-architect"` `--category "playbook_trigger"`.
+   - For life crises, breakups, or career turning points: tag `--target-agent "chapter-drafter"` `--category "timeline_event"` or `"attachment_crisis"`.
+   ```bash
+   python3 project/scripts/query_chat.py -C <chat_id> --record-fact \
+     --fact-thread <thread_id> \
+     --target-agent "<target_agent>" \
+     --category "<category>" \
+     --fact-summary "<Trigger, reaction, and defensive mechanism manifested>" \
+     --quote "[#<msg_id> | YYYY-MM-DD] \"<verbatim quote>\"" \
+     --discovered-by "forensic-thread-investigator"
+   ```
 
 ### Step 5: Report Completion to Coordinator
 Return a concise 3-sentence confirmation:
