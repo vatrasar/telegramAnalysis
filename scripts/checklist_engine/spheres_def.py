@@ -428,7 +428,7 @@ CHECKLIST_DEFINITIONS: List[Dict[str, str]] = [
         "sphere_name": "Leisure, Sports, Travel, Vacations & Relationship with Animals",
         "category": "Lifestyle Quirks, Tastes & Daily Idiosyncrasies",
         "sub_item": "Lifestyle Quirks, Consumption Habits & Pet Peeves",
-        "description": "Distinct consumer preferences, culinary/gastronomic tastes (e.g. specific fast foods, dietary habits), clothing and comfort standards (e.g. aversion to formal wear/jeans vs. loungewear), daily rituals, and prominent pet peeves (minor irritations that trigger disproportional annoyance)."
+        "description": "Distinct consumer preferences, culinary and dietary tastes (e.g. favorite foods, everyday dishes, specific cuisines, dietary habits), clothing and comfort standards (e.g. aversion to formal wear/jeans vs. loungewear), daily rituals, and prominent pet peeves (minor irritations that trigger disproportional annoyance)."
     }
 ]
 

@@ -120,7 +120,7 @@ Use these detailed criteria and standardized `item_id`s when auditing the archiv
 - `leis_travel_pattern` — **Travel: Pattern:** Domestic getaways vs. international travel, high-frequency nomadism vs. rare, carefully curated journeys.
 - `leis_animals_pet_ownership` — **Relationship with Animals: Pet Ownership & Affection:** Do they have pets (dogs, cats, etc.), desire pets, or avoid them?
 - `leis_animals_empathy_bond` — **Relationship with Animals: Emotional Bond & Empathy:** How do they interact with and talk about animals? Animal empathy serves as a potent window into their instinctual warmth, capacity for unconditional care, or sensory/cleanliness boundaries.
-- `leis_lifestyle_quirks_and_tastes` — **Lifestyle Quirks, Consumption Habits & Pet Peeves:** Distinct consumer preferences, culinary/gastronomic tastes (e.g. specific fast foods, dietary habits), clothing and comfort standards (e.g. aversion to formal wear/jeans vs. loungewear), daily rituals, and prominent pet peeves (minor irritations that trigger disproportional annoyance).
+- `leis_lifestyle_quirks_and_tastes` — **Lifestyle Quirks, Culinary Tastes & Pet Peeves:** Distinct consumer preferences, culinary and dietary tastes (e.g. favorite foods, everyday dishes, comfort foods vs. fine dining, specific cuisines), clothing and comfort standards (e.g. aversion to formal wear/jeans vs. loungewear), daily rituals, and prominent pet peeves (minor irritations that trigger disproportional annoyance).
 
 ---
 
@@ -236,12 +236,15 @@ python3 project/scripts/query_chat.py --db chat.db -f <message_id> -w 5
 
 ---
 
-## 6. The Master Bilingual Probing Lexicon
+## 6. The Master Probing Lexicon & Dynamic Language Adaptation
 
-Informal messaging rarely uses clinical or ideological terms (e.g. users discuss taxes or second-hand bargains rather than "political doctrines" or "frugality strategies"). Use the table below to pair Polish lexical queries (`-s` / `-st`) with descriptive English vector queries (`--semantic`):
-
-| Analytical Target | Polish Query Keywords (`-s`, `-st`) | English / Semantic Vector Queries (`--semantic`) | Primary Focus & Diagnostic Questions |
-| :--- | :--- | :--- | :--- |
+### Dynamic Language Adaptation Invariant:
+- **Mandatory Target Language Alignment:** Lexical searches (`-s`, `-st`) MUST strictly match the natural language of the chat conversation being analyzed (e.g. French, English, German, Polish, Spanish).
+  - *French Chat Example:* `nourriture`, `manger`, `plat`, `restaurant`, `retraite`, `impôts`, `l'addition`, `payer`, `jean`, `vêtements`, `habitudes`.
+  - *English Chat Example:* `food`, `eating`, `dishes`, `dinner`, `pension`, `taxes`, `bill`, `jeans`, `clothes`, `habits`.
+  - *Polish Chat Example:* `jedzenie`, `obiad`, `danie`, `emerytura`, `podatki`, `rachunek`, `dżinsy`, `ubrania`.
+- **Semantic Vector Queries (`--semantic`):** Semantic queries can be phrased in English (modern embedding models map cross-lingually) OR directly in the conversation's native language.
+- The reference table below provides Polish stems as concrete exemplars alongside universal English semantic queries. Investigators working on non-Polish archives MUST dynamically generate equivalent keywords in the conversation's language.
 
 | Analytical Target | Polish Query Keywords (`-s`, `-st`) | English / Semantic Vector Queries (`--semantic`) | Primary Focus & Diagnostic Questions |
 | :--- | :--- | :--- | :--- |
@@ -263,7 +266,7 @@ Informal messaging rarely uses clinical or ideological terms (e.g. users discuss
 | **Dating Etiquette & Gender Norms** | `randka OR płacić OR rachunek OR facet powinien OR kobieta powinna OR pół na pół OR dżentelmen OR podział ról` | `dating etiquette, who pays on first date, splitting the bill, gender role expectations, courting norms, initiation in relationships` | Norms in romance and dating; who pays on dates; expectations around gender roles and romantic initiation. |
 | **Socio-Economic Philosophy & State Order** | `emerytura OR ZUS OR emerytury obywatelskie OR podatki OR socjal OR wolny rynek OR państwo opiekuńcze OR inflacja` | `pension system reform, universal basic pension, taxation views, free market vs welfare state, economic liberty, institutional trust` | Attitudes toward pensions, taxes, free market vs. state safety net, civil liberties, and institutional authority. |
 | **Personal Creed & Interpersonal Boundaries** | `zasada OR reguła OR pożyczyć OR pożyczka OR szczerość OR kłamstwo OR obietnica OR granice OR honor` | `personal life creed, rules of life, lending money to friends, radical honesty vs diplomatic tact, boundary setting, loyalty tests` | Non-negotiable personal rules; lending money to friends; honesty vs. diplomacy; boundary defense and interpersonal ethics. |
-| **Lifestyle Quirks, Tastes & Pet Peeves** | `jedzenie OR burger OR drwal OR ubrania OR dżinsy OR dres OR nawyki OR nie znoszę OR uwielbiam OR irytuje OR wkurza` | `distinct consumer preferences, favorite fast food, clothing comfort, aversion to formal wear or jeans, daily quirks, pet peeves` | Consumer preferences, culinary tastes, clothing comfort vs. formal wear, daily rituals, and minor pet peeves. |
+| **Lifestyle Quirks, Culinary Tastes & Pet Peeves** | `jedzenie OR obiad OR danie OR potrawa OR gotować OR kuchnia OR restauracja OR ubrania OR dżinsy OR dres OR nawyki OR nie znoszę OR uwielbiam OR irytuje OR wkurza` | `culinary preferences, favorite foods, everyday dishes, comfort food vs fine dining, clothing comfort, aversion to formal wear or jeans, daily quirks, pet peeves` | Culinary and dietary preferences (favorite foods, dishes, cuisines), clothing comfort and style habits, daily routines, and minor pet peeves. |
 
 ---
 
@@ -296,7 +299,7 @@ Informal messaging rarely uses clinical or ideological terms (e.g. users discuss
 Before completing an inquiry into lifestyle or behavioral spheres, verify:
 - [ ] Was `python3 project/scripts/checklist.py --init` executed (if Mode B)?
 - [ ] Were semantic vector queries (`--semantic`) executed for all investigated dimensions?
-- [ ] Were query terms executed in the appropriate language (Polish lexical `-s`/`-st`, English semantic `--semantic`)?
+- [ ] Were query terms executed in the appropriate language (lexical `-s`/`-st` strictly adapted to the conversation's language, English or native language for `--semantic`)?
 - [ ] Did all items resolved as `no_data` have documented semantic vector queries in `--semantic-queries`?
 - [ ] Did all core psychological and attitudinal items (Spheres B, C, E, key items in A, D) have documented `--semantic-queries`?
 - [ ] Were candidate quotes verified in surrounding context ($N-5 \dots N+5$)?

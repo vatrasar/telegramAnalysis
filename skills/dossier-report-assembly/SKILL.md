@@ -86,7 +86,7 @@ A practical interaction guide comprising:
   A dedicated profile grounding the subject's everyday life rules, societal views, and visceral tastes:
   - *Relational & Dating Rules:* Norms on dating etiquette, who pays, gender expectations, lending money to friends, honesty vs. diplomacy.
   - *Socio-Economic Philosophy:* Concrete institutional/economic convictions (e.g., universal pensions vs. capital systems, tax burden, state role).
-  - *Lifestyle Quirks & Pet Peeves:* Distinct consumption habits, comfort/fashion standards (e.g., aversion to jeans/formal wear), culinary vices (e.g., seasonal fast food), and daily irritants (*pet peeves*).
+  - *Lifestyle Quirks & Pet Peeves:* Distinct consumption habits, comfort/fashion standards (e.g., aversion to jeans/formal wear), culinary preferences (favorite everyday foods, dishes, cuisines), and daily irritants (*pet peeves*).
 - **Statement Reliability Index:** Where their declarations are ironclad vs. where their words represent wishful thinking, temporary venting, or phantom plans.
 
 ### 8. Concluding Summary Matrix
