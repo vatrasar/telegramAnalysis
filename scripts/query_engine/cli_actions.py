@@ -281,3 +281,32 @@ def handle_checklist_actions(args: Any, batch_config: Dict[str, Any], resolved_c
         return True
 
     return False
+
+
+def handle_sharding_actions(args: Any, batch_config: Dict[str, Any], resolved_chat_id: Optional[str]) -> bool:
+    """Handle volume assessment and sharding CLI flags. Returns True if handled."""
+    shard_entity_arg = getattr(args, "shard_entity", None) or batch_config.get("shard_entity")
+    shard_sphere_arg = getattr(args, "shard_sphere", None) or batch_config.get("shard_sphere")
+
+    if not shard_entity_arg and not shard_sphere_arg:
+        return False
+
+    if not resolved_chat_id:
+        print("[!] Error: Multiple chats found in database. Please specify chat using -C <chat_id>.")
+        sys.exit(1)
+
+    batch_size = getattr(args, "batch_size", 5) or batch_config.get("batch_size", 5)
+
+    from .sharding import shard_entity, shard_sphere, print_sharding_report
+
+    if shard_entity_arg:
+        res = shard_entity(args.db, resolved_chat_id, shard_entity_arg, batch_size=batch_size)
+        print_sharding_report(res, json_output=args.json)
+        return True
+
+    if shard_sphere_arg:
+        res = shard_sphere(args.db, resolved_chat_id, shard_sphere_arg, batch_size=batch_size)
+        print_sharding_report(res, json_output=args.json)
+        return True
+
+    return False

@@ -4,7 +4,7 @@ description: Investigates clusters of life spheres in isolated sandboxes using v
 subagent: true
 mainAgent: false
 model: flash
-tools: [read_file, run_command, write_file]
+tools: [read_file, run_command, write_file, invoke_subagent, send_message]
 ---
 
 # Life Sphere Investigator (System-2 Subagent)
@@ -98,6 +98,18 @@ Before executing raw searches across the chat archive:
    Review threads that have already been audited. If cached findings and quotes sufficiently cover your question, do not re-read raw messages; however, if your investigation requires examining an unread turn (especially when `coverage: partial`) or extracting an exact missing quote, you have full analytical autonomy to inspect (`-ts` or `-t --force`).
 3. **Incorporate Existing Evidence:**
    Directly integrate applicable pre-extracted quotes and insights into relevant `item_id`s in `checklist.py`.
+
+### Step 0.5: Pre-Flight Volume Assessment & Autonomous Self-Scaling
+Check the thread volume associated with your assigned sphere:
+```bash
+python3 project/scripts/query_chat.py -C <chat_id> --shard-sphere <sphere_letter> --batch-size 5
+```
+- **If `SINGLE_WORKER` ($\le 6$ threads):** Proceed directly with your focused criteria investigation (Steps 1–6).
+- **If `SPLIT_REQUIRED` ($> 6$ threads):**
+  1. Do NOT dump all threads into your context.
+  2. Launch worker subagents in parallel (`TypeName: "forensic-thread-investigator"`, `Model: "flash"`), assigning one chronological shard (up to 5 threads) to each worker.
+  3. Workers return anchored quotes `[#ID | YYYY-MM-DD]` and observed behavioral dynamics.
+  4. Use the returned shard summaries to update your checklist criteria and draft the chapter section in Step 7 without context degradation.
 
 ### Step 1: Review Item Criteria & Search Lexicons
 Consult `project/skills/life-spheres-investigation/SKILL.md` for definitions, criteria, and suggested queries for each assigned `item_id`.

@@ -117,4 +117,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--facts", action="store_true", help="Display discovered facts repository")
     parser.add_argument("--facts-for-sphere", type=str, help="Display pre-extracted facts tagged for a specific life sphere (A-F or name)")
 
+    # Volume Assessment & Sharding flags
+    parser.add_argument("--shard-entity", type=str, metavar="NAME", help="Assess volume and generate chronological thread shards for an entity")
+    parser.add_argument("--shard-sphere", type=str, metavar="SPHERE", help="Assess volume and generate thread shards for a life sphere (A-F)")
+    parser.add_argument("--batch-size", type=int, default=5, help="Thread batch size per shard for --shard-entity / --shard-sphere (default: 5)")
+
     return parser
