@@ -222,4 +222,48 @@ def handle_facts_and_inspection_actions(
             print_discovered_facts(facts, filter_label=f"Chat {resolved_chat_id}")
         return True
 
+    # 8. Index facts into vector store: --index-facts
+    if getattr(args, "index_facts", False):
+        try:
+            from vector_engine import index_facts
+            ok = index_facts(args.db, chat_filter=resolved_chat_id, force=getattr(args, "force", False))
+            if ok:
+                print(f"[✓] Successfully indexed discovered facts into vector store for chat {resolved_chat_id or 'all'}.")
+            else:
+                print("[!] Fact indexing completed or skipped (no facts to index or provider unavailable).")
+        except Exception as e:
+            print(f"[!] Fact indexing error: {e}")
+        return True
+
+    # 9. Semantic search on discovered facts: --semantic-facts <query>
+    if getattr(args, "semantic_facts", None):
+        try:
+            from vector_engine import search_semantic_facts
+            top_k = getattr(args, "limit", 5) or 5
+            sph = getattr(args, "sphere", None)
+            res = search_semantic_facts(args.db, args.semantic_facts, top_k=top_k, chat_filter=resolved_chat_id, sphere_filter=sph)
+            if args.json:
+                print(json.dumps({"query": args.semantic_facts, "results": res}, indent=2, ensure_ascii=False))
+            else:
+                print("=" * 80)
+                print(f"🔍 SEMANTIC FACTS SEARCH: '{args.semantic_facts}' (Top {len(res)} matches)")
+                print("=" * 80)
+                if not res:
+                    print("  No semantically matching facts found.")
+                else:
+                    for i, r in enumerate(res, 1):
+                        score = r.get("score", 0.0)
+                        f_id = r.get("fact_id")
+                        cat = r.get("category", "general")
+                        sph_lbl = f" | Sphere: {r.get('sphere_id')}" if r.get('sphere_id') else ""
+                        anchor = f" | Anchor #{r.get('anchor_msg_id')}" if r.get('anchor_msg_id') else ""
+                        print(f"  [{i}] Fact #{f_id} (Score: {score:.4f}) | Category: {cat}{sph_lbl}{anchor}")
+                        print(f"      Summary: {r.get('fact_summary')}")
+                        if r.get("verbatim_quote"):
+                            print(f"      Quote:   {r.get('verbatim_quote')}")
+                        print("-" * 80)
+        except Exception as e:
+            print(f"[!] Semantic fact search error: {e}")
+        return True
+
     return False

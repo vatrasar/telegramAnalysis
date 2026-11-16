@@ -190,3 +190,105 @@ def index_threads(
         print(f"[!] Unknown provider '{provider}' in configuration.")
         conn.close()
         return False
+
+
+def init_fact_vector_table(conn: sqlite3.Connection) -> None:
+    """Create table for fact vector embeddings in SQLite."""
+    cur = conn.cursor()
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS fact_embeddings (
+        fact_id INTEGER PRIMARY KEY,
+        chat_id TEXT NOT NULL,
+        category TEXT,
+        sphere_id TEXT,
+        fact_summary TEXT,
+        verbatim_quote TEXT,
+        embedding BLOB
+    );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_fact_embeddings_chat ON fact_embeddings(chat_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_fact_embeddings_sphere ON fact_embeddings(chat_id, sphere_id);")
+    conn.commit()
+
+
+def index_facts(
+    db_path: str,
+    chat_filter: Optional[str] = None,
+    force: bool = False,
+    model_override: Optional[str] = None,
+) -> bool:
+    """Embed discovered facts into SQLite vector store for semantic fact search."""
+    config = load_config()
+    provider = config.get("provider", "openrouter").lower()
+
+    conn = sqlite3.connect(db_path)
+    init_fact_vector_table(conn)
+    cur = conn.cursor()
+
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='discovered_facts';")
+    if cur.fetchone()[0] == 0:
+        conn.close()
+        return True
+
+    sql = """
+    SELECT f.fact_id, f.chat_id, f.category, f.sphere_id, f.fact_summary, f.verbatim_quote
+    FROM discovered_facts f
+    """
+    params: List[Any] = []
+    if not force:
+        sql += " LEFT JOIN fact_embeddings fe ON f.fact_id = fe.fact_id WHERE fe.fact_id IS NULL "
+    else:
+        sql += " WHERE 1=1 "
+    if chat_filter:
+        sql += " AND f.chat_id = ? "
+        params.append(chat_filter)
+    sql += " ORDER BY f.fact_id ASC "
+
+    cur.execute(sql, params)
+    rows = cur.fetchall()
+    if not rows:
+        conn.close()
+        return True
+
+    batch_texts = []
+    batch_metadata = []
+    for r in rows:
+        f_id, c_id, cat, sph, summ, quote = r
+        embed_text = f"Fact: {summ}. Category: {cat or 'general'}. Quote: {quote}"
+        batch_texts.append(embed_text)
+        batch_metadata.append((f_id, c_id, cat, sph, summ, quote))
+
+    if provider in ("openrouter", "api"):
+        api_key = config.get("api_key")
+        model = model_override or config.get("model", "openai/text-embedding-3-small")
+        embeddings = fetch_openrouter_embeddings(batch_texts, api_key, model=model)
+        insert_rows = []
+        for (f_id, c_id, cat, sph, summ, quote), emb in zip(batch_metadata, embeddings):
+            blob = serialize_vector(emb)
+            insert_rows.append((f_id, c_id, cat, sph, summ, quote, blob))
+        cur.executemany("""
+        INSERT OR REPLACE INTO fact_embeddings (fact_id, chat_id, category, sphere_id, fact_summary, verbatim_quote, embedding)
+        VALUES (?, ?, ?, ?, ?, ?, ?);
+        """, insert_rows)
+        conn.commit()
+        conn.close()
+        return True
+    elif provider == "local" and is_local_ml_available():
+        from sentence_transformers import SentenceTransformer
+        model_name = model_override or config.get("model", DEFAULT_LOCAL_MODEL)
+        model = SentenceTransformer(model_name)
+        embeddings = model.encode(batch_texts, normalize_embeddings=True).tolist()
+        insert_rows = []
+        for (f_id, c_id, cat, sph, summ, quote), emb in zip(batch_metadata, embeddings):
+            blob = serialize_vector(emb)
+            insert_rows.append((f_id, c_id, cat, sph, summ, quote, blob))
+        cur.executemany("""
+        INSERT OR REPLACE INTO fact_embeddings (fact_id, chat_id, category, sphere_id, fact_summary, verbatim_quote, embedding)
+        VALUES (?, ?, ?, ?, ?, ?, ?);
+        """, insert_rows)
+        conn.commit()
+        conn.close()
+        return True
+
+    conn.close()
+    return False
