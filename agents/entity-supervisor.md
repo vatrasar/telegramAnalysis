@@ -78,13 +78,28 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
    ```
    If candidates have not been extracted for third-party threads, run: `python3 project/scripts/triage_threads.py -C <chat_id> --enrich`.
 
-#### Step 2: Logical Clustering of Extracted Candidates (Supervisor Brain)
-1. Retrieve full candidate entities JSON:
+#### Step 2: Candidate Screening & Logical Clustering
+1. Inspect candidate entities summary:
    ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> --candidates --json
+   python3 project/scripts/query_chat.py -C <chat_id> --candidates
    ```
-2. Using analytical reasoning, synthesize the raw mentions into **logical character clusters of 2–3 related candidates** (e.g. Cluster A: Workplace contacts [Kaleb, Boss]; Cluster B: Romantic suitors [Rahul, Tinder match]; Cluster C: Family members [Ania, Mom]).
-   - Grouping 2–3 related candidates per cluster allows workers to resolve ambiguities and avoid conflation in a single cognitive context.
+2. **Handle High Candidate Volume (> 40 mentions) via Dedicated Screener Subagents:**
+   - Do NOT attempt to ingest hundreds of candidates into your own prompt and do NOT write ad-hoc Python scripts.
+   - Partition the candidates into shards (e.g. 2–4 shards) and dispatch parallel `candidate-triage` subagents:
+     - `TypeName`: `"candidate-triage"`
+     - `Model`: `"flash"`
+     - `Role`: `"Candidate Screener - Shard <X/Y>"`
+     - `Prompt`: "Screen candidate shard <X/Y> using `python3 project/scripts/query_chat.py -C <chat_id> --candidates --candidates-shard <X/Y> --json`. Follow the Single-Mention Salience Invariant: never drop legitimate individuals just because count is 1. Return structured JSON with candidates_to_keep and discovered_noise_words."
+   - When screeners return:
+     - If screeners found recurring noise words, register them permanently in the database:
+       ```bash
+       python3 project/scripts/query_chat.py -C <chat_id> --add-noise-word "<discovered_noise_words>"
+       ```
+     - Aggregate the verified candidates across all shards.
+3. **If Candidate Count is Compact ($\le$ 40 mentions):**
+   Retrieve the candidate list directly: `python3 project/scripts/query_chat.py -C <chat_id> --candidates --json`.
+4. Synthesize the vetted candidates into **logical character clusters of 2–3 related candidates** (e.g. Cluster A: Workplace contacts [Kaleb, Boss]; Cluster B: Romantic suitors [Rahul, Tinder match]; Cluster C: Family members [Ania, Mom]).
+   - Grouping 2–3 related candidates per cluster allows investigators to resolve ambiguities and avoid conflation in a single cognitive context.
 
 #### Step 3: Dynamic Parallel Investigator Dispatch on Character Clusters
 Dispatch parallel investigator subagents via `invoke_subagent` for all identified candidate clusters simultaneously (dynamically scaling the worker pool to the number of clusters without artificial limits or waves):

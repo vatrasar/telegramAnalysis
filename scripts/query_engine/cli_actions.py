@@ -18,6 +18,7 @@ from .entities import (
 from .candidate_inspect import (
     get_candidate_entities_data,
     print_candidate_entities_summary,
+    add_noise_words,
 )
 from .conflation_audit import (
     run_conflation_audit,
@@ -90,25 +91,50 @@ def handle_entity_actions(args: Any, batch_config: Dict[str, Any], resolved_chat
             print_descriptor_audit(audit_res)
         return True
 
+    if getattr(args, "add_noise_word", None):
+        if not resolved_chat_id:
+            print("[!] Error: Please specify target chat via -C <chat_id> for --add-noise-word.")
+            sys.exit(1)
+        words_to_add = [w.strip() for w in args.add_noise_word.split(",") if w.strip()]
+        res = add_noise_words(args.db, resolved_chat_id, words_to_add)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            print(f"[✓] Added {len(res['added_noise_words'])} custom noise words for chat {resolved_chat_id}: {res['added_noise_words']}")
+        return True
+
     if args.candidates or batch_config.get("candidates", False):
         if not resolved_chat_id:
             print("[!] Error: Please specify target chat via -C <chat_id> for --candidates.")
             sys.exit(1)
         filter_noise = not getattr(args, "raw_candidates", False)
         min_count = getattr(args, "min_count", 1)
-        # Determine display limit: if explicitly passed --limit/-n use args.limit (0 means unlimited);
-        # otherwise default to 40 for human/agent table readability
-        limit = args.limit
-        if "--limit" not in sys.argv and "-n" not in sys.argv and not args.json:
-            limit = 40
-        elif limit == 0:
-            limit = None
+        page = getattr(args, "page", 1)
+        page_size = getattr(args, "page_size", None)
+        shard = getattr(args, "candidates_shard", None)
+
+        extra_noise = []
+        if getattr(args, "exclude_words", None):
+            extra_noise = [w.strip() for w in args.exclude_words.split(",") if w.strip()]
+
+        # Limit logic: in JSON mode, return all unless limit or pagination explicitly set.
+        # In ASCII table mode, if no pagination or limit set, default page_size to 50 for readability.
+        limit = None
+        if "--limit" in sys.argv or "-n" in sys.argv:
+            limit = args.limit if args.limit > 0 else None
+        elif not args.json and not page_size and not shard:
+            page_size = 50
+
         cdata = get_candidate_entities_data(
             args.db,
             resolved_chat_id,
             min_count=min_count,
             filter_noise=filter_noise,
             limit=limit,
+            page=page,
+            page_size=page_size,
+            shard=shard,
+            extra_noise_words=extra_noise,
         )
         if args.json:
             print(json.dumps(cdata, indent=2, ensure_ascii=False))
