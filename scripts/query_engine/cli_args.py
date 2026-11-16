@@ -40,6 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--forward", "--onwards", "-fwd", action="store_true", help="Display this thread partition and all subsequent child partitions to the end of the conversation")
     parser.add_argument("--backward", "--backwards", "-bwd", action="store_true", help="Display this thread partition and all preceding parent partitions back to the conversation start")
     parser.add_argument("--full", action="store_true", help="Display full uninterrupted conversation across all child/parent partitions for -t")
+    parser.add_argument("--force", "--force-full", "-ff", dest="force_full", action="store_true", help="Force display full message transcript for -t even if thread has cached audit")
     parser.add_argument("--summary-only", "-so", action="store_true", help="Display only thread header, summary, and candidate entities without full message transcripts for -t")
     parser.add_argument("--thread-snippets", "-ts", action="append", help="Display windowed context snippets (±window msgs, default 4) around candidate entity mentions in a thread (can be repeated)")
     parser.add_argument("--mentions", action="append", help="Explicit mention names to search snippets for in --thread-snippets (can be repeated)")
@@ -90,6 +91,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--check-watchdog-gate", action="store_true", help="Run hard-stop gatekeeper check for Entity Watchdog (exit 0 on pass, exit 1 on fail)")
 
     # Discovered Facts & Inspected Threads flags
+    parser.add_argument("--record-thread-audit", type=str, metavar="THREAD_ID", help="Record structured thread inspection audit (cache for other agents)")
+    parser.add_argument("--coverage", choices=["full", "partial"], default="full", help="Coverage level for thread audit ('full' or 'partial', default: full)")
+    parser.add_argument("--unresolved", type=str, help="Notes on ambiguous pronouns / unresolved mentions (e.g. 'on/he: doctor from Warsaw')")
+    parser.add_argument("--entities-detected", "--entities-str", "--detected-entities", dest="entities_str", type=str, help="Identified entities in thread audit (e.g. 'Ania (sister)')")
     parser.add_argument("--mark-inspected", type=str, metavar="THREAD_ID", help="Mark a thread as inspected/read")
     parser.add_argument("--inspected-by", type=str, help="Agent/subagent role that inspected the thread")
     parser.add_argument("--stage", type=str, help="Investigation stage for thread inspection or fact recording")

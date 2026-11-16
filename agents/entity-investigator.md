@@ -87,52 +87,39 @@ must **NEVER** be parsed as an appositive attributing the descriptor to the name
 
 ## 2. Operational Execution Workflow
 
-When assigned target `thread_id`(s) and `chat_id` with thread summary and extraction candidates:
+When assigned target candidate cluster (typically **2–3 related characters or candidate mentions**) and associated `thread_id`(s):
 
-### Step 1: Autonomous Thread Investigation & Entity Verification
-You receive the target `thread_id`(s), the thread `summary_short`, and the extracted `candidate_entities` from the Supervisor. You have full analytical autonomy on how to locate, inspect, and verify the individual(s):
-- **Batch Thread Reconnaissance (Summary-First):** If assigned multiple suspect threads, inspect their summaries and candidate entities first in a single call to identify the most relevant threads:
-  ```bash
-  python3 project/scripts/query_chat.py -C <chat_id> -t <tid1> -t <tid2> ... --summary-only
-  ```
-- **Focused Snippets:** Retrieve windowed context snippets around candidate mentions:
-  ```bash
-  python3 project/scripts/query_chat.py -C <chat_id> --thread-snippets <thread_id>
-  ```
-- **Full Thread Inspection:** Retrieve the complete conversation thread transcript when full conversational flow is needed:
-  ```bash
-  python3 project/scripts/query_chat.py -C <chat_id> -t <thread_id>
-  ```
-- **Targeted Keyword Probing Within Thread:** Search for candidate terms, descriptors, or aliases:
-  ```bash
-  python3 project/scripts/query_chat.py -C <chat_id> -s "<keyword>"
-  ```
-- **Context Expansion / Causal Anchor:** If an utterance references an antecedent or cross-thread anchor message:
-  ```bash
-  python3 project/scripts/query_chat.py --around <anchor_msg_id> -n 5
-  ```
-- **Pragmatic Stop Rule:** If the surrounding messages show that the conversation moved on to an unrelated topic (topic shift) and no further information exists in this thread, **STOP expanding**.
-- If the identity cannot be determined from the thread evidence, conclude with `status: "insufficient_data"` rather than guessing.
-
-### Step 2: Cross-Check Against Known Registered Entities
-Inspect the known entities list provided by the Supervisor, or query:
+### Step 1: Rapid Snippet Reconnaissance (Single Tool Call)
+Begin by inspecting focused context snippets across all assigned threads in a **single tool call**:
 ```bash
-python3 project/scripts/query_chat.py -C <chat_id> --entities
+python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --mentions "<Candidate_Name>"
 ```
-Verify whether this candidate is:
-- An already registered entity appearing under a familiar alias or descriptor,
-- A genuinely new relational entity,
-- An episodic bystander / NPC,
-- A false positive token (drug, location, slang).
+- **Inspect Thread Audit Cache:** If any assigned thread was already inspected by a previous worker, the command automatically displays the cached audit findings and unresolved pronouns (`he/she`). Use these findings directly without re-reading!
+- **Review Windowed Turns ($\pm 4$ turns):** Evaluate candidate mentions in their immediate conversational context.
 
-### Step 3: Global Anchor Check (If Ambiguous)
-If a unique biographical detail or location is claimed (e.g. *"lives in Texas"*), verify whether another character in the chat holds that attribute:
+### Step 2: Epistemic Stop-When-Identified & Split Entity Verification
+- **Stop-When-Identified Rule:** Your mandate in this phase is to establish identity (canonical name, role, quote anchor) and distinguish the person from others—**NOT** to build a comprehensive biography.
+  - If the snippets provide clear identity and consistent role across threads, **STOP IMMEDIATELY**. Do NOT load full message transcripts!
+- **Split Entity (Anti-Homonim) Guard:** If snippets for the same candidate name reveal irreconcilable roles, locations, or demographic traits (e.g. *Kaleb the team developer* vs. *Kaleb the Tinder date in Lisbon*):
+  - Treat as two distinct individuals ($K=2$).
+  - Only for the conflicting thread, inspect the full transcript or context:
+    ```bash
+    python3 project/scripts/query_chat.py -C <chat_id> -t <thread_id> --force
+    ```
+
+### Step 3: Record Thread Audit Cache (Thread Knowledge Sharing)
+For each thread you inspected (whether via snippets or full transcript), record an audit entry in SQLite so subsequent agents do not duplicate work:
 ```bash
-python3 project/scripts/query_chat.py -C <chat_id> -s "<Descriptor_or_Place>"
+python3 project/scripts/query_chat.py -C <chat_id> --record-thread-audit <thread_id> \
+  --coverage full \
+  --entities-detected "<Identified Entities in thread>" \
+  --unresolved "on/he: <any clues about unidentified persons discussed via pronouns>" \
+  --findings "<1-2 sentence summary of what occurred in the thread>"
 ```
+*(If you only inspected snippets, pass `--coverage partial`)*.
 
 ### Step 4: Report Structured Findings to Supervisor
-Do NOT modify the database. Return your structured findings directly to the Entity Supervisor using this schema:
+Return your structured findings directly to the Entity Supervisor using this schema:
 
 ```json
 {

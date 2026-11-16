@@ -157,6 +157,29 @@ def get_thread(
             summary_short = trow[0]
             candidate_entities = trow[1]
 
+    audit_data = None
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='inspected_threads';")
+    if cur.fetchone()[0] > 0:
+        cur.execute("""
+        SELECT inspected_by, stage, findings_summary, thematic_tags, covered_spheres, inspected_at,
+               coverage, entities_detected, unresolved_pronouns
+        FROM inspected_threads
+        WHERE chat_id = ? AND thread_id = ?;
+        """, (row[1], actual_tid))
+        arow = cur.fetchone()
+        if arow:
+            audit_data = {
+                "inspected_by": arow[0],
+                "stage": arow[1],
+                "findings_summary": arow[2] or "",
+                "thematic_tags": arow[3] or "",
+                "covered_spheres": arow[4] or "",
+                "inspected_at": arow[5],
+                "coverage": arow[6] or "full",
+                "entities_detected": arow[7] or "",
+                "unresolved_pronouns": arow[8] or "",
+            }
+
     conn.close()
 
     start_d = thread_msgs[0]["date"] if (is_multi_part and thread_msgs) else row[4]
@@ -171,6 +194,7 @@ def get_thread(
         "anchor_message": anchor_msg,
         "summary_short": summary_short,
         "candidate_entities": candidate_entities,
+        "audit": audit_data,
         "messages": thread_msgs,
         "start_date": start_d,
         "end_date": end_d,
@@ -186,7 +210,7 @@ def get_thread(
     }
 
 
-def print_thread(t: Dict[str, Any], summary_only: bool = False) -> None:
+def print_thread(t: Dict[str, Any], summary_only: bool = False, force: bool = False) -> None:
     """Print ASCII transcript of a dialogue thread."""
     print("\n" + "=" * 70)
     c_label = f" [Chat: {t.get('chat_name', t.get('chat_id'))}]" if t.get("chat_name") else ""
@@ -214,11 +238,33 @@ def print_thread(t: Dict[str, Any], summary_only: bool = False) -> None:
         print(f"📋 Summary:          {t['summary_short']}")
     if t.get("candidate_entities") and t["candidate_entities"] not in ("[]", "None", ""):
         print(f"👥 Extracted Entities: {t['candidate_entities']}")
+
+    if t.get("audit"):
+        aud = t["audit"]
+        cov = (aud.get("coverage") or "full").upper()
+        print("-" * 70)
+        print(f"ℹ️  THREAD AUDIT CACHE: Inspected by '{aud['inspected_by']}' (Coverage: {cov})")
+        print(f"   Date: {aud['inspected_at'][:16].replace('T', ' ')} | Stage: {aud['stage']}")
+        if aud.get("entities_detected"):
+            print(f"   👥 Identified Entities: {aud['entities_detected']}")
+        if aud.get("unresolved_pronouns"):
+            print(f"   ❓ Unresolved / 'he/she' Clues: {aud['unresolved_pronouns']}")
+        if aud.get("findings_summary"):
+            print(f"   📋 Audit Findings: {aud['findings_summary']}")
+        if aud.get("covered_spheres"):
+            print(f"   🌐 Covered Spheres: {aud['covered_spheres']}")
     print("=" * 70)
 
     if summary_only:
         print(f"💡 [Summary-only mode: use `python3 project/scripts/query_chat.py -t {t['thread_id']}` to view full transcript]")
         print("=" * 70)
+        return
+
+    if t.get("audit") and not force:
+        print("💡 CACHE HIT: Review the previous auditor's findings above.")
+        print("   If this answers your inquiry, you do NOT need to re-read the raw messages.")
+        print(f"   To view the full message transcript anyway, add: --force (or --force-full)")
+        print("=" * 70 + "\n")
         return
 
     if t.get("messages"):

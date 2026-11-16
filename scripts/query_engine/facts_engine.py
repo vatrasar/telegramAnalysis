@@ -126,9 +126,20 @@ def ensure_facts_tables(conn: sqlite3.Connection) -> None:
         thematic_tags TEXT,
         covered_spheres TEXT,
         inspected_at TEXT NOT NULL,
+        coverage TEXT DEFAULT 'full',
+        entities_detected TEXT,
+        unresolved_pronouns TEXT,
         PRIMARY KEY (chat_id, thread_id)
     );
     """)
+    cur.execute("PRAGMA table_info(inspected_threads);")
+    cols = {c[1] for c in cur.fetchall()}
+    if "coverage" not in cols:
+        cur.execute("ALTER TABLE inspected_threads ADD COLUMN coverage TEXT DEFAULT 'full';")
+    if "entities_detected" not in cols:
+        cur.execute("ALTER TABLE inspected_threads ADD COLUMN entities_detected TEXT;")
+    if "unresolved_pronouns" not in cols:
+        cur.execute("ALTER TABLE inspected_threads ADD COLUMN unresolved_pronouns TEXT;")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_inspected_threads_chat ON inspected_threads(chat_id);")
 
     cur.execute("""
@@ -162,6 +173,9 @@ def mark_thread_inspected(
     findings: str = "",
     tags: str = "",
     spheres: str = "",
+    coverage: str = "full",
+    entities_detected: str = "",
+    unresolved_pronouns: str = "",
 ) -> Dict[str, Any]:
     """Mark a thread as inspected/read so subsequent stages do not re-read it blindly."""
     ensure_facts_tables(conn)
@@ -169,16 +183,22 @@ def mark_thread_inspected(
     now_iso = dt_module.datetime.now(dt_module.timezone.utc).isoformat()
 
     cur.execute("""
-    INSERT INTO inspected_threads (chat_id, thread_id, inspected_by, stage, findings_summary, thematic_tags, covered_spheres, inspected_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO inspected_threads (
+        chat_id, thread_id, inspected_by, stage, findings_summary, thematic_tags,
+        covered_spheres, inspected_at, coverage, entities_detected, unresolved_pronouns
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(chat_id, thread_id) DO UPDATE SET
         inspected_by = excluded.inspected_by,
         stage = excluded.stage,
         findings_summary = coalesce(inspected_threads.findings_summary || ' | ', '') || excluded.findings_summary,
         thematic_tags = coalesce(inspected_threads.thematic_tags || ',', '') || excluded.thematic_tags,
         covered_spheres = coalesce(inspected_threads.covered_spheres || ',', '') || excluded.covered_spheres,
-        inspected_at = excluded.inspected_at;
-    """, (chat_id, thread_id, inspected_by, stage, findings, tags, spheres, now_iso))
+        inspected_at = excluded.inspected_at,
+        coverage = excluded.coverage,
+        entities_detected = coalesce(inspected_threads.entities_detected || '; ', '') || excluded.entities_detected,
+        unresolved_pronouns = coalesce(inspected_threads.unresolved_pronouns || '; ', '') || excluded.unresolved_pronouns;
+    """, (chat_id, thread_id, inspected_by, stage, findings, tags, spheres, now_iso, coverage, entities_detected, unresolved_pronouns))
 
     # Also synchronize with thread_audit_checklist if table exists
     cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_audit_checklist';")
@@ -198,6 +218,9 @@ def mark_thread_inspected(
         "thread_id": thread_id,
         "inspected_by": inspected_by,
         "stage": stage,
+        "coverage": coverage,
+        "entities_detected": entities_detected,
+        "unresolved_pronouns": unresolved_pronouns,
         "covered_spheres": spheres,
         "inspected_at": now_iso,
     }
@@ -247,7 +270,8 @@ def is_thread_inspected(conn: sqlite3.Connection, chat_id: str, thread_id: str) 
     ensure_facts_tables(conn)
     cur = conn.cursor()
     cur.execute("""
-    SELECT inspected_by, stage, findings_summary, thematic_tags, covered_spheres, inspected_at
+    SELECT inspected_by, stage, findings_summary, thematic_tags, covered_spheres, inspected_at,
+           coverage, entities_detected, unresolved_pronouns
     FROM inspected_threads
     WHERE chat_id = ? AND thread_id = ?;
     """, (chat_id, thread_id))
@@ -260,6 +284,9 @@ def is_thread_inspected(conn: sqlite3.Connection, chat_id: str, thread_id: str) 
             "thematic_tags": row[3] or "",
             "covered_spheres": row[4] or "",
             "inspected_at": row[5],
+            "coverage": row[6] or "full",
+            "entities_detected": row[7] or "",
+            "unresolved_pronouns": row[8] or "",
         }
     return False, None
 

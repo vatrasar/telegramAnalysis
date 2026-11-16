@@ -83,46 +83,31 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --candidates --json
    ```
-2. Using your analytical intelligence, synthesize the raw mentions into **logical character clusters**:
-   - Cluster A: Mentions related to the same person (e.g. "Lucie", "Lu", "friend from Berlin" $\to$ Threads `t12, t14, t18`).
-   - Cluster B: Mentions of a partner or suitor (e.g. "Rahul", "indian guy", "tinder match" $\to$ Threads `t206660, t206661`).
-   - Cluster C: Specific functional contacts (e.g. "Dr. Nowak", "psychiatrist" $\to$ Thread `t50`).
+2. Using analytical reasoning, synthesize the raw mentions into **logical character clusters of 2–3 related candidates** (e.g. Cluster A: Workplace contacts [Kaleb, Boss]; Cluster B: Romantic suitors [Rahul, Tinder match]; Cluster C: Family members [Ania, Mom]).
+   - Grouping 2–3 related candidates per cluster allows workers to resolve ambiguities and avoid conflation in a single cognitive context.
 
-#### Step 3: Parallel Investigator Dispatch on Character Clusters (Up to 4 Concurrent Workers)
-Dispatch up to 4 parallel investigator subagents via `invoke_subagent`:
+#### Step 3: Parallel Investigator Dispatch on Character Clusters (3–4 Workers per Wave)
+Dispatch 3–4 parallel investigator subagents via `invoke_subagent` (run in waves if more than 4 clusters exist):
 - `TypeName`: `"entity-investigator"`
 - `Model`: `"flash"`
 - `Role`: `"Entity Investigator - Cluster <Cluster_Name>"`
-- `Prompt`: Provide the target character cluster, associated candidate names/roles, relevant thread IDs, thread summaries, and known entities $S$.
-  - **Conflation Warning Flag:** If this character shares traits, roles, or names with an already known or suspected figure (e.g. another *Indian suitor*, another *sister*), explicitly instruct the worker:
-    *"⚠️ CONFLATION CAUTION: Another entity in this archive shares the trait/role '[Trait]'. Scrutinize all pronoun antecedents carefully to ensure traits or actions of the other person are NOT attributed here."*
-  - **Reconnaissance & Investigation:** Instruct the worker to start with rapid batch reconnaissance:
-    `query_chat.py -C <chat_id> -t <id1> -t <id2> ... --summary-only`
-    and then inspect key threads (`-t <id>`), targeted `-s` searches, or focused snippets (`--thread-snippets`).
-  - Verify whether this is a real human entity vs. episodic bystander vs. false positive token.
-  - Determine canonical name/alias, verified role, exact quote anchors (`[#ID | YYYY-MM-DD]`), and differentiating traits.
+- `Prompt`: Provide the target character cluster (2–3 candidates), associated candidate names/roles, relevant thread IDs, thread summaries, and known entities $S$.
+  - Instruct the worker to use the **rapid snippet reconnaissance** protocol:
+    `python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --mentions "<Candidate_Name>"`
+  - Emphasize the **Stop-When-Identified** rule: once identity, role, and quote anchors are established and no contradictions exist across snippets, do NOT load full message transcripts.
+  - Workers leverage and update the **Thread Audit Cache** (`--record-thread-audit`), capturing unresolved `he/she` clues for other agents.
   - Return structured JSON findings.
 
-#### Step 4: Atomic Registration, Inspected Thread Tracking & Fact Ingestion
+#### Step 4: Atomic Registration, Deduplication & Fact Ingestion
 1. **Register All Vetted Candidates from Extraction:**
-   As workers return reports, perform initial database registrations:
+   As workers return reports, perform database registrations:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> \
      --register-entity "<Canonical Name or Descriptor>" \
      --role "<Verified Role>" \
      --desc "<Anchor evidence [#ID], aliases, key context, and explicit negative distinctions>"
    ```
-2. **Mark Inspected Threads in SQLite:**
-   Record each thread audited by workers so later pipeline stages avoid re-reading:
-   ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> \
-     --mark-inspected <thread_id> \
-     --inspected-by "entity-investigator" \
-     --stage "entity_discovery" \
-     --findings "<brief summary of who and what was discussed>" \
-     --covered-spheres "<e.g. B,C>"
-   ```
-3. **Ingest Pre-Extracted Facts Tagged for Downstream Agents:**
+2. **Ingest Pre-Extracted Facts Tagged for Downstream Agents:**
    If the worker returned `discovered_facts`:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> \
@@ -130,31 +115,18 @@ Dispatch up to 4 parallel investigator subagents via `invoke_subagent`:
      --fact-thread <thread_id> \
      --discovered-by "entity-investigator"
    ```
-4. **Execute Consolidated Anti-Conflation Audit:**
+
+#### Step 5: Consolidated Anti-Conflation Audit & Gate Clearance
+1. Run the consolidated anti-conflation and collision audit across all registered entities:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit
    ```
-   Examine any character pairs flagged with high semantic/demographic overlap. If ambiguous characters need clarification, dispatch a targeted investigator or review `--around <anchor_id> -n 5`.
-
-#### Step 5: System-1 Watchdog Clearance & Fast Sweep
-Once clustered entities are registered, verify complete coverage across all threads:
-1. Run System-1 watchdog scan:
-   ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> --watchdog-scan --limit 10
-   ```
-2. For threads that halt with `[🚨 NEW ENTITY DETECTED]`:
-   - Inspect context:
-     ```bash
-     python3 project/scripts/query_chat.py -C <chat_id> --thread-snippets <thread_id>
-     # Or full transcript:
-     python3 project/scripts/query_chat.py -C <chat_id> -t <thread_id>
-     ```
-   - Register or skip (`--skip-thread <id>`).
-3. Repeat until:
+   Examine any character pairs flagged with high semantic/demographic overlap. If ambiguous characters need clarification, inspect `--around <anchor_id> -n 5` or assign negative boundaries (`--desc "...; NOT <Other>"`).
+2. Verify gatekeeper status:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
    ```
-   exits with code 0 (`[✓] PASSED: 100% of third-party threads are verified`).
+   Exits with code 0 (`[✓] PASSED: Entity Discovery verified`).
 
 ---
 

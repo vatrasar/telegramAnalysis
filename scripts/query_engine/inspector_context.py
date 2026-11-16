@@ -67,6 +67,30 @@ def get_thread_snippets(
     ORDER BY timestamp ASC, id ASC;
     """, (thread_id,))
     msg_rows = cur.fetchall()
+
+    audit_data = None
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='inspected_threads';")
+    if cur.fetchone()[0] > 0:
+        cur.execute("""
+        SELECT inspected_by, stage, findings_summary, thematic_tags, covered_spheres, inspected_at,
+               coverage, entities_detected, unresolved_pronouns
+        FROM inspected_threads
+        WHERE chat_id = ? AND thread_id = ?;
+        """, (c_id, thread_id))
+        arow = cur.fetchone()
+        if arow:
+            audit_data = {
+                "inspected_by": arow[0],
+                "stage": arow[1],
+                "findings_summary": arow[2] or "",
+                "thematic_tags": arow[3] or "",
+                "covered_spheres": arow[4] or "",
+                "inspected_at": arow[5],
+                "coverage": arow[6] or "full",
+                "entities_detected": arow[7] or "",
+                "unresolved_pronouns": arow[8] or "",
+            }
+
     conn.close()
 
     if not msg_rows:
@@ -76,6 +100,7 @@ def get_thread_snippets(
             "chat_name": chat_name,
             "message_count": 0,
             "candidates": candidates,
+            "audit": audit_data,
             "snippets": []
         }
 
@@ -88,6 +113,7 @@ def get_thread_snippets(
             "end_date": edate,
             "message_count": len(msg_rows),
             "candidates": [],
+            "audit": audit_data,
             "note": "No candidate entities found in thread_triage or explicit mentions.",
             "snippets": []
         }
@@ -174,6 +200,17 @@ def print_thread_snippets(data: Dict[str, Any]) -> None:
     print(f"   Period: {data.get('start_date', '')} -> {data.get('end_date', '')} | Total Msgs in Thread: {data.get('message_count', 0)}")
     cands_summary = [f"{c.get('mention')} ({c.get('role', 'unknown')})" for c in data.get("candidates", [])]
     print(f"   Candidate Entities: [{', '.join(cands_summary) if cands_summary else 'None'}]")
+    if data.get("audit"):
+        aud = data["audit"]
+        cov = (aud.get("coverage") or "full").upper()
+        print("-" * 80)
+        print(f"   ℹ️  THREAD AUDIT CACHE: Inspected by '{aud['inspected_by']}' (Coverage: {cov})")
+        if aud.get("entities_detected"):
+            print(f"      👥 Identified Entities: {aud['entities_detected']}")
+        if aud.get("unresolved_pronouns"):
+            print(f"      ❓ Unresolved / 'he/she' Clues: {aud['unresolved_pronouns']}")
+        if aud.get("findings_summary"):
+            print(f"      📋 Findings: {aud['findings_summary']}")
     print("=" * 80)
 
     snippets = data.get("snippets", [])

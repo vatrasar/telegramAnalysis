@@ -38,40 +38,57 @@ def handle_facts_and_inspection_actions(
             print(json.dumps({"thread_id": args.is_inspected, "inspected": inspected, "data": data}, indent=2, ensure_ascii=False))
         else:
             if inspected and data:
-                print(f"\n[✓] Thread '{args.is_inspected}' HAS BEEN INSPECTED.")
+                print(f"\n[✓] Thread '{args.is_inspected}' HAS BEEN AUDITED (Coverage: {data.get('coverage', 'full').upper()}).")
                 print(f"    Inspector: {data['inspected_by']} | Stage: {data['stage']} | Date: {data['inspected_at'][:16]}")
-                if data['covered_spheres']:
+                if data.get('entities_detected'):
+                    print(f"    Entities Detected: {data['entities_detected']}")
+                if data.get('unresolved_pronouns'):
+                    print(f"    Unresolved / 'he/she' Clues: {data['unresolved_pronouns']}")
+                if data.get('covered_spheres'):
                     print(f"    Covered Spheres: {data['covered_spheres']}")
-                if data['findings_summary']:
+                if data.get('findings_summary'):
                     print(f"    Findings: {data['findings_summary']}\n")
             else:
                 print(f"\n[✗] Thread '{args.is_inspected}' HAS NOT been inspected yet.\n")
         return True
 
-    # 2. Mark thread inspected: --mark-inspected <thread_id>
-    if getattr(args, "mark_inspected", None):
+    # 2. Mark thread inspected / Record thread audit: --record-thread-audit or --mark-inspected <thread_id>
+    target_audit_tid = getattr(args, "record_thread_audit", None) or getattr(args, "mark_inspected", None)
+    if target_audit_tid:
         if not resolved_chat_id:
-            print("[!] Error: Please specify chat using -C <chat_id> for --mark-inspected.")
+            print("[!] Error: Please specify chat using -C <chat_id> for thread audit.")
             sys.exit(1)
         conn = sqlite3.connect(args.db)
+        ent_val = getattr(args, "entities_str", None) or getattr(args, "identified_str", None) or ""
+        unres_val = getattr(args, "unresolved", None) or ""
+        cov_val = getattr(args, "coverage", None) or "full"
         res = mark_thread_inspected(
             conn=conn,
             chat_id=resolved_chat_id,
-            thread_id=args.mark_inspected,
-            inspected_by=getattr(args, "inspected_by", None) or "agent",
+            thread_id=target_audit_tid,
+            inspected_by=getattr(args, "inspected_by", None) or "entity-investigator",
             stage=getattr(args, "stage", None) or "entity_discovery",
             findings=getattr(args, "findings", None) or "",
             tags=getattr(args, "thematic_tags", None) or getattr(args, "tags", None) or "",
             spheres=getattr(args, "covered_spheres", None) or getattr(args, "sphere", None) or "",
+            coverage=cov_val,
+            entities_detected=ent_val,
+            unresolved_pronouns=unres_val,
         )
         conn.close()
         if args.json:
             print(json.dumps(res, indent=2, ensure_ascii=False))
         else:
-            print(f"\n[✓] Thread '{args.mark_inspected}' marked as INSPECTED for chat {resolved_chat_id}.")
-            print(f"    Inspector: {res['inspected_by']} | Stage: {res['stage']}")
-            if res['covered_spheres']:
+            print(f"\n[✓] Thread '{target_audit_tid}' AUDIT CACHED for chat {resolved_chat_id}.")
+            print(f"    Inspector: {res['inspected_by']} | Stage: {res['stage']} | Coverage: {res['coverage'].upper()}")
+            if res.get('entities_detected'):
+                print(f"    Entities: {res['entities_detected']}")
+            if res.get('unresolved_pronouns'):
+                print(f"    Unresolved / 'he/she' Clues: {res['unresolved_pronouns']}")
+            if res.get('covered_spheres'):
                 print(f"    Covered Spheres: {res['covered_spheres']}")
+            if getattr(args, "findings", None):
+                print(f"    Findings: {getattr(args, 'findings', None)}")
             print()
         return True
 

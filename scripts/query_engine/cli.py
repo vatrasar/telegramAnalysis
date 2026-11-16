@@ -297,7 +297,11 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
                     else:
                         thread_results[t_id] = t_obj
                 else:
-                    print_thread(t_obj, summary_only=getattr(args, "summary_only", False))
+                    print_thread(
+                        t_obj,
+                        summary_only=getattr(args, "summary_only", False),
+                        force=getattr(args, "force_full", False),
+                    )
             else:
                 if args.json:
                     thread_results[t_id] = None
