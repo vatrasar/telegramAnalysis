@@ -151,7 +151,7 @@ def print_candidate_entities_summary(data: Dict[str, Any], chat_name: Optional[s
     print("-" * 80)
     print("💡 SUPERVISOR ACTION:")
     print("   1. Group overlapping mentions into logical character clusters.")
-    print("   2. Dispatch up to 4 parallel `entity-investigator` subagents on these clusters.")
+    print("   2. Dispatch parallel `entity-investigator` subagents dynamically scaled to these clusters.")
     print("   3. Check immediately for conflation risks (e.g. shared nationality/role) via:")
     print(f"      python3 project/scripts/query_chat.py -C {data.get('chat_id')} --conflation-audit")
     print("=" * 80 + "\n")
