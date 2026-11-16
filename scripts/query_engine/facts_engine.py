@@ -20,64 +20,24 @@ SPHERE_TO_CATEGORY: Dict[str, str] = {
 CATEGORY_TO_SPHERE: Dict[str, str] = {v: k for k, v in SPHERE_TO_CATEGORY.items()}
 
 CATEGORY_ALIASES: Dict[str, Tuple[str, Optional[str]]] = {
-    "social": ("sphere_a_social", "A"),
-    "friends": ("sphere_a_social", "A"),
-    "friendship": ("sphere_a_social", "A"),
-    "a": ("sphere_a_social", "A"),
-    "career": ("sphere_b_career", "B"),
-    "work": ("sphere_b_career", "B"),
-    "job": ("sphere_b_career", "B"),
-    "finance": ("sphere_b_career", "B"),
-    "finances": ("sphere_b_career", "B"),
-    "b": ("sphere_b_career", "B"),
-    "politics": ("sphere_c_politics", "C"),
-    "political": ("sphere_c_politics", "C"),
-    "worldview": ("sphere_c_politics", "C"),
-    "tech": ("sphere_c_politics", "C"),
-    "technology": ("sphere_c_politics", "C"),
-    "c": ("sphere_c_politics", "C"),
-    "family": ("sphere_d_family", "D"),
-    "parents": ("sphere_d_family", "D"),
-    "roots": ("sphere_d_family", "D"),
-    "childhood": ("sphere_d_family", "D"),
-    "d": ("sphere_d_family", "D"),
-    "romantic": ("sphere_e_romantic", "E"),
-    "romance": ("sphere_e_romantic", "E"),
-    "attachment": ("sphere_e_romantic", "E"),
-    "partner": ("sphere_e_romantic", "E"),
-    "e": ("sphere_e_romantic", "E"),
-    "leisure": ("sphere_f_leisure", "F"),
-    "sports": ("sphere_f_leisure", "F"),
-    "travel": ("sphere_f_leisure", "F"),
-    "animals": ("sphere_f_leisure", "F"),
-    "hobbies": ("sphere_f_leisure", "F"),
-    "f": ("sphere_f_leisure", "F"),
-    "biography": ("biography_timeline", None),
-    "timeline": ("biography_timeline", None),
-    "history": ("biography_timeline", None),
-    "psychodynamics": ("psychodynamics", None),
-    "defense": ("psychodynamics", None),
-    "trauma": ("psychodynamics", None),
-    "crisis": ("psychodynamics", None),
-    "ocean": ("personality_ocean", None),
-    "bigfive": ("personality_ocean", None),
-    "traits": ("personality_ocean", None),
-    "playbook": ("operational_playbook", None),
-    "advice": ("operational_playbook", None),
-    "rules": ("operational_playbook", None),
+    "social": ("sphere_a_social", "A"), "friends": ("sphere_a_social", "A"), "friendship": ("sphere_a_social", "A"), "a": ("sphere_a_social", "A"),
+    "career": ("sphere_b_career", "B"), "work": ("sphere_b_career", "B"), "job": ("sphere_b_career", "B"), "finance": ("sphere_b_career", "B"), "finances": ("sphere_b_career", "B"), "b": ("sphere_b_career", "B"),
+    "politics": ("sphere_c_politics", "C"), "political": ("sphere_c_politics", "C"), "worldview": ("sphere_c_politics", "C"), "tech": ("sphere_c_politics", "C"), "technology": ("sphere_c_politics", "C"), "c": ("sphere_c_politics", "C"),
+    "family": ("sphere_d_family", "D"), "parents": ("sphere_d_family", "D"), "roots": ("sphere_d_family", "D"), "childhood": ("sphere_d_family", "D"), "d": ("sphere_d_family", "D"),
+    "romantic": ("sphere_e_romantic", "E"), "romance": ("sphere_e_romantic", "E"), "attachment": ("sphere_e_romantic", "E"), "partner": ("sphere_e_romantic", "E"), "e": ("sphere_e_romantic", "E"),
+    "leisure": ("sphere_f_leisure", "F"), "sports": ("sphere_f_leisure", "F"), "travel": ("sphere_f_leisure", "F"), "animals": ("sphere_f_leisure", "F"), "hobbies": ("sphere_f_leisure", "F"), "f": ("sphere_f_leisure", "F"),
+    "biography": ("biography_timeline", None), "timeline": ("biography_timeline", None), "history": ("biography_timeline", None),
+    "psychodynamics": ("psychodynamics", None), "defense": ("psychodynamics", None), "trauma": ("psychodynamics", None), "crisis": ("psychodynamics", None),
+    "ocean": ("personality_ocean", None), "bigfive": ("personality_ocean", None), "traits": ("personality_ocean", None),
+    "playbook": ("operational_playbook", None), "advice": ("operational_playbook", None), "rules": ("operational_playbook", None),
 }
 
 DEFAULT_TARGET_AGENTS: Dict[str, str] = {
-    "sphere_a_social": "life-sphere-investigator",
-    "sphere_b_career": "life-sphere-investigator",
-    "sphere_c_politics": "life-sphere-investigator",
-    "sphere_d_family": "life-sphere-investigator",
-    "sphere_e_romantic": "life-sphere-investigator",
-    "sphere_f_leisure": "life-sphere-investigator",
-    "biography_timeline": "chapter-drafter",
-    "psychodynamics": "forensic-thread-investigator",
-    "personality_ocean": "chapter-drafter",
-    "operational_playbook": "operational-playbook-architect",
+    "sphere_a_social": "life-sphere-investigator", "sphere_b_career": "life-sphere-investigator",
+    "sphere_c_politics": "life-sphere-investigator", "sphere_d_family": "life-sphere-investigator",
+    "sphere_e_romantic": "life-sphere-investigator", "sphere_f_leisure": "life-sphere-investigator",
+    "biography_timeline": "chapter-drafter", "psychodynamics": "forensic-thread-investigator",
+    "personality_ocean": "chapter-drafter", "operational_playbook": "operational-playbook-architect",
 }
 
 
@@ -191,12 +151,25 @@ def mark_thread_inspected(
     ON CONFLICT(chat_id, thread_id) DO UPDATE SET
         inspected_by = excluded.inspected_by,
         stage = excluded.stage,
-        findings_summary = coalesce(inspected_threads.findings_summary || ' | ', '') || excluded.findings_summary,
+        findings_summary = CASE
+            WHEN length(coalesce(inspected_threads.findings_summary, '')) = 0 THEN excluded.findings_summary
+            WHEN length(coalesce(excluded.findings_summary, '')) = 0 THEN inspected_threads.findings_summary
+            WHEN instr(inspected_threads.findings_summary, excluded.findings_summary) > 0 THEN inspected_threads.findings_summary
+            ELSE inspected_threads.findings_summary || ' | ' || excluded.findings_summary
+        END,
         thematic_tags = coalesce(inspected_threads.thematic_tags || ',', '') || excluded.thematic_tags,
         covered_spheres = coalesce(inspected_threads.covered_spheres || ',', '') || excluded.covered_spheres,
         inspected_at = excluded.inspected_at,
-        coverage = excluded.coverage,
-        entities_detected = coalesce(inspected_threads.entities_detected || '; ', '') || excluded.entities_detected,
+        coverage = CASE
+            WHEN inspected_threads.coverage = 'full' OR excluded.coverage = 'full' THEN 'full'
+            ELSE 'partial'
+        END,
+        entities_detected = CASE
+            WHEN length(coalesce(inspected_threads.entities_detected, '')) = 0 THEN excluded.entities_detected
+            WHEN length(coalesce(excluded.entities_detected, '')) = 0 THEN inspected_threads.entities_detected
+            WHEN instr(inspected_threads.entities_detected, excluded.entities_detected) > 0 THEN inspected_threads.entities_detected
+            ELSE inspected_threads.entities_detected || '; ' || excluded.entities_detected
+        END,
         unresolved_pronouns = coalesce(inspected_threads.unresolved_pronouns || '; ', '') || excluded.unresolved_pronouns;
     """, (chat_id, thread_id, inspected_by, stage, findings, tags, spheres, now_iso, coverage, entities_detected, unresolved_pronouns))
 
