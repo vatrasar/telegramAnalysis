@@ -162,3 +162,96 @@ def search_semantic(
     """Search conversation threads by a single semantic concept."""
     res = search_semantic_batch(db_path, [query], top_k=top_k, chat_filter=chat_filter)
     return res.get(query, [])
+
+
+def search_semantic_facts(
+    db_path: str,
+    query: str,
+    top_k: int = 5,
+    chat_filter: Optional[str] = None,
+    sphere_filter: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Search discovered facts semantically using vector similarity or keyword fallback."""
+    config = load_config()
+    provider = config.get("provider", "openrouter").lower()
+
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='fact_embeddings';")
+    if cur.fetchone()[0] == 0:
+        from .indexer import init_fact_vector_table
+        init_fact_vector_table(conn)
+
+    query_vec = None
+    if provider in ("openrouter", "api") and config.get("api_key"):
+        try:
+            q_embs = fetch_openrouter_embeddings([query], config["api_key"], model=config.get("model", "openai/text-embedding-3-small"))
+            if q_embs:
+                query_vec = q_embs[0]
+        except Exception:
+            pass
+    elif provider == "local" and is_local_ml_available():
+        try:
+            from sentence_transformers import SentenceTransformer
+            model = SentenceTransformer(config.get("model", DEFAULT_LOCAL_MODEL))
+            query_vec = model.encode([query], normalize_embeddings=True).tolist()[0]
+        except Exception:
+            pass
+
+    if query_vec is None:
+        sql = """
+        SELECT f.fact_id, f.chat_id, f.category, f.sphere_id, f.fact_summary, f.verbatim_quote, f.thread_id, f.anchor_msg_id
+        FROM discovered_facts f
+        WHERE (lower(f.fact_summary) LIKE ? OR lower(f.verbatim_quote) LIKE ?)
+        """
+        params: List[Any] = [f"%{query.lower()}%", f"%{query.lower()}%"]
+        if chat_filter:
+            sql += " AND f.chat_id = ? "
+            params.append(chat_filter)
+        if sphere_filter:
+            sql += " AND upper(f.sphere_id) = ? "
+            params.append(sphere_filter.upper())
+        sql += " LIMIT ? "
+        params.append(top_k)
+        cur.execute(sql, params)
+        res = [
+            {"fact_id": r[0], "chat_id": r[1], "category": r[2], "sphere_id": r[3], "fact_summary": r[4], "verbatim_quote": r[5], "thread_id": r[6], "anchor_msg_id": r[7], "score": 1.0}
+            for r in cur.fetchall()
+        ]
+        conn.close()
+        return res
+
+    sql = """
+    SELECT fe.fact_id, fe.chat_id, fe.category, fe.sphere_id, fe.fact_summary, fe.verbatim_quote,
+           f.thread_id, f.anchor_msg_id, fe.embedding
+    FROM fact_embeddings fe
+    LEFT JOIN discovered_facts f ON fe.fact_id = f.fact_id
+    WHERE 1=1
+    """
+    f_params: List[Any] = []
+    if chat_filter:
+        sql += " AND fe.chat_id = ? "
+        f_params.append(chat_filter)
+    if sphere_filter:
+        sql += " AND upper(fe.sphere_id) = ? "
+        f_params.append(sphere_filter.upper())
+
+    cur.execute(sql, f_params)
+    scored = []
+    for r in cur.fetchall():
+        emb = deserialize_vector(r[8])
+        sim = dot_product(query_vec, emb)
+        scored.append({
+            "fact_id": r[0],
+            "chat_id": r[1],
+            "category": r[2],
+            "sphere_id": r[3],
+            "fact_summary": r[4],
+            "verbatim_quote": r[5],
+            "thread_id": r[6],
+            "anchor_msg_id": r[7],
+            "score": round(float(sim), 4)
+        })
+    conn.close()
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored[:top_k]

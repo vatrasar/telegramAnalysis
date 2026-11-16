@@ -97,7 +97,10 @@ def call_openrouter_decisions(
                 "type": "noul",
                 "instructions": (
                     "Does this dialogue explicitly mention, discuss, quote, or introduce an external third-party person "
-                    "(e.g. friend, suitor, ex-partner, coworker, boss, family member, acquaintance) other than the two main chat participants?"
+                    "(e.g. friend, suitor, ex-partner, coworker, boss, family member, acquaintance) other than the two main chat participants? "
+                    "STRICT EXCLUSIONS: Do NOT flag famous public figures, celebrities, singers, musicians, actors, politicians, "
+                    "fictional characters, medications, apps, or one-off transactional bystanders (waiter, courier, uber driver). "
+                    "Only flag actual personal, social, romantic, familial, medical, or professional acquaintances interacting with or personally known to the participants."
                 )
             },
             "is_relational_conflict": {
@@ -284,7 +287,9 @@ def call_openrouter_chat_completions(
         "4. is_advice_seeking: Set true if a participant explicitly asks for advice, expresses a personal dilemma ('what should I do?'), "
         "or announces an intimate confession ('I need to confess something').\n"
         "5. mentions_third_party: Set true if this dialogue explicitly mentions, discusses, quotes, or introduces an external third-party person "
-        "(e.g. friend, suitor, ex-partner, coworker, boss, family member, acquaintance) other than the two main chat participants.\n\n"
+        "(e.g. friend, suitor, ex-partner, coworker, boss, family member, acquaintance) other than the two main chat participants. "
+        "STRICT EXCLUSIONS: Do NOT flag famous public figures, celebrities, singers, musicians, actors, politicians, fictional characters, "
+        "medications, apps, or one-off transactional bystanders (waiter, courier, uber driver). Only flag real private acquaintances or personal/professional contacts.\n\n"
         "Respond ONLY with a valid JSON object matching this schema:\n"
         "{\n"
         '  "escalate_to_llm": boolean,\n'

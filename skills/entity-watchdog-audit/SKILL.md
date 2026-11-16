@@ -1,119 +1,129 @@
 ---
 name: entity-watchdog-audit
 description: >-
-  Supervised multi-agent System-1 cursor and parallel snippet audit for identifying and registering
-  third-party entities without context flooding or duplicity.
+  Supervised multi-agent candidate clustering, anti-conflation audits, and System-1 sweeps for registering
+  third-party entities without context flooding.
 ---
 
-# Supervised Multi-Agent Entity Watchdog & Verification Loop
+# Supervised Multi-Agent Entity Watchdog & Anti-Conflation Protocol
 
-This skill provides the operational protocol, System-1 gatekeeper checks, and two-tier supervisory hierarchy for identifying and registering third-party entities across conversation threads with zero context flooding and strict anti-duplication guards.
+This skill provides the operational protocol, candidate clustering flow, immediate anti-conflation audits, and System-1 sweep verification for registering third-party entities with zero context flooding and strict anti-bleeding guards.
 
 ---
 
 ## 1. Overview & Two-Tier Supervisory Architecture
 
-In longitudinal chat archives, participants frequently discuss dozens of third-party individuals (family, suitors, coworkers, medical staff). Analyzing these sequentially through the Main Agent causes severe context exhaustion and operational latency.
+In longitudinal chat archives, participants frequently discuss dozens of third-party individuals (family, suitors, coworkers, medical staff). Analyzing these sequentially through slow single-thread loops causes severe operational latency.
 
-To maximize throughput while eliminating duplicate registrations:
+To maximize throughput while eliminating duplicate registrations and character conflation:
 1. **Main Agent (Coordinator):** Fully delegates the entity audit milestone to the dedicated **Entity Registry Supervisor** (`entity-supervisor`).
-2. **Entity Supervisor (`entity-supervisor`):** Acts as the **Single Source of Truth and Sole Write Authority**. It runs System-1 scans, detects suspect threads, extracts focused snippets, and dispatches parallel investigator subagents.
-3. **Investigator Subagents (`entity-investigator`):** Up to 4 parallel read-only snippet analysts. They inspect $\pm 4$ turns around Scaledown candidate mentions (`candidate_entities`), verify context and rebuttals, and return structured findings. **Workers do not write to SQLite.**
-4. **Deduplication & Registration:** The Supervisor consolidates findings from all concurrent workers, merges overlapping character references, verifies cardinality, and performs atomic database registrations.
+2. **Entity Supervisor (`entity-supervisor`):** Acts as the **Single Source of Truth and Sole Write Authority**. It groups extracted candidates into logical character clusters, dispatches parallel investigator subagents, enforces immediate anti-conflation audits, and executes the System-1 sweep scan.
+3. **Investigator Subagents (`entity-investigator`):** Up to 4 parallel read-only analysts. They inspect threads assigned to character clusters, verify real identity, and return structured findings. **Workers do not write to SQLite.**
+4. **Immediate Anti-Conflation Guard:** The Supervisor immediately audits colliding entities (sharing names, roles, or nationalities) to prevent attribute bleeding before deep profiling.
 
 ---
 
-## 2. The 5-Step Supervisory Watchdog Protocol
+## 2. The 6-Step Supervisory Watchdog Protocol
 
-### Step 1: System-1 Gatekeeper Check (Supervisor)
-For threads flagged with `mentions_third_party = 1`:
-- System 1 checks the thread transcript against currently registered entities $S$:
-  *"Does this conversation thread introduce or discuss ANY NEW, UNKNOWN PERSON not accounted for in S?"*
-- **Outcome NO (0):** Thread contains only known entities. It is marked `cleared` automatically. Zero investigator tokens spent.
-- **Outcome YES (1):** Novel person detected. Flagged for snippet investigation.
-
-### Step 2: Focused Snippet Extraction & Parallel Dispatch (Supervisor $\to$ 4 Workers)
-For suspect threads (in batches of up to 4 concurrently):
-1. The Supervisor extracts windowed context snippets ($\pm 4$ turns) around candidate entities:
+### Step 1: Bulk System-1 Screening & Scaledown Candidate Extraction
+1. Verify whole-chat System-1 triage has screened all threads:
    ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> --thread-snippets <thread_id> --json
+   python3 project/scripts/triage_threads.py -C <chat_id> --status
    ```
-2. The Supervisor invokes up to 4 parallel `entity-investigator` subagents (`Model: "flash"`), passing each worker:
-   - Target `thread_id` and focused candidate snippets.
-   - List of known registered characters.
-
-### Step 3: Forensic Snippet Inspection & Pragmatic Boundedness (Workers)
-Each investigator subagent analyzes the window around candidate mentions:
-- **Baseline Window ($4 + 1 + 4$):** Subagents start with a minimum window of 4 messages before, the target mention message, and 4 messages after ($4+1+4$).
-- **Active Within-Thread Probing:** While subagents avoid reading the full thread sequentially, they can and should run targeted lexical searches (`-s "<keyword>"`) across the thread or check alternative candidate mentions (`--thread-snippets <id> --mentions "<alt>"`) if the person might be named elsewhere in the same thread.
-- **Context Expansion & Direct Split Continuity:**
-  - *Direct Thread Splits:* Threads are chunked (~50 messages limit). If discussion of a person starts at the immediate beginning or cuts off at the immediate end of a thread, the investigator MAY inspect the seam with the directly adjacent thread chunk (`--around <anchor_msg_id> -n 8`).
-  - *Information Continuation Criterion:* Continue following turns ONLY as long as the dialogue *actively continues to discuss and provide informative details* about this specific entity.
-  - *Stop Rule:* If the mention was a brief one-off or the conversation shifted topics, **STOP immediately**. Never read subsequent messages/threads once the topic has shifted, and never dig into distant past threads (e.g. 10 or 20 threads earlier).
-  - *Sparse Mentions:* If evidence is insufficient to identify the person, report `status: "insufficient_data"` rather than guessing.
-- **Antecedent Check:** Traces pronoun antecedents to confirm human identity (vs. drug/place/meme).
-- **Relational Role:** Determines relational significance (personal/medical/professional vs. episodic bystander).
-- **Subject Rebuttal Audit:** Verifies whether the subject explicitly refutes interlocutor assumptions (*"that's not my ex"*).
-- **Report Return:** Submits structured findings JSON to the Supervisor. (Workers NEVER execute `--register-entity`).
-
-### Step 4: Cross-Worker Deduplication & Atomic Registration (Supervisor)
-The Supervisor receives findings from all parallel workers:
-1. **Cross-Thread Deduplication:** Merges multiple references to the same person discussed across different threads into a single canonical entity.
-2. **Cardinality Verification:** Distinguishes multiple individuals sharing identical kinship or role terms (e.g. `Sister_Older` vs. `Sister_Epileptic`).
-3. **Atomic Registration:**
+2. Verify batch enrichment (summary & candidate entity extraction) is complete:
    ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> --register-entity "<Name>" --role "<Role>" --desc "<Anchors & Context>"
-   ```
-4. **Thread Clearance:**
-   ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> --watchdog-check <thread_id>
-   # If false alarm / bystander:
-   python3 project/scripts/query_chat.py -C <chat_id> --skip-thread <thread_id> --reason "episodic_bystander"
+   python3 project/scripts/query_chat.py -C <chat_id> --candidates
    ```
 
-### Step 5: Gate Clearance (Phase A Conclusion)
-The Supervisor repeats the loop until the hard-stop gate passes:
+### Step 2: Logical Clustering of Candidate Mentions (Supervisor Brain)
+The Supervisor retrieves candidate mentions across all third-party threads:
+```bash
+python3 project/scripts/query_chat.py -C <chat_id> --candidates --json
+```
+Using analytical reasoning, the Supervisor consolidates raw mentions into logical character clusters of **2–3 related candidates** (e.g. Cluster 1: Workplace contacts; Cluster 2: Romantic suitors; Cluster 3: Family members).
+
+### Step 3: Parallel Investigator Dispatch on Clusters (Supervisor $\to$ 3–4 Workers per Wave)
+The Supervisor invokes 3–4 parallel `entity-investigator` subagents (`Model: "flash"`):
+- Each worker receives one specific character cluster (2–3 candidates) and associated thread IDs.
+- **Rapid Snippet Reconnaissance Protocol:** Workers execute a single initial call:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --mentions "<Candidate_Name>"
+  ```
+  - Inspect Thread Audit Cache: If any thread was already inspected, cached findings and unresolved pronouns (`he/she`) are automatically displayed.
+  - **Stop-When-Identified Rule:** Once identity, role, and quote anchors are established and no contradictions exist across snippets, workers **STOP** immediately without loading full transcripts.
+  - **Split Entity (Anti-Homonim) Guard:** If snippets reveal contradictory roles or locations (e.g. *Kaleb coworker* vs. *Kaleb Tinder*), workers treat them as distinct individuals ($K=2$) and read only that specific thread (`-t <id> --force`).
+- **Thread Audit Cache Recording:** Workers cache their findings in SQLite:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> --record-thread-audit <thread_id> \
+    --coverage full \
+    --entities-detected "<Identified>" \
+    --unresolved "on/he: <clues about unresolved mentions>" \
+    --findings "<Summary>"
+  ```
+- Workers report findings to Supervisor.
+
+### Step 4: Atomic Registration, Fact Ingestion & Consolidated Anti-Conflation Audit
+1. **Initial Registration of All Vetted Candidates:**
+   ```bash
+   python3 project/scripts/query_chat.py -C <chat_id> \
+     --register-entity "<Name>" --role "<Role>" --desc "<Anchors & Context>"
+   ```
+2. **Ingest Discovered Facts Tagged for Downstream Specialists:**
+   ```bash
+   python3 project/scripts/query_chat.py -C <chat_id> \
+     --record-facts-batch '<json_facts_array>' \
+     --fact-thread <thread_id> \
+     --discovered-by "entity-investigator"
+   ```
+3. **🚨 Consolidated Anti-Conflation Audit (Single Pass Across All Entities):**
+   Once initial vetting of candidate entities is completed, run the audit across the entire cast before deep research:
+   ```bash
+   python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit
+   ```
+   If any collision risk is flagged (e.g. two entities sharing a role like *sister* or trait like *Indian*):
+   - Review threads for each flagged group together to separate individuals.
+   - **⚠️ Explicitly Mark Ambiguities:** If any quote, event, or trait cannot be definitively pinned to one specific person due to ambiguous pronouns, **DO NOT guess**. Explicitly record it in `--desc` as `[AMBIGUOUS ATTRIBUTION: <fact>]`.
+   - Enforce explicit **Negative Boundaries** in `--desc`:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> \
+       --register-entity "<Name>" --desc "<Existing desc>; NOT <Other_Entity>; [AMBIGUOUS ATTRIBUTION: <uncertain fact>]"
+     ```
+
+### Step 5: Gate Clearance & Verification
+Verify that the gatekeeper passes:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
 ```
-Exits with code 0 (`[✓] PASSED: 100% of third-party threads are verified`).
+Exits with code 0 (`[✓] PASSED: Entity Discovery verified`).
 
 ---
 
 ### PHASE B: Deep Salient Entity Profiling & Relational Dossiers
 
-Once the complete entity registry is established and the Watchdog Gate is resolved, the Supervisor deep-profiles all salient figures:
-
-### Step 6: Noise Rejection & Salience Screening (No Artificial Quotas)
-- **Do Not Arbitrarily Cap:** The Supervisor does NOT limit salient figures to "top 4–6". If 3, 8, or 12 figures hold enduring emotional, familial, romantic, or professional weight, **ALL of them are profiled**.
-- **Omit Pure Noise / Transients:** Exclude only episodic, transactional figures (courier, mechanic from single visit, anonymous clerk).
-
-### Step 7: Negative Boundary Injection
-For each salient entity, the Supervisor formulates explicit **Negative Boundaries** (who this person is NOT and distinct traits) to prevent subagents from conflating distinct individuals (e.g. multiple suitors from the same app, multiple siblings, multiple doctors).
-
-### Step 8: Wave-Based Parallel Profiling (1 Entity = 1 Subagent)
-The Supervisor launches `entity-deep-profiler` subagents in parallel waves of up to 4 concurrent workers (`Model: "flash"`):
-- **Dual Search Engine:**
-  - *Lexical FTS (`-s`):* Name, alias, city, concrete milestones.
-  - *Semantic Role Queries (`--semantic`):* Functional role fields (e.g. managerial workplace demands, romantic abandonment fears, parental expectations) even when proper names are omitted.
-  - *Antecedent Audit (`--around <id> -n 5`):* Mandatory turn check to ensure semantic matches belong to the assigned entity.
-
-### Step 9: Dossier Consolidation & Hand-off
-The Supervisor collects structured Markdown dossiers for all salient figures, writes them to `reports/<chat_id>_entities/<Entity>.md`, and hands off the complete Cast of Characters and Relational Matrix to the Main Coordinator.
+Once the complete entity registry is established and the Watchdog Gate is resolved:
+1. **Noise Rejection:** Retain all psychologically salient figures (family, suitors, partners, close friends, superiors, therapists); discard purely transient contacts.
+2. **Negative Boundary Injection:** Provide deep profilers with explicit boundaries.
+3. **Wave-Based Parallel Profiling (Up to 4 Workers):** Dispatch `entity-deep-profiler` subagents to perform dual lexical (`-s`) and semantic (`--semantic`) searches.
+4. **Dossier Consolidation:** Persist dossiers into `reports/<chat_id>_entities/<Entity>.md`.
 
 ---
 
 ## 3. CLI Command Reference
 
 ```bash
-# Focused candidate snippet retrieval (±4 msgs around Scaledown candidate mentions):
-python3 project/scripts/query_chat.py -C <chat_id> --thread-snippets <thread_id>
-python3 project/scripts/query_chat.py -C <chat_id> --thread-snippets <thread_id> --json
-python3 project/scripts/query_chat.py -C <chat_id> --thread-snippets <thread_id> --mentions "<Name_or_Role>"
+# Display extracted candidate entities from thread triage:
+python3 project/scripts/query_chat.py -C <chat_id> --candidates
+python3 project/scripts/query_chat.py -C <chat_id> --candidates --json
 
-# Sequential scan stopping on threads with unverified entities:
+# Run immediate anti-conflation and collision audit:
+python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit
+python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit --json
+
+# Run System-1 watchdog scan in full non-blocking sweep mode:
+python3 project/scripts/query_chat.py -C <chat_id> --watchdog-scan --sweep
+
+# Sequential scan stopping on first detection (interactive mode):
 python3 project/scripts/query_chat.py -C <chat_id> --watchdog-scan
-python3 project/scripts/query_chat.py -C <chat_id> --watchdog-scan --limit 4
 
 # Single thread verification check:
 python3 project/scripts/query_chat.py -C <chat_id> --watchdog-check <thread_id>
@@ -121,11 +131,17 @@ python3 project/scripts/query_chat.py -C <chat_id> --watchdog-check <thread_id>
 # Check current watchdog audit progress:
 python3 project/scripts/query_chat.py -C <chat_id> --watchdog-status
 
-# Verify hard-stop gate status (exit 0 on complete, 1 on pending/detected):
+# Verify hard-stop gate status (exit 0 on complete, 1 on fail):
 python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
 
 # Register a verified third-party entity (Supervisor ONLY):
 python3 project/scripts/query_chat.py -C <chat_id> --register-entity "<Name>" --role "<Role>" --desc "<Notes>"
+
+# Mark a thread as inspected/read (Supervisor ONLY):
+python3 project/scripts/query_chat.py -C <chat_id> --mark-inspected <thread_id> --inspected-by "entity-investigator" --findings "<summary>" --covered-spheres "<e.g. B,C>"
+
+# Batch record discovered facts into evidence repository (Supervisor ONLY):
+python3 project/scripts/query_chat.py -C <chat_id> --record-facts-batch '<json_array>' --fact-thread <thread_id> --discovered-by "entity-investigator"
 
 # Skip false positive or episodic bystander thread (Supervisor ONLY):
 python3 project/scripts/query_chat.py -C <chat_id> --skip-thread <thread_id> --reason "episodic_bystander"
@@ -136,8 +152,5 @@ python3 project/scripts/query_chat.py -C <chat_id> --skip-thread <thread_id> --r
 ## 4. Hard-Stop Blocking Gate & Downstream Prerequisites
 
 The Entity Watchdog is a **strict programmatic prerequisite**:
-
-1. **Downstream Initialization Barrier:**
-   `python3 project/scripts/thread_checklist.py --init -C <chat_id>` and `python3 project/scripts/checklist.py --init -C <chat_id>` verify the watchdog gate. They immediately exit with code 1 if any third-party thread remains pending or has unregistered entities detected.
-2. **Assembly Triple Hard-Stop Gate:**
-   `python3 project/scripts/assemble_report.py --check-gates` verifies that all third-party threads are 100% resolved (`cleared` or `skipped`) before allowing report generation.
+1. `thread_checklist.py --init -C <chat_id>` and `checklist.py --init -C <chat_id>` verify the watchdog gate. They immediately exit with code 1 if any third-party thread remains pending or has unregistered entities detected.
+2. `assemble_report.py --check-gates` verifies that all third-party threads are 100% resolved before allowing report generation.

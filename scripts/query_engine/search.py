@@ -17,7 +17,8 @@ def get_search_messages(
     query: str,
     limit: int = 15,
     chat_id: Optional[str] = None,
-    sender: Optional[str] = None
+    sender: Optional[str] = None,
+    with_context: int = 0
 ) -> List[Dict[str, Any]]:
     """Search individual messages using FTS5 with optional sender filter."""
     conn = sqlite3.connect(db_path)
@@ -71,7 +72,7 @@ def get_search_messages(
         rows = cur.fetchall()
 
     conn.close()
-    return [
+    results = [
         {
             "message_id": r[0],
             "chat_id": r[1],
@@ -83,6 +84,15 @@ def get_search_messages(
         }
         for r in rows
     ]
+
+    if with_context > 0 and results:
+        from .inspector_context import get_chronological_around
+        for item in results:
+            ctx_data = get_chronological_around(db_path, item["message_id"], window=with_context, chat_id=item["chat_id"])
+            if ctx_data and ctx_data.get("messages"):
+                item["context_messages"] = ctx_data["messages"]
+
+    return results
 
 
 def print_search_messages(query: str, rows: List[Dict[str, Any]]) -> None:
@@ -98,7 +108,20 @@ def print_search_messages(query: str, rows: List[Dict[str, Any]]) -> None:
         c_label = f" | Chat: {r.get('chat_name', r.get('chat_id'))}" if r.get("chat_name") else ""
         fmt_text = format_message_text(r['text'], r.get('message_id'))
         print(f"\n[#{r['message_id']} | {r['date'][:16].replace('T', ' ')}{c_label}] {r['sender']} (Thread: {r['thread_id']}):")
-        print(f"   {fmt_text}")
+
+        ctx_msgs = r.get("context_messages")
+        if ctx_msgs:
+            print("   --- Surrounding Context ---")
+            for cm in ctx_msgs:
+                c_text = format_message_text(cm['text'], cm.get('id'))
+                date_str = cm['date'][:16].replace('T', ' ')
+                if cm.get("is_target"):
+                    print(f"   👉 [#{cm['id']} | {date_str}] {cm['sender']}: {c_text}  [MATCH]")
+                else:
+                    print(f"      [#{cm['id']} | {date_str}] {cm['sender']}: {c_text}")
+            print("   " + "-" * 50)
+        else:
+            print(f"   {fmt_text}")
 
 
 def get_search_threads_fts(

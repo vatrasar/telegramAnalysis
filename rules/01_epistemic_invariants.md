@@ -24,13 +24,17 @@ The agent is strictly forbidden from deriving analytical conclusions, biographic
   2. *Immediate Rebuttal Invalidation:* If a proposition in message $N$ is contradicted or rejected in turns $N+1 \dots N+5$ (*"No"*, *"Who said that"*), the agent is strictly forbidden from adopting it as fact.
 
 ### 1.1 Anti-Snippet Ingestion Rule
-- Text teasers or search match previews from CLI outputs are discovery pointers, NEVER admissible evidence.
-- The agent is unconditionally forbidden from quoting or extracting facts directly from search previews without inspecting full context via `query_chat.py --around <msg_id> -n 5` or `-t <thread_id>`.
+- Text teasers or bare search match previews from CLI outputs are discovery pointers, NEVER admissible evidence.
+- The agent is unconditionally forbidden from quoting or extracting facts directly from search previews without inspecting surrounding context via `query_chat.py -s ... --with-context 5` or dialogue thread via `-t <thread_id>`.
 
-### 1.2 Thread Boundary & Parent-Child Lineage Protocol
-- Dialogue threads are partitioned at 50 messages (`MAX_THREAD_MESSAGES = 50`) and linked via `parent_thread_id`.
-- If an analyzed message carries analytical weight and is within the first 5 or last 5 messages of a thread, the agent MUST audit adjacent turns across the boundary using `query_chat.py --around <msg_id> -n 5` or traversing parent/child threads (`-t <parent_or_child_thread_id>`).
-- Single-message threads require auditing $\pm 5$ chronological messages around them via `--around <msg_id> -n 5`.
+### 1.2 Thread Partitioning & Directional Investigation Protocol
+- Dialogue threads are partitioned into ~50-message parts (`MAX_THREAD_MESSAGES = 50`) linked via `parent_thread_id`.
+- **Inspecting a Thread Partition:** `query_chat.py -t <thread_id>` loads that specific full 50-message part.
+- **Following Continuation or Antecedents (Zero Micro-Query Rule):**
+  - When a discussion continues past the boundary into the next part: **load the whole next part** via `query_chat.py -t <child_thread_id>`. Do NOT probe subsequent turns with micro-windows (`--around <id> -n 5`)!
+  - **Forward to Resolution:** If you need to trace the entire development or resolution to the conversation end without loading irrelevant previous parts: use `query_chat.py -t <thread_id> --forward`.
+  - **Backward to Origins:** If you need to trace the conversation origin back to the start: use `query_chat.py -t <thread_id> --backward`.
+  - **Full Conversation:** Use `query_chat.py -t <thread_id> --full` only when the complete multi-part conversation from start to finish is truly required.
 
 ### 1.3 Bare-Pronoun Search Attribution Ban
 - When a keyword search returns a message dominated by a bare third-person pronoun (*"He works at"*, *"On ma kota"*, *"Ona studiuje"*), the agent is STRICTLY PROHIBITED from attributing that trait to a subject based on conversational inertia.

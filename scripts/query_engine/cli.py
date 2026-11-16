@@ -11,7 +11,9 @@ from .cli_actions import (
     handle_entity_actions,
     handle_watchdog_actions,
     handle_checklist_actions,
+    handle_sharding_actions,
 )
+from .facts_actions import handle_facts_and_inspection_actions
 from .catalog import get_chats_catalog, resolve_chat, print_chats_catalog
 from .stats_overview import (
     get_stats,
@@ -112,10 +114,16 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
     if handle_entity_actions(args, batch_config, resolved_chat_id, resolved_chat_name):
         return
 
+    if handle_facts_and_inspection_actions(args, batch_config, resolved_chat_id, resolved_chat_name):
+        return
+
     if handle_watchdog_actions(args, resolved_chat_id):
         return
 
     if handle_checklist_actions(args, batch_config, resolved_chat_id):
+        return
+
+    if handle_sharding_actions(args, batch_config, resolved_chat_id):
         return
 
     # Merge CLI flags with batch config
@@ -241,8 +249,16 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
     # 6. Keyword Search (Individual Messages)
     if search_queries:
         search_results: Dict[str, Any] = {}
+        with_ctx = getattr(args, "with_context", 0)
         for q in search_queries:
-            msgs = get_search_messages(args.db, q, limit=limit, chat_id=resolved_chat_id, sender=sender_filter)
+            msgs = get_search_messages(
+                args.db,
+                q,
+                limit=limit,
+                chat_id=resolved_chat_id,
+                sender=sender_filter,
+                with_context=with_ctx
+            )
             if args.json:
                 search_results[q] = msgs
             else:
@@ -265,8 +281,18 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
     # 8. Retrieve Full Threads (or Summaries only)
     if thread_ids:
         thread_results: Dict[str, Any] = {}
+        full_mode = getattr(args, "full", False)
+        fwd_mode = getattr(args, "forward", False)
+        bwd_mode = getattr(args, "backward", False)
         for t_id in thread_ids:
-            t_obj = get_thread(args.db, t_id, chat_id=resolved_chat_id)
+            t_obj = get_thread(
+                args.db,
+                t_id,
+                chat_id=resolved_chat_id,
+                full=full_mode,
+                forward=fwd_mode,
+                backward=bwd_mode
+            )
             if t_obj:
                 if args.json:
                     if getattr(args, "summary_only", False):
@@ -275,7 +301,11 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
                     else:
                         thread_results[t_id] = t_obj
                 else:
-                    print_thread(t_obj, summary_only=getattr(args, "summary_only", False))
+                    print_thread(
+                        t_obj,
+                        summary_only=getattr(args, "summary_only", False),
+                        force=getattr(args, "force_full", False),
+                    )
             else:
                 if args.json:
                     thread_results[t_id] = None

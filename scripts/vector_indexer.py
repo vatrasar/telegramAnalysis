@@ -27,23 +27,27 @@ from vector_engine import (
     fetch_openrouter_embeddings,
     init_vector_table,
     index_threads,
+    index_facts,
     search_semantic_batch,
     search_semantic,
+    search_semantic_facts,
 )
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Embed conversation threads for semantic psychological search (multi-chat aware)."
+        description="Embed conversation threads and discovered facts for semantic search (multi-chat aware)."
     )
     parser.add_argument("--db", default="chat.db", help="Path to SQLite database")
     parser.add_argument("--index", action="store_true", help="Run indexing on threads")
+    parser.add_argument("--index-facts", action="store_true", help="Run indexing on discovered facts")
     parser.add_argument("--chat", "-C", type=str, help="Filter indexing or search to a specific chat (id or name)")
-    parser.add_argument("--force", action="store_true", help="Force re-indexing of already embedded threads")
+    parser.add_argument("--force", action="store_true", help="Force re-indexing of already embedded items")
     parser.add_argument(
         "--concurrency", "-c", type=int, help="Number of concurrent API workers for embedding batches (default: 4)"
     )
-    parser.add_argument("--search", type=str, help="Semantic search query")
+    parser.add_argument("--search", type=str, help="Semantic search query on threads")
+    parser.add_argument("--search-facts", "--semantic-facts", dest="search_facts", type=str, help="Semantic search query on discovered facts")
     parser.add_argument("--top-k", type=int, default=5, help="Number of results to return")
     parser.add_argument("--model", type=str, help="Override model name")
     args = parser.parse_args()
@@ -56,6 +60,21 @@ def main():
             force=args.force,
             concurrency_override=args.concurrency
         )
+    elif args.index_facts:
+        index_facts(
+            args.db,
+            chat_filter=args.chat,
+            force=args.force,
+            model_override=args.model
+        )
+    elif args.search_facts:
+        f_results = search_semantic_facts(args.db, args.search_facts, top_k=args.top_k, chat_filter=args.chat)
+        print(f"\n--- Top {len(f_results)} Semantic Matches for Facts: '{args.search_facts}' ---")
+        for i, res in enumerate(f_results, 1):
+            print(f"\n[{i}] Fact #{res['fact_id']} | Category: {res.get('category')} | Score: {res.get('score')}")
+            print(f"Summary: {res.get('fact_summary')}")
+            print(f"Quote: {res.get('verbatim_quote')}")
+            print("-" * 50)
     elif args.search:
         results = search_semantic(args.db, args.search, top_k=args.top_k, chat_filter=args.chat)
         print(f"\n--- Top {len(results)} Semantic Matches for: '{args.search}' ---")

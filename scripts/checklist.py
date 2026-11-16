@@ -118,6 +118,12 @@ def main():
         action="store_true",
         help="Re-enable the checklist for full profiling (clears waiver and resets waived items to pending)"
     )
+    action_group.add_argument(
+        "--facts-for-sphere",
+        type=str,
+        metavar="SPHERE_OR_NAME",
+        help="Display pre-extracted facts and evidence tagged for a specific life sphere (A-F or name)"
+    )
 
     parser.add_argument(
         "--reason",
@@ -272,6 +278,18 @@ def main():
                     print(f"    - [{v['item_id']}] {v['issue']}", file=sys.stderr)
         conn.close()
         sys.exit(code)
+
+    if args.facts_for_sphere:
+        from query_engine.facts_engine import get_discovered_facts, print_discovered_facts, normalize_category_and_sphere
+        canon_cat, canon_sph = normalize_category_and_sphere(args.facts_for_sphere, args.facts_for_sphere)
+        facts = get_discovered_facts(conn, chat_id, category=canon_cat if not canon_sph else None, sphere_id=canon_sph)
+        if args.json:
+            print(json.dumps({"sphere": canon_sph, "category": canon_cat, "facts": facts}, indent=2, ensure_ascii=False))
+        else:
+            lbl = f"Sphere {canon_sph}" if canon_sph else f"Category {canon_cat}"
+            print_discovered_facts(facts, filter_label=lbl)
+        conn.close()
+        sys.exit(0)
 
     if args.list:
         items = list_checklist_items(conn, chat_id, status_filter=args.filter_status, sphere_filter=args.sphere)

@@ -12,10 +12,13 @@ from .client import (
 from .indexer import (
     init_vector_table,
     index_threads,
+    init_fact_vector_table,
+    index_facts,
 )
 from .search import (
     search_semantic_batch,
     search_semantic,
+    search_semantic_facts,
 )
 
 __all__ = [
@@ -28,6 +31,9 @@ __all__ = [
     "fetch_openrouter_embeddings",
     "init_vector_table",
     "index_threads",
+    "init_fact_vector_table",
+    "index_facts",
     "search_semantic_batch",
     "search_semantic",
+    "search_semantic_facts",
 ]

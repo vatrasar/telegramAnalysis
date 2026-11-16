@@ -219,18 +219,40 @@ def init_thread_checklist(
     inserted_count = 0
     updated_sources = 0
 
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='inspected_threads';")
+    has_inspected = cur.fetchone()[0] > 0
+    inspected_map = {}
+    if has_inspected:
+        cur.execute("SELECT thread_id, inspected_by, stage, findings_summary, thematic_tags FROM inspected_threads WHERE chat_id = ?;", (chat_id,))
+        for r in cur.fetchall():
+            inspected_map[r[0]] = {
+                "inspected_by": r[1],
+                "stage": r[2],
+                "findings": r[3] or "",
+                "tags": r[4] or "",
+            }
+
     for tid, data in thread_candidates.items():
         cur.execute("SELECT radar_sources, status FROM thread_audit_checklist WHERE chat_id = ? AND thread_id = ?;", (chat_id, tid))
         row = cur.fetchone()
         if not row:
+            initial_status = "pending"
+            initial_findings = None
+            initial_tags = None
+            if tid in inspected_map:
+                initial_status = "completed"
+                initial_findings = f"[Inspected in {inspected_map[tid]['stage']} by {inspected_map[tid]['inspected_by']}] {inspected_map[tid]['findings']}".strip()
+                initial_tags = inspected_map[tid]['tags']
+
             cur.execute("""
             INSERT INTO thread_audit_checklist (
                 chat_id, thread_id, radar_sources, salience_score, primary_category,
-                start_date, message_count, total_words, status, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?);
+                start_date, message_count, total_words, status, findings_summary, thematic_tags, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """, (
                 chat_id, tid, data["radar_sources"], data["salience_score"], data["primary_category"],
-                data["start_date"], data["message_count"], data["total_words"], now_iso
+                data["start_date"], data["message_count"], data["total_words"], initial_status,
+                initial_findings, initial_tags, now_iso
             ))
             inserted_count += 1
         else:
@@ -384,6 +406,20 @@ def update_thread_item(
     params.extend([chat_id, thread_id])
     sql = f"UPDATE thread_audit_checklist SET {', '.join(updates)} WHERE chat_id = ? AND thread_id = ?;"
     cur.execute(sql, params)
+
+    if status in ("completed", "skipped"):
+        cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='inspected_threads';")
+        if cur.fetchone()[0] > 0:
+            cur.execute("""
+            INSERT INTO inspected_threads (chat_id, thread_id, inspected_by, stage, findings_summary, thematic_tags, covered_spheres, inspected_at)
+            VALUES (?, ?, 'thread-forensic-analyst', 'thread_delta_audit', ?, ?, '', ?)
+            ON CONFLICT(chat_id, thread_id) DO UPDATE SET
+                stage = excluded.stage,
+                findings_summary = coalesce(inspected_threads.findings_summary || ' | ', '') || excluded.findings_summary,
+                thematic_tags = coalesce(inspected_threads.thematic_tags || ',', '') || excluded.thematic_tags,
+                inspected_at = excluded.inspected_at;
+            """, (chat_id, thread_id, findings or "", tags or "", now_iso))
+
     conn.commit()
     return cur.rowcount > 0
 
