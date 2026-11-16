@@ -93,6 +93,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--candidates-shard", type=str, help="Candidate entity shard index/total (e.g. '1/4', '2/4') for candidate-triage subagents")
     parser.add_argument("--exclude-words", "--noise-words", type=str, help="Comma-separated custom noise/stop words to exclude from candidates in this run")
     parser.add_argument("--add-noise-word", "--add-noise-words", type=str, help="Permanently register custom noise/stop words for the chat in database")
+    parser.add_argument("--suggest-clusters", "--cluster-candidates", action="store_true", help="Generate hybrid graph and co-occurrence clusters for candidates with conflation alerts")
+    parser.add_argument("--cluster-size", type=int, default=3, help="Target cluster size for --suggest-clusters (default: 3)")
     parser.add_argument("--conflation-audit", action="store_true", help="Run immediate anti-conflation and collision audit across registered entities")
     parser.add_argument("--watchdog-status", action="store_true", help="Display summary progress of sequential entity watchdog scan")
     parser.add_argument("--skip-thread", type=str, help="Mark thread as skipped/false-positive in entity scan to resume progress")

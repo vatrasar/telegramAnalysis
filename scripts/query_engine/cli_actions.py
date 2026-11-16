@@ -20,6 +20,10 @@ from .candidate_inspect import (
     print_candidate_entities_summary,
     add_noise_words,
 )
+from .candidate_clustering import (
+    generate_candidate_clusters,
+    print_suggested_clusters,
+)
 from .conflation_audit import (
     run_conflation_audit,
     print_conflation_audit,
@@ -140,6 +144,36 @@ def handle_entity_actions(args: Any, batch_config: Dict[str, Any], resolved_chat
             print(json.dumps(cdata, indent=2, ensure_ascii=False))
         else:
             print_candidate_entities_summary(cdata, chat_name=resolved_chat_name)
+        return True
+
+    if args.suggest_clusters or batch_config.get("suggest_clusters", False):
+        if not resolved_chat_id:
+            print("[!] Error: Please specify target chat via -C <chat_id> for --suggest-clusters.")
+            sys.exit(1)
+        filter_noise = not getattr(args, "raw_candidates", False)
+        min_count = getattr(args, "min_count", 1)
+        target_size = getattr(args, "cluster_size", 3)
+        extra_noise = []
+        if getattr(args, "exclude_words", None):
+            extra_noise = [w.strip() for w in args.exclude_words.split(",") if w.strip()]
+
+        cdata = get_candidate_entities_data(
+            args.db,
+            resolved_chat_id,
+            min_count=min_count,
+            filter_noise=filter_noise,
+            limit=None,
+            extra_noise_words=extra_noise,
+        )
+        clusters_data = generate_candidate_clusters(
+            candidates=cdata.get("candidates", []),
+            chat_id=resolved_chat_id,
+            target_cluster_size=target_size,
+        )
+        if args.json:
+            print(json.dumps(clusters_data, indent=2, ensure_ascii=False))
+        else:
+            print_suggested_clusters(clusters_data, chat_name=resolved_chat_name)
         return True
 
     if args.conflation_audit or batch_config.get("conflation_audit", False):
