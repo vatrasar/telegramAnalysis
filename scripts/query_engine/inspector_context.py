@@ -21,7 +21,7 @@ def get_thread_snippets(
 
     cur.execute("""
     SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id), t.anchor_message_id,
-           t.start_date, t.end_date, t.message_count, t.participants
+           t.start_date, t.end_date, t.message_count, t.participants, t.initiator
     FROM threads t
     LEFT JOIN chats c ON t.chat_id = c.chat_id
     WHERE t.thread_id = ?;
@@ -31,20 +31,18 @@ def get_thread_snippets(
         conn.close()
         return None
 
-    tid, c_id, chat_name, anchor_id, sdate, edate, mcount, participants = t_row
+    tid, c_id, chat_name, anchor_id, sdate, edate, mcount, participants, initiator = t_row
 
     candidates: List[Dict[str, Any]] = []
-    if mentions:
-        for m in mentions:
-            if m.strip():
-                candidates.append({"mention": m.strip(), "role": "explicit_query"})
-    else:
-        cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
-        if cur.fetchone()[0] > 0:
-            cur.execute("SELECT candidate_entities FROM thread_triage WHERE thread_id = ?;", (thread_id,))
-            cand_row = cur.fetchone()
-            if cand_row and cand_row[0]:
-                raw_cands = cand_row[0].strip()
+    summary_short = None
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
+    if cur.fetchone()[0] > 0:
+        cur.execute("SELECT summary_short, candidate_entities FROM thread_triage WHERE thread_id = ?;", (thread_id,))
+        cand_row = cur.fetchone()
+        if cand_row:
+            summary_short = cand_row[0]
+            if not mentions and cand_row[1]:
+                raw_cands = cand_row[1].strip()
                 try:
                     parsed = json.loads(raw_cands)
                     if isinstance(parsed, list):
@@ -59,6 +57,11 @@ def get_thread_snippets(
                     for token in raw_cands.split(","):
                         if token.strip():
                             candidates.append({"mention": token.strip(), "role": "unspecified"})
+
+    if mentions:
+        for m in mentions:
+            if m.strip():
+                candidates.append({"mention": m.strip(), "role": "explicit_query"})
 
     cur.execute("""
     SELECT id, date, sender, text, timestamp
@@ -187,7 +190,11 @@ def get_thread_snippets(
         "start_date": sdate,
         "end_date": edate,
         "message_count": len(msg_rows),
+        "participants": participants,
+        "initiator": initiator,
+        "summary_short": summary_short,
         "candidates": candidates,
+        "audit": audit_data,
         "snippets": snippets
     }
 
@@ -197,9 +204,17 @@ def print_thread_snippets(data: Dict[str, Any]) -> None:
     print("\n" + "=" * 80)
     c_label = f" [Chat: {data.get('chat_name', data.get('chat_id'))}]" if data.get("chat_name") else ""
     print(f"🎯 FOCUSED CANDIDATE SNIPPETS: Thread {data['thread_id']}{c_label}")
-    print(f"   Period: {data.get('start_date', '')} -> {data.get('end_date', '')} | Total Msgs in Thread: {data.get('message_count', 0)}")
+    init_str = f" (Initiator: {data['initiator']})" if data.get("initiator") else ""
+    s_date = data.get('start_date', '')[:16].replace('T', ' ')
+    e_date = data.get('end_date', '')[:16].replace('T', ' ')
+    print(f"   Timeframe:    {s_date} to {e_date} | Messages: {data.get('message_count', 0)}")
+    if data.get("participants"):
+        print(f"   Participants: {data['participants']}{init_str}")
+    if data.get("summary_short"):
+        print(f"   📋 Summary:   {data['summary_short']}")
     cands_summary = [f"{c.get('mention')} ({c.get('role', 'unknown')})" for c in data.get("candidates", [])]
-    print(f"   Candidate Entities: [{', '.join(cands_summary) if cands_summary else 'None'}]")
+    if cands_summary:
+        print(f"   👥 Candidates: [{', '.join(cands_summary)}]")
     if data.get("audit"):
         aud = data["audit"]
         cov = (aud.get("coverage") or "full").upper()
