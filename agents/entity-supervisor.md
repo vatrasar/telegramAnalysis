@@ -98,8 +98,14 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
      - Aggregate the verified candidates across all shards.
 3. **If Candidate Count is Compact ($\le$ 40 mentions):**
    Retrieve the candidate list directly: `python3 project/scripts/query_chat.py -C <chat_id> --candidates --json`.
-4. Synthesize the vetted candidates into **logical character clusters of 2–3 related candidates** (e.g. Cluster A: Workplace contacts [Kaleb, Boss]; Cluster B: Romantic suitors [Rahul, Tinder match]; Cluster C: Family members [Ania, Mom]).
-   - Grouping 2–3 related candidates per cluster allows investigators to resolve ambiguities and avoid conflation in a single cognitive context.
+4. **Generate Hybrid Pre-Clusters & Conflation Risk Alerts:**
+   Run the deterministic co-occurrence clustering engine:
+   ```bash
+   python3 project/scripts/query_chat.py -C <chat_id> --suggest-clusters --json
+   ```
+   - Review the generated clusters (automatically grouped by shared thread Jaccard index, role overlap, and category into 2–3 candidate targets).
+   - Review `high_conflation_risks`: candidates with high co-occurrence or similar roles where downstream investigators must be explicitly warned NOT to accidentally merge distinct individuals ($K=1$ vs $K \ge 2$).
+   - Confirm cluster assignments for investigator dispatch.
 
 #### Step 3: Dynamic Parallel Investigator Dispatch on Character Clusters
 Dispatch parallel investigator subagents via `invoke_subagent` for all identified candidate clusters simultaneously (dynamically scaling the worker pool to the number of clusters without artificial limits or waves):

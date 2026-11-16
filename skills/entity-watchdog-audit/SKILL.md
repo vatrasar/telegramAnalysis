@@ -46,7 +46,9 @@ To maximize throughput while eliminating duplicate registrations and character c
    - Screeners separate genuine third parties (including single mentions $N=1$) from transactional noise, reporting back candidates to keep and any recurring noise words to register permanently (`--add-noise-word "<words>"`).
 3. **If Candidate Count is Compact ($\le$ 40 mentions):**
    The Supervisor inspects candidates directly via `--candidates --json`.
-4. The Supervisor groups vetted candidates into logical character clusters of **2–3 related candidates** (e.g. Cluster 1: Workplace contacts; Cluster 2: Romantic suitors; Cluster 3: Family members).
+4. **Generate Hybrid Clusters & Conflation Alerts:**
+   The Supervisor runs: `python3 project/scripts/query_chat.py -C <chat_id> --suggest-clusters --json`
+   This automatically forms 2–3 candidate clusters based on shared thread co-occurrence and role match, while highlighting `high_conflation_risks` to prevent accidental merges ($K=1$ vs $K \ge 2$).
 
 ### Step 3: Dynamic Parallel Investigator Dispatch on Clusters
 The Supervisor invokes parallel `entity-investigator` subagents (`Model: "flash"`), dynamically scaled to the number of candidate clusters without artificial limits or wave batching:
