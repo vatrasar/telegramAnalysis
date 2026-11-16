@@ -13,7 +13,7 @@ This skill defines the operational workflow, two-tier delegation structure, fore
 
 ## 1. Overview, Delegation & Direct Section Synthesis
 
-Longitudinal chat archives contain rich behavioral evidence across 6 life spheres (46 standardized criteria). To conduct a thorough, high-throughput investigation without context exhaustion or stranded findings:
+Longitudinal chat archives contain rich behavioral evidence across 6 life spheres (50 standardized criteria). To conduct a thorough, high-throughput investigation without context exhaustion or stranded findings:
 
 1. **Two-Tier Delegation Structure:**
    - **Sphere Supervisor:** Coordinates sphere allocation across 6 life spheres (A–F), assigning focused subagents (`life-sphere-investigator`, `Model: "flash"`).
@@ -52,6 +52,7 @@ Use these detailed criteria and standardized `item_id`s when auditing the archiv
 - `soc_paradigm_boundaries` — **Friendship Paradigm & Boundaries:** Do they view friends as authentic confidants, an admiring audience, or utilitarian assets? Do they maintain an exclusive inner circle while keeping others at arm's length?
 - `soc_loyalty_doorslamming` — **Loyalty vs. Door-Slamming:** Do they repair relational fractures, or do they permanently sever ties (*door-slam*) upon the first perceived disloyalty or slight?
 - `soc_envy_compersion_confidentiality` — **Envy vs. Compersion & Confidentiality:** How do they react to peers' achievements? Genuine pride vs. passive-aggressive minimization, envy, or anxious comparison. Do they guard secrets faithfully or instrumentalize gossip?
+- `soc_personal_creed_and_boundaries` — **Personal Creed & Interpersonal Boundaries:** Non-negotiable personal life rules and boundaries: stances on lending money to friends, radical honesty vs. diplomatic tact, loyalty expectations, punctuality, and personal ethics in social interactions.
 
 ---
 
@@ -88,6 +89,7 @@ Use these detailed criteria and standardized `item_id`s when auditing the archiv
 - `world_tech_reaction_innovations` — **Attitude Toward AI & Modern Technology: Reaction to Introduced Tools & Innovations:** When an interlocutor recommends or introduces a new digital tool, software, or technology, does the subject show curiosity and try it, or do they simply show a lack of interest, shrug it off, or prefer familiar routines? (Avoid forcing far-fetched psychological diagnoses when a reaction simply reflects standard disinterest).
 - `world_tech_practical_usage` — **Attitude Toward AI & Modern Technology: Practical Digital Tool Usage:** How do they actually utilize digital infrastructure? (Advanced workflows and intellectual exploration vs. purely basic communication, administrative utilities, and low-friction mobile games).
 - `world_cognitive_debate_style` — **Cognitive Style in Debate:** Do they lean on empirical evidence and formal logic, or emotional appeal and moral superiority? Do they respect ideological opponents or dehumanize them?
+- `world_socio_economic_and_civic_order` — **Socio-Economic Philosophy & State Order:** Attitudes toward the role of the state, taxation, pension systems (e.g. civic/universal pensions vs. capital/state systems), free market vs. social safety net, civil liberties, and institutional authority.
 
 ---
 
@@ -104,6 +106,7 @@ Use these detailed criteria and standardized `item_id`s when auditing the archiv
 - `rom_relational_history` — **Relational History & Archetypes:** Tracing romantic partners, breakups, betrayals, and formative lessons across the timeline.
 - `rom_intimacy_ceilings` — **Intimacy Ceilings & Push-Pull Dynamics:** At what point does closeness trigger defensive anxiety or deactivating maneuvers?
 - `rom_conflict_resolution` — **Conflict Resolution in Romance:** Reconnection and repair attempts vs. emotional stonewalling, scorekeeping, or dramatic exits.
+- `rom_dating_and_gender_norms` — **Dating Etiquette & Gender Norms:** Declared beliefs and behavioral norms in romantic dating: stances on who pays on dates (splitting bills vs. chivalry), gender role expectations, dating etiquette, initiation, and relationship power dynamics.
 
 ---
 
@@ -117,6 +120,7 @@ Use these detailed criteria and standardized `item_id`s when auditing the archiv
 - `leis_travel_pattern` — **Travel: Pattern:** Domestic getaways vs. international travel, high-frequency nomadism vs. rare, carefully curated journeys.
 - `leis_animals_pet_ownership` — **Relationship with Animals: Pet Ownership & Affection:** Do they have pets (dogs, cats, etc.), desire pets, or avoid them?
 - `leis_animals_empathy_bond` — **Relationship with Animals: Emotional Bond & Empathy:** How do they interact with and talk about animals? Animal empathy serves as a potent window into their instinctual warmth, capacity for unconditional care, or sensory/cleanliness boundaries.
+- `leis_lifestyle_quirks_and_tastes` — **Lifestyle Quirks, Consumption Habits & Pet Peeves:** Distinct consumer preferences, culinary/gastronomic tastes (e.g. specific fast foods, dietary habits), clothing and comfort standards (e.g. aversion to formal wear/jeans vs. loungewear), daily rituals, and prominent pet peeves (minor irritations that trigger disproportional annoyance).
 
 ---
 
@@ -256,6 +260,10 @@ Informal messaging rarely uses clinical or ideological terms (e.g. users discuss
 | **Animals & Pets** | `pies OR piesek OR kot OR kotek OR zwierzak OR pupil OR schronisko` | `pet ownership, affection for dogs and cats, emotional bond with animals, animal empathy, sensory boundaries with pets` | Pet ownership; emotional warmth and empathy toward animals; sensory/cleanliness boundaries. |
 | **Travel (Motivations & Style)** | `podróż OR zwiedzać OR samolot OR lot OR zagranica OR walizka OR wycieczka` | `travel motivations, cultural wanderlust, exploring foreign countries, international flights vs domestic weekend getaways, committed homebody` | Motivations (cultural curiosity, routine escape, wanderlust) vs. committed homebody; domestic vs. international travel. |
 | **Romantic Intimacy & Ceilings** | `związek OR randka OR dziewczyna OR chłopak OR miłość OR ślub OR rozstanie` | `romantic relationship, emotional vulnerability, intimacy ceilings, fear of commitment, relationship deactivation, conflict repair vs stonewalling` | Formative relational history; deactivating strategies; conflict resolution vs. dramatic exits. |
+| **Dating Etiquette & Gender Norms** | `randka OR płacić OR rachunek OR facet powinien OR kobieta powinna OR pół na pół OR dżentelmen OR podział ról` | `dating etiquette, who pays on first date, splitting the bill, gender role expectations, courting norms, initiation in relationships` | Norms in romance and dating; who pays on dates; expectations around gender roles and romantic initiation. |
+| **Socio-Economic Philosophy & State Order** | `emerytura OR ZUS OR emerytury obywatelskie OR podatki OR socjal OR wolny rynek OR państwo opiekuńcze OR inflacja` | `pension system reform, universal basic pension, taxation views, free market vs welfare state, economic liberty, institutional trust` | Attitudes toward pensions, taxes, free market vs. state safety net, civil liberties, and institutional authority. |
+| **Personal Creed & Interpersonal Boundaries** | `zasada OR reguła OR pożyczyć OR pożyczka OR szczerość OR kłamstwo OR obietnica OR granice OR honor` | `personal life creed, rules of life, lending money to friends, radical honesty vs diplomatic tact, boundary setting, loyalty tests` | Non-negotiable personal rules; lending money to friends; honesty vs. diplomacy; boundary defense and interpersonal ethics. |
+| **Lifestyle Quirks, Tastes & Pet Peeves** | `jedzenie OR burger OR drwal OR ubrania OR dżinsy OR dres OR nawyki OR nie znoszę OR uwielbiam OR irytuje OR wkurza` | `distinct consumer preferences, favorite fast food, clothing comfort, aversion to formal wear or jeans, daily quirks, pet peeves` | Consumer preferences, culinary tastes, clothing comfort vs. formal wear, daily rituals, and minor pet peeves. |
 
 ---
 

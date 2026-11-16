@@ -91,7 +91,7 @@ When a chat is updated with new messages or threads:
   - As soon as a sphere's criteria are audited in `checklist.py`, the sphere investigator drafts its corresponding modular chapter section directly:
     `reports/<chat_id>_sections/05_<sphere_letter>_<sphere_name>.md`
   - Drafting immediately in the same context weaves fresh evidence, tensions, and anchored quotes (`[#ID | YYYY-MM-DD]`) directly into the final report.
-- Completing the 46 spheres establishes the core psychological baseline.
+- Completing the 50 spheres establishes the core psychological baseline.
 
 #### Step B.4: Subagent Thread Delta Audit & Forensic Deep Dives (`thread_checklist.py`)
 - Activate `subagent-thread-delta-audit` skill.

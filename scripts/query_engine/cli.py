@@ -136,7 +136,8 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
     run_peaks = args.emotional_peaks or batch_config.get("emotional_peaks", False)
     peak_type = args.peak_type or batch_config.get("peak_type")
     run_advice = args.advice_seeking or batch_config.get("advice_seeking", False)
-    run_triaged = args.triaged_threads or run_anomalies_only or run_peaks or run_advice or batch_config.get("triaged_threads", False)
+    run_stances = args.stances_only or batch_config.get("stances_only", False)
+    run_triaged = args.triaged_threads or run_anomalies_only or run_peaks or run_advice or run_stances or batch_config.get("triaged_threads", False)
     run_triage_status = args.triage_status or batch_config.get("triage_status", False)
     min_salience = float(batch_config.get("min_salience", args.min_salience))
     triage_category = batch_config.get("triage_category", args.triage_category)
@@ -239,7 +240,8 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
             anomalies_only=run_anomalies_only,
             emotional_peaks_only=run_peaks,
             peak_type=peak_type,
-            advice_seeking_only=run_advice
+            advice_seeking_only=run_advice,
+            stances_only=run_stances
         )
         if args.json:
             aggregated["triaged_threads"] = triaged_data

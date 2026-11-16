@@ -130,6 +130,13 @@ def call_openrouter_decisions(
                     "Does a participant experience an acute emotional breakdown, intense panic, uncontrollable crying, "
                     "profound helplessness, or make a painful, vulnerable confession of shame or guilt?"
                 )
+            },
+            "articulates_stance_or_preference": {
+                "type": "noul",
+                "instructions": (
+                    "Does a participant articulate a distinct personal rule, normative stance ('should/should not', dating etiquette, gender roles, civic/economic views like pensions or taxes, moral boundaries) "
+                    "OR declare strong personal preferences, tastes, or dislikes (food tastes, clothing/style, daily quirks, pet peeves)?"
+                )
             }
         }
     }
@@ -167,11 +174,13 @@ def call_openrouter_decisions(
             is_medical_or_grief_crisis = 1 if float(answers.get("is_medical_or_grief_crisis", {}).get("noul", 0.0)) >= 0.5 else 0
             is_bizarre_or_boundary_violation = 1 if float(answers.get("is_bizarre_or_boundary_violation", {}).get("noul", 0.0)) >= 0.5 else 0
             is_acute_vulnerability_or_breakdown = 1 if float(answers.get("is_acute_vulnerability_or_breakdown", {}).get("noul", 0.0)) >= 0.5 else 0
+            articulates_stance_or_pref = 1 if float(answers.get("articulates_stance_or_preference", {}).get("noul", 0.0)) >= 0.5 else 0
 
             has_special_flag = (
                 (is_atypical == 1) or (interlocutor_surprised == 1) or (emotional_peak != "none") or
                 (is_advice_seeking == 1) or (is_relational_conflict == 1) or (is_medical_or_grief_crisis == 1) or
-                (is_bizarre_or_boundary_violation == 1) or (is_acute_vulnerability_or_breakdown == 1)
+                (is_bizarre_or_boundary_violation == 1) or (is_acute_vulnerability_or_breakdown == 1) or
+                (articulates_stance_or_pref == 1)
             )
             if has_special_flag:
                 should_escalate = True
@@ -200,6 +209,8 @@ def call_openrouter_decisions(
                 reason_parts.append("boundary_violation")
             if is_acute_vulnerability_or_breakdown:
                 reason_parts.append("acute_breakdown")
+            if articulates_stance_or_pref:
+                reason_parts.append("stance_or_preference")
 
             notes_parts = []
             if is_relational_conflict:
@@ -220,6 +231,8 @@ def call_openrouter_decisions(
                 notes_parts.append("Advice seeking/confession")
             if mentions_third_party:
                 notes_parts.append("Mentions third party")
+            if articulates_stance_or_pref:
+                notes_parts.append("Personal stance or preference")
 
             return {
                 "escalate": 1 if should_escalate else 0,
@@ -235,6 +248,7 @@ def call_openrouter_decisions(
                 "is_medical_or_grief_crisis": is_medical_or_grief_crisis,
                 "is_bizarre_or_boundary_violation": is_bizarre_or_boundary_violation,
                 "is_acute_vulnerability_or_breakdown": is_acute_vulnerability_or_breakdown,
+                "articulates_stance_or_preference": articulates_stance_or_pref,
                 "anomaly_notes": ", ".join(notes_parts),
                 "reason": ", ".join(reason_parts),
                 "raw_response": json.dumps(resp_data)
@@ -289,7 +303,9 @@ def call_openrouter_chat_completions(
         "5. mentions_third_party: Set true if this dialogue explicitly mentions, discusses, quotes, or introduces an external third-party person "
         "(e.g. friend, suitor, ex-partner, coworker, boss, family member, acquaintance) other than the two main chat participants. "
         "STRICT EXCLUSIONS: Do NOT flag famous public figures, celebrities, singers, musicians, actors, politicians, fictional characters, "
-        "medications, apps, or one-off transactional bystanders (waiter, courier, uber driver). Only flag real private acquaintances or personal/professional contacts.\n\n"
+        "medications, apps, or one-off transactional bystanders (waiter, courier, uber driver). Only flag real private acquaintances or personal/professional contacts.\n"
+        "6. articulates_stance_or_preference: Set true if a participant articulates a distinct personal rule, normative stance ('should/should not', dating etiquette, gender roles, civic/economic views like pensions or taxes, moral boundaries) "
+        "OR declares strong personal preferences, tastes, or dislikes (food tastes, clothing/style, daily quirks, pet peeves).\n\n"
         "Respond ONLY with a valid JSON object matching this schema:\n"
         "{\n"
         '  "escalate_to_llm": boolean,\n'
@@ -301,6 +317,7 @@ def call_openrouter_chat_completions(
         '  "emotional_peak": "none" | "profound_sadness" | "euphoric_joy" | "intense_rage",\n'
         '  "is_advice_seeking": boolean,\n'
         '  "mentions_third_party": boolean,\n'
+        '  "articulates_stance_or_preference": boolean,\n'
         '  "anomaly_notes": "Short 1-sentence description if special radars triggered, otherwise empty string",\n'
         '  "reason": "1-sentence concise diagnostic rationale"\n'
         "}"
@@ -344,9 +361,10 @@ def call_openrouter_chat_completions(
                 emotional_peak = "none"
             is_advice_seeking = bool(parsed.get("is_advice_seeking", False))
             mentions_third_party = bool(parsed.get("mentions_third_party", False))
+            articulates_stance = bool(parsed.get("articulates_stance_or_preference", False))
             anomaly_notes = str(parsed.get("anomaly_notes", "")).strip()
 
-            has_special_flag = is_atypical or interlocutor_surprised or (emotional_peak != "none") or is_advice_seeking
+            has_special_flag = is_atypical or interlocutor_surprised or (emotional_peak != "none") or is_advice_seeking or articulates_stance
             if has_special_flag:
                 should_escalate = True
                 score = max(score, 2.5)
@@ -365,6 +383,7 @@ def call_openrouter_chat_completions(
                 "emotional_peak": emotional_peak,
                 "is_advice_seeking": 1 if is_advice_seeking else 0,
                 "mentions_third_party": 1 if mentions_third_party else 0,
+                "articulates_stance_or_preference": 1 if articulates_stance else 0,
                 "anomaly_notes": anomaly_notes,
                 "reason": reason,
                 "raw_response": content

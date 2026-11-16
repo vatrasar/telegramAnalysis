@@ -13,7 +13,7 @@ This skill governs the delegation of high-volume thread audits and entity verifi
 ## 1. Architectural Timing & Operational Prerequisites
 
 Subagent Thread Delta Auditing must occur **strictly after completing Step B.4 Life Spheres**:
-1. **Established Baseline Prerequisite:** The Main Agent must first complete the 46-dimension Life Spheres audit (`checklist.py`), establishing a clear psychological baseline and known entity catalog.
+1. **Established Baseline Prerequisite:** The Main Agent must first complete the 50-dimension Life Spheres audit (`checklist.py`), establishing a clear psychological baseline and known entity catalog.
 2. **Delta Principle ($\Delta = \text{Thread} \setminus \text{Baseline}$):** A thread is only evaluated for novelty against the established baseline. Redundant threads that merely confirm known traits are formally resolved without burning deep-dive tokens.
 3. **Subagent Context Isolation:** Subagents run in isolated contexts with `Model: "flash"`. Raw transcripts remain within the subagent sandbox; only concise evidence packets return to the Main Agent.
 
@@ -37,7 +37,7 @@ To maintain high precision and prevent attention degradation, slice pending thre
   You are evaluating a batch of up to 5 pending dialogue threads against an established psychological baseline.
 
   ESTABLISHED BASELINE:
-  [Insert 300-500 word synthesis of subject's known history, relationships, and defenses from 46 spheres]
+  [Insert 300-500 word synthesis of subject's known history, relationships, and defenses from 50 spheres]
 
   PENDING THREADS (Max 5):
   [Paste slice of up to 5 threads from --export-delta-manifest]

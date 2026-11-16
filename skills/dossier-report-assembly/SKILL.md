@@ -82,6 +82,11 @@ A practical interaction guide comprising:
 - **Emotional Triggers (Red Buttons):** Specific words, attitudes, and scenarios that spark instant defensive regression, anger, or withdrawal.
 - **Unspoken Core Need:** The primary emotional hunger they yearn for but rarely voice directly.
 - **Communication Protocols:** Concrete rules on how to de-escalate tension, persuade, and resolve conflict (*What NEVER to do* vs. *What ALWAYS works*).
+- **Personal Creed, Norms & Quirks Matrix (Kodeks Osobisty i Idiosynkrazje):**
+  A dedicated profile grounding the subject's everyday life rules, societal views, and visceral tastes:
+  - *Relational & Dating Rules:* Norms on dating etiquette, who pays, gender expectations, lending money to friends, honesty vs. diplomacy.
+  - *Socio-Economic Philosophy:* Concrete institutional/economic convictions (e.g., universal pensions vs. capital systems, tax burden, state role).
+  - *Lifestyle Quirks & Pet Peeves:* Distinct consumption habits, comfort/fashion standards (e.g., aversion to jeans/formal wear), culinary vices (e.g., seasonal fast food), and daily irritants (*pet peeves*).
 - **Statement Reliability Index:** Where their declarations are ironclad vs. where their words represent wishful thinking, temporary venting, or phantom plans.
 
 ### 8. Concluding Summary Matrix

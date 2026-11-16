@@ -124,15 +124,17 @@ def init_thread_checklist(
         has_atypical = "is_atypical" in tcols
         has_peak = "emotional_peak" in tcols
         has_advice = "is_advice_seeking" in tcols
+        has_stance = "articulates_stance_or_preference" in tcols
 
         atyp_sel = "tr.is_atypical" if has_atypical else "0"
         surp_sel = "tr.interlocutor_surprised" if has_atypical else "0"
         peak_sel = "tr.emotional_peak" if has_peak else "'none'"
         adv_sel = "tr.is_advice_seeking" if has_advice else "0"
+        stance_sel = "tr.articulates_stance_or_preference" if has_stance else "0"
 
         sql_triage = f"""
         SELECT tr.thread_id, tr.salience_score, tr.primary_category,
-               {atyp_sel}, {surp_sel}, {peak_sel}, {adv_sel},
+               {atyp_sel}, {surp_sel}, {peak_sel}, {adv_sel}, {stance_sel},
                t.start_date, t.message_count, coalesce(sum(m.word_count), 0) as total_words
         FROM thread_triage tr
         JOIN threads t ON tr.thread_id = t.thread_id
@@ -149,9 +151,10 @@ def init_thread_checklist(
             is_surp = bool(r[4])
             peak = r[5] or "none"
             is_adv = bool(r[6])
-            start_date = r[7][:16].replace("T", " ") if r[7] else ""
-            msg_count = r[8] or 0
-            word_count = r[9] or 0
+            is_stance = bool(r[7])
+            start_date = r[8][:16].replace("T", " ") if r[8] else ""
+            msg_count = r[9] or 0
+            word_count = r[10] or 0
 
             radars: List[str] = []
             if is_atyp or is_surp:
@@ -160,6 +163,8 @@ def init_thread_checklist(
                 radars.append(f"radar_2_peak:{peak}")
             if is_adv:
                 radars.append("radar_3_advice_seeking")
+            if is_stance:
+                radars.append("radar_4_stance_or_preference")
 
             if not radars and score >= min_salience_other:
                 radars.append("other_salient")

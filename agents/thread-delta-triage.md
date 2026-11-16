@@ -25,7 +25,7 @@ You are a specialized subagent for longitudinal chat analysis. Your sole purpose
 ## 2. Evaluation Task & Output Format
 
 Given:
-- The **Established Baseline Summary** (from the completed 46 Life Spheres audit).
+- The **Established Baseline Summary** (from the completed 50 Life Spheres audit).
 - The **Pending Threads Manifest** (generated via `python3 project/scripts/thread_checklist.py -C <chat_id> --export-delta-manifest`).
 
 Classify every pending `thread_id` into a clean JSON structure:

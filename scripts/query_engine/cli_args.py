@@ -28,6 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--emotional-peaks", action="store_true", help="Display only triaged threads with acute emotional peaks")
     parser.add_argument("--peak-type", type=str, help="Filter --emotional-peaks by type (profound_sadness, euphoric_joy, intense_rage)")
     parser.add_argument("--advice-seeking", action="store_true", help="Display only triaged threads with intimate confessions or advice seeking")
+    parser.add_argument("--stances-only", "--stances", action="store_true", help="Display only triaged threads with personal stances, life creeds, or quirks")
     parser.add_argument("--min-salience", type=float, default=0.0, help="Minimum salience score for --triaged-threads")
     parser.add_argument("--triage-category", type=str, help="Filter --triaged-threads by primary category")
     parser.add_argument("--triage-status", action="store_true", help="Display summary reduction report of System-1 triage")

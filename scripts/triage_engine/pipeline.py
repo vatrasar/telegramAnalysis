@@ -115,9 +115,9 @@ def run_triage(
                 (thread_id, chat_id, salience_score, escalate, primary_category, confidence, reason,
                  is_atypical, interlocutor_surprised, emotional_peak, is_advice_seeking, mentions_third_party,
                  is_relational_conflict, is_medical_or_grief_crisis, is_bizarre_or_boundary_violation,
-                 is_acute_vulnerability_or_breakdown,
+                 is_acute_vulnerability_or_breakdown, articulates_stance_or_preference,
                  anomaly_notes, raw_response, triaged_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     result["thread_id"],
                     result["chat_id"],
@@ -135,6 +135,7 @@ def run_triage(
                     result.get("is_medical_or_grief_crisis", 0),
                     result.get("is_bizarre_or_boundary_violation", 0),
                     result.get("is_acute_vulnerability_or_breakdown", 0),
+                    result.get("articulates_stance_or_preference", 0),
                     result.get("anomaly_notes", ""),
                     result.get("raw_response", ""),
                     now_iso
@@ -154,6 +155,8 @@ def run_triage(
                     icons.append("💡")
                 if result.get("mentions_third_party"):
                     icons.append("👤")
+                if result.get("articulates_stance_or_preference"):
+                    icons.append("⚖️")
                 if not icons:
                     icons.append("🟢" if result["escalate"] == 1 else "⚪")
 
@@ -163,6 +166,8 @@ def run_triage(
                     badge += "[ATYPICAL] "
                 if result.get("interlocutor_surprised"):
                     badge += "[SURPRISE] "
+                if result.get("articulates_stance_or_preference"):
+                    badge += "[STANCE] "
                 if result.get("emotional_peak") != "none":
                     badge += f"[{result['emotional_peak'].upper()}] "
                 if result.get("is_advice_seeking"):

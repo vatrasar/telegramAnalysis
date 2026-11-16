@@ -192,7 +192,8 @@ def get_triaged_threads(
     anomalies_only: bool = False,
     emotional_peaks_only: bool = False,
     peak_type: Optional[str] = None,
-    advice_seeking_only: bool = False
+    advice_seeking_only: bool = False,
+    stances_only: bool = False
 ) -> List[Dict[str, Any]]:
     """Retrieve dialogue threads qualified by System-1 (Jev) triage for LLM profiling."""
     conn = sqlite3.connect(db_path)
@@ -209,18 +210,20 @@ def get_triaged_threads(
     has_anom = "is_atypical" in cols
     has_peak = "emotional_peak" in cols
     has_advice = "is_advice_seeking" in cols
+    has_stance = "articulates_stance_or_preference" in cols
 
     atyp_col = "tr.is_atypical" if has_anom else "0"
     surp_col = "tr.interlocutor_surprised" if has_anom else "0"
     note_col = "tr.anomaly_notes" if has_anom else "''"
     peak_col = "tr.emotional_peak" if has_peak else "'none'"
     adv_col = "tr.is_advice_seeking" if has_advice else "0"
+    stance_col = "tr.articulates_stance_or_preference" if has_stance else "0"
 
     sql = f"""
     SELECT t.thread_id, t.chat_id, coalesce(c.chat_name, t.chat_id) as chat_name,
            t.start_date, t.end_date, t.message_count, sum(m.word_count) as total_words,
            t.participants, tr.salience_score, tr.primary_category, tr.reason,
-           {atyp_col}, {surp_col}, {note_col}, {peak_col}, {adv_col}
+           {atyp_col}, {surp_col}, {note_col}, {peak_col}, {adv_col}, {stance_col}
     FROM thread_triage tr
     JOIN threads t ON tr.thread_id = t.thread_id
     JOIN messages m ON t.thread_id = m.thread_id
@@ -248,6 +251,8 @@ def get_triaged_threads(
             sql += " AND tr.emotional_peak != 'none' "
     if advice_seeking_only and has_advice:
         sql += " AND tr.is_advice_seeking = 1 "
+    if stances_only and has_stance:
+        sql += " AND tr.articulates_stance_or_preference = 1 "
 
     sql += """
     GROUP BY t.thread_id
@@ -278,7 +283,8 @@ def get_triaged_threads(
             "interlocutor_surprised": r[12] or 0,
             "anomaly_notes": r[13] or "",
             "emotional_peak": r[14] or "none",
-            "is_advice_seeking": r[15] or 0
+            "is_advice_seeking": r[15] or 0,
+            "articulates_stance_or_preference": r[16] or 0
         })
     return results
 
@@ -307,6 +313,8 @@ def print_triaged_threads(threads: List[Dict[str, Any]]) -> None:
             flags.append("😡")
         if t.get("is_advice_seeking"):
             flags.append("💡")
+        if t.get("articulates_stance_or_preference"):
+            flags.append("⚖️")
         flag_str = "".join(flags)
         flag_display = f"{flag_str:<5}" if flag_str else "     "
         r_snippet = (t.get("reason", "") or "")[:25]

@@ -44,6 +44,7 @@ def print_thread_status(stats: Dict[str, Any]):
         "radar_1_anomalies": "⚡ Radar 1: Behavioral Anomalies & Interlocutor Shock",
         "radar_2_peak": "🎭 Radar 2: Acute Emotional Peaks (Grief, Euphoria, Rage)",
         "radar_3_advice_seeking": "💡 Radar 3: Confessions & Intimate Advice Dilemmas",
+        "radar_4_stance_or_preference": "⚖️ Radar 4: Personal Stances, Life Creeds & Quirks",
         "other_salient": "🌟 Other High-Salience Triaged Threads (Score >= 2.0)",
         "intensive_discussion": "📚 Top Substantive & Intensive Discussions"
     }

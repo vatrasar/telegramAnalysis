@@ -128,7 +128,7 @@ MUST NOT be parsed as an appositive clause attributing the descriptor to the nam
 ## 10. Thread Delta Triage & Anti-Fraud Bypass Invariant
 
 - **Mandatory Subagent Delta Evaluation:** The Main Agent is strictly prohibited from resolving, closing, or marking pending dialogue threads as redundant/completed without evaluating them through the dedicated `thread-delta-triage` subagent.
-- **Evidentiary Legitimacy of Negative Findings:** It is 100% scientifically valid and acceptable if the `thread-delta-triage` subagent reviews the candidate manifest (`--export-delta-manifest`) and determines that *all* remaining threads merely corroborate the established 46-spheres baseline without novel dynamics. A clean run where zero threads require forensic deep dives is entirely legitimate—provided that the determination was produced by subagent review.
+- **Evidentiary Legitimacy of Negative Findings:** It is 100% scientifically valid and acceptable if the `thread-delta-triage` subagent reviews the candidate manifest (`--export-delta-manifest`) and determines that *all* remaining threads merely corroborate the established 50-spheres baseline without novel dynamics. A clean run where zero threads require forensic deep dives is entirely legitimate—provided that the determination was produced by subagent review.
 - **Investigative Fraud & Evidentiary Tampering Definition:**
   It is classified as **Investigative Fraud** if the Main Agent:
   1. Resolves threads via `--resolve-redundant` without first exporting the delta manifest (`--export-delta-manifest`) and submitting it to the `thread-delta-triage` subagent, OR

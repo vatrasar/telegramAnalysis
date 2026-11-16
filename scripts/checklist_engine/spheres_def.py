@@ -66,6 +66,14 @@ CHECKLIST_DEFINITIONS: List[Dict[str, str]] = [
         "sub_item": "Envy vs. Compersion & Confidentiality",
         "description": "How do they react to peers' achievements? Genuine pride vs. passive-aggressive minimization, envy, or anxious comparison. Do they guard secrets faithfully or instrumentalize gossip?"
     },
+    {
+        "item_id": "soc_personal_creed_and_boundaries",
+        "sphere_id": "A",
+        "sphere_name": "Social Matrix & Friendship Dynamics",
+        "category": "Personal Life Creed & Boundaries",
+        "sub_item": "Personal Creed & Interpersonal Boundaries",
+        "description": "Non-negotiable personal life rules and boundaries: stances on lending money to friends, radical honesty vs. diplomatic tact, loyalty expectations, punctuality, and personal ethics in social interactions."
+    },
 
     # -------------------------------------------------------------
     # Sphere B: Professional Sphere, Work Ethic, Ambitions & Financial Psychology
@@ -250,6 +258,14 @@ CHECKLIST_DEFINITIONS: List[Dict[str, str]] = [
         "sub_item": "Cognitive Style in Debate",
         "description": "Do they lean on empirical evidence and formal logic, or emotional appeal and moral superiority? Do they respect ideological opponents or dehumanize them?"
     },
+    {
+        "item_id": "world_socio_economic_and_civic_order",
+        "sphere_id": "C",
+        "sphere_name": "Worldview, Politics & Technology Stance",
+        "category": "Socio-Economic & Institutional Order",
+        "sub_item": "Socio-Economic Philosophy & State Order",
+        "description": "Attitudes toward the role of the state, taxation, pension systems (e.g. civic/universal pensions vs. capital/state systems), free market vs. social safety net, civil liberties, and institutional authority."
+    },
 
     # -------------------------------------------------------------
     # Sphere D: Family Roots, Parental Imprints & Domestic Environment
@@ -321,6 +337,14 @@ CHECKLIST_DEFINITIONS: List[Dict[str, str]] = [
         "category": "Intimacy Dynamics",
         "sub_item": "Conflict Resolution in Romance",
         "description": "Reconnection and repair attempts vs. emotional stonewalling, scorekeeping, or dramatic exits."
+    },
+    {
+        "item_id": "rom_dating_and_gender_norms",
+        "sphere_id": "E",
+        "sphere_name": "Romantic Attachment & Relational Patterns",
+        "category": "Dating Etiquette & Gender Dynamics",
+        "sub_item": "Dating Etiquette & Gender Norms",
+        "description": "Declared beliefs and behavioral norms in romantic dating: stances on who pays on dates (splitting bills vs. chivalry), gender role expectations, dating etiquette, initiation, and relationship power dynamics."
     },
 
     # -------------------------------------------------------------
@@ -397,6 +421,14 @@ CHECKLIST_DEFINITIONS: List[Dict[str, str]] = [
         "category": "Relationship with Animals & Pets",
         "sub_item": "Emotional Bond & Empathy",
         "description": "How do they interact with and talk about animals? Animal empathy serves as a potent window into their instinctual warmth, capacity for unconditional care, or sensory/cleanliness boundaries."
+    },
+    {
+        "item_id": "leis_lifestyle_quirks_and_tastes",
+        "sphere_id": "F",
+        "sphere_name": "Leisure, Sports, Travel, Vacations & Relationship with Animals",
+        "category": "Lifestyle Quirks, Tastes & Daily Idiosyncrasies",
+        "sub_item": "Lifestyle Quirks, Consumption Habits & Pet Peeves",
+        "description": "Distinct consumer preferences, culinary/gastronomic tastes (e.g. specific fast foods, dietary habits), clothing and comfort standards (e.g. aversion to formal wear/jeans vs. loungewear), daily rituals, and prominent pet peeves (minor irritations that trigger disproportional annoyance)."
     }
 ]
 
@@ -426,18 +458,23 @@ MANDATORY_SEMANTIC_ITEMS: Set[str] = {
     "world_tech_reaction_innovations",
     "world_tech_practical_usage",
     "world_cognitive_debate_style",
+    "world_socio_economic_and_civic_order",
     # Sphere E: Romantic Attachment & Relational Patterns
     "rom_relational_history",
     "rom_intimacy_ceilings",
     "rom_conflict_resolution",
+    "rom_dating_and_gender_norms",
     # Sphere A: Social Matrix & Friendship Dynamics
     "soc_altruism_helping",
     "soc_paradigm_boundaries",
     "soc_loyalty_doorslamming",
     "soc_envy_compersion_confidentiality",
+    "soc_personal_creed_and_boundaries",
     # Sphere D: Family Roots & Parental Imprints
     "fam_parental_imprints",
     "fam_sibling_parentification",
     "fam_generational_traps",
-    "fam_domestic_mirror"
+    "fam_domestic_mirror",
+    # Sphere F: Leisure, Sports, Travel & Lifestyle
+    "leis_lifestyle_quirks_and_tastes"
 }
