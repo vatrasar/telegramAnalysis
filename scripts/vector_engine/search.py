@@ -20,7 +20,8 @@ def search_semantic_batch(
     db_path: str,
     queries: List[str],
     top_k: int = 5,
-    chat_filter: Optional[str] = None
+    chat_filter: Optional[str] = None,
+    participant_filter: Optional[str] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Search conversation threads by multiple semantic concepts in a single batch pass."""
     if not queries:
@@ -82,6 +83,9 @@ def search_semantic_batch(
                     if chat_filter:
                         sql += " AND (tf.chat_id = ? OR c.chat_name = ? OR c.chat_name LIKE ?) "
                         p.extend([chat_filter, chat_filter, f"%{chat_filter}%"])
+                    if participant_filter and str(participant_filter).strip():
+                        sql += " AND lower(tf.participants) LIKE ? "
+                        p.append(f"%{str(participant_filter).strip().lower()}%")
                     sql += " ORDER BY rank ASC LIMIT ?; "
                     p.append(top_k)
 
@@ -121,11 +125,15 @@ def search_semantic_batch(
            te.start_date, te.participants, te.dialogue_text, te.embedding
     FROM thread_embeddings te
     LEFT JOIN chats c ON te.chat_id = c.chat_id
+    WHERE 1=1
     """
     params = []
     if chat_filter:
-        sql += " WHERE te.chat_id = ? OR c.chat_name = ? OR c.chat_name LIKE ? "
+        sql += " AND (te.chat_id = ? OR c.chat_name = ? OR c.chat_name LIKE ?) "
         params.extend([chat_filter, chat_filter, f"%{chat_filter}%"])
+    if participant_filter and str(participant_filter).strip():
+        sql += " AND lower(te.participants) LIKE ? "
+        params.append(f"%{str(participant_filter).strip().lower()}%")
 
     cur.execute(sql, params)
     thread_rows = []
@@ -157,10 +165,17 @@ def search_semantic(
     db_path: str,
     query: str,
     top_k: int = 5,
-    chat_filter: Optional[str] = None
+    chat_filter: Optional[str] = None,
+    participant_filter: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Search conversation threads by a single semantic concept."""
-    res = search_semantic_batch(db_path, [query], top_k=top_k, chat_filter=chat_filter)
+    res = search_semantic_batch(
+        db_path,
+        [query],
+        top_k=top_k,
+        chat_filter=chat_filter,
+        participant_filter=participant_filter,
+    )
     return res.get(query, [])
 
 
@@ -169,7 +184,8 @@ def search_semantic_facts(
     query: str,
     top_k: int = 5,
     chat_filter: Optional[str] = None,
-    sphere_filter: Optional[str] = None
+    sphere_filter: Optional[str] = None,
+    subject_filter: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Search discovered facts semantically using vector similarity or keyword fallback."""
     config = load_config()
@@ -200,7 +216,7 @@ def search_semantic_facts(
 
     if query_vec is None:
         sql = """
-        SELECT f.fact_id, f.chat_id, f.category, f.sphere_id, f.fact_summary, f.verbatim_quote, f.thread_id, f.anchor_msg_id
+        SELECT f.fact_id, f.chat_id, f.category, f.sphere_id, f.fact_summary, f.verbatim_quote, f.thread_id, f.anchor_msg_id, coalesce(f.subject, '')
         FROM discovered_facts f
         WHERE (lower(f.fact_summary) LIKE ? OR lower(f.verbatim_quote) LIKE ?)
         """
@@ -208,6 +224,9 @@ def search_semantic_facts(
         if chat_filter:
             sql += " AND f.chat_id = ? "
             params.append(chat_filter)
+        if subject_filter and str(subject_filter).strip():
+            sql += " AND (lower(f.subject) = lower(?) OR f.subject = '' OR f.subject IS NULL) "
+            params.append(str(subject_filter).strip())
         if sphere_filter:
             sql += " AND upper(f.sphere_id) = ? "
             params.append(sphere_filter.upper())
@@ -215,7 +234,7 @@ def search_semantic_facts(
         params.append(top_k)
         cur.execute(sql, params)
         res = [
-            {"fact_id": r[0], "chat_id": r[1], "category": r[2], "sphere_id": r[3], "fact_summary": r[4], "verbatim_quote": r[5], "thread_id": r[6], "anchor_msg_id": r[7], "score": 1.0}
+            {"fact_id": r[0], "chat_id": r[1], "category": r[2], "sphere_id": r[3], "fact_summary": r[4], "verbatim_quote": r[5], "thread_id": r[6], "anchor_msg_id": r[7], "subject": r[8], "score": 1.0}
             for r in cur.fetchall()
         ]
         conn.close()
@@ -223,7 +242,7 @@ def search_semantic_facts(
 
     sql = """
     SELECT fe.fact_id, fe.chat_id, fe.category, fe.sphere_id, fe.fact_summary, fe.verbatim_quote,
-           f.thread_id, f.anchor_msg_id, fe.embedding
+           f.thread_id, f.anchor_msg_id, fe.embedding, coalesce(fe.subject, '')
     FROM fact_embeddings fe
     LEFT JOIN discovered_facts f ON fe.fact_id = f.fact_id
     WHERE 1=1
@@ -232,6 +251,9 @@ def search_semantic_facts(
     if chat_filter:
         sql += " AND fe.chat_id = ? "
         f_params.append(chat_filter)
+    if subject_filter and str(subject_filter).strip():
+        sql += " AND (lower(fe.subject) = lower(?) OR fe.subject = '' OR fe.subject IS NULL) "
+        f_params.append(str(subject_filter).strip())
     if sphere_filter:
         sql += " AND upper(fe.sphere_id) = ? "
         f_params.append(sphere_filter.upper())
@@ -250,6 +272,7 @@ def search_semantic_facts(
             "verbatim_quote": r[5],
             "thread_id": r[6],
             "anchor_msg_id": r[7],
+            "subject": r[9],
             "score": round(float(sim), 4)
         })
     conn.close()

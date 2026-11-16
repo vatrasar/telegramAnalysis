@@ -48,6 +48,7 @@ def main():
     )
     parser.add_argument("--search", type=str, help="Semantic search query on threads")
     parser.add_argument("--search-facts", "--semantic-facts", dest="search_facts", type=str, help="Semantic search query on discovered facts")
+    parser.add_argument("--subject", type=str, help="Target subject individual being profiled or queried (e.g. 'Ismi' vs 'Szymon')")
     parser.add_argument("--top-k", type=int, default=5, help="Number of results to return")
     parser.add_argument("--model", type=str, help="Override model name")
     args = parser.parse_args()
@@ -68,10 +69,17 @@ def main():
             model_override=args.model
         )
     elif args.search_facts:
-        f_results = search_semantic_facts(args.db, args.search_facts, top_k=args.top_k, chat_filter=args.chat)
+        f_results = search_semantic_facts(
+            args.db,
+            args.search_facts,
+            top_k=args.top_k,
+            chat_filter=args.chat,
+            subject_filter=args.subject,
+        )
         print(f"\n--- Top {len(f_results)} Semantic Matches for Facts: '{args.search_facts}' ---")
         for i, res in enumerate(f_results, 1):
-            print(f"\n[{i}] Fact #{res['fact_id']} | Category: {res.get('category')} | Score: {res.get('score')}")
+            subj_lbl = f" | Subject: {res.get('subject')}" if res.get('subject') else ""
+            print(f"\n[{i}] Fact #{res['fact_id']} | Category: {res.get('category')}{subj_lbl} | Score: {res.get('score')}")
             print(f"Summary: {res.get('fact_summary')}")
             print(f"Quote: {res.get('verbatim_quote')}")
             print("-" * 50)

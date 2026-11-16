@@ -74,6 +74,12 @@ def main():
         default=None,
         help="Chat ID or chat name (auto-detected if only 1 chat exists in database)"
     )
+    parser.add_argument(
+        "--subject",
+        type=str,
+        default=None,
+        help="Target subject individual being profiled (e.g. 'Ismi' vs 'Szymon')"
+    )
 
     action_group = parser.add_mutually_exclusive_group(required=False)
     action_group.add_argument(
@@ -197,7 +203,7 @@ def main():
     conn = connect_db(args.db)
 
     try:
-        chat_id = resolve_chat_id(conn, args.chat)
+        chat_id = resolve_chat_id(conn, args.chat, subject=args.subject)
     except ValueError as e:
         print(f"[!] Error: {e}")
         conn.close()
@@ -206,14 +212,15 @@ def main():
     if args.init:
         if not args.ignore_prerequisites:
             from query_chat import check_watchdog_gate
-            watchdog_code = check_watchdog_gate(conn, chat_id)
+            raw_chat_for_watchdog = args.chat.split("::")[0] if args.chat and "::" in args.chat else (chat_id.split("::")[0] if "::" in chat_id else chat_id)
+            watchdog_code = check_watchdog_gate(conn, raw_chat_for_watchdog)
             if watchdog_code != 0:
                 print("\n[!] PREREQUISITE ERROR: You cannot initialize or audit the Life Spheres checklist before resolving all third-party entities!", file=sys.stderr)
-                print(f"    Run the sequential watchdog scan first: python3 project/scripts/query_chat.py -C {chat_id} --watchdog-scan", file=sys.stderr)
+                print(f"    Run the sequential watchdog scan first: python3 project/scripts/query_chat.py -C {raw_chat_for_watchdog} --watchdog-scan", file=sys.stderr)
                 conn.close()
                 sys.exit(1)
 
-        inserted, total = init_checklist(conn, chat_id, reset=args.reset)
+        inserted, total = init_checklist(conn, chat_id, reset=args.reset, subject=args.subject)
         if args.json:
             print(json.dumps({"action": "init", "chat_id": chat_id, "inserted": inserted, "total": total}))
         else:

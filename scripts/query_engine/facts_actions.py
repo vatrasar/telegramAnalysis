@@ -134,6 +134,7 @@ def handle_facts_and_inspection_actions(
             anchor_msg_id=getattr(args, "anchor_id", None),
             target_agent=getattr(args, "target_agent", None),
             discovered_by=getattr(args, "discovered_by", None) or "agent",
+            subject=getattr(args, "subject", None),
         )
         conn.close()
         if args.json:
@@ -172,6 +173,7 @@ def handle_facts_and_inspection_actions(
             facts=facts_list,
             discovered_by=getattr(args, "discovered_by", None),
             default_thread_id=getattr(args, "fact_thread", None),
+            default_subject=getattr(args, "subject", None),
         )
         conn.close()
         if args.json:
@@ -192,6 +194,7 @@ def handle_facts_and_inspection_actions(
             chat_id=resolved_chat_id,
             category=canon_cat if not canon_sph else None,
             sphere_id=canon_sph,
+            subject=getattr(args, "subject", None),
         )
         conn.close()
         if args.json:
@@ -214,6 +217,7 @@ def handle_facts_and_inspection_actions(
             sphere_id=getattr(args, "sphere", None),
             target_agent=getattr(args, "target_agent", None),
             thread_id=getattr(args, "fact_thread", None),
+            subject=getattr(args, "subject", None),
         )
         conn.close()
         if args.json:
@@ -241,7 +245,8 @@ def handle_facts_and_inspection_actions(
             from vector_engine import search_semantic_facts
             top_k = getattr(args, "limit", 5) or 5
             sph = getattr(args, "sphere", None)
-            res = search_semantic_facts(args.db, args.semantic_facts, top_k=top_k, chat_filter=resolved_chat_id, sphere_filter=sph)
+            subj = getattr(args, "subject", None)
+            res = search_semantic_facts(args.db, args.semantic_facts, top_k=top_k, chat_filter=resolved_chat_id, sphere_filter=sph, subject_filter=subj)
             if args.json:
                 print(json.dumps({"query": args.semantic_facts, "results": res}, indent=2, ensure_ascii=False))
             else:
@@ -256,8 +261,9 @@ def handle_facts_and_inspection_actions(
                         f_id = r.get("fact_id")
                         cat = r.get("category", "general")
                         sph_lbl = f" | Sphere: {r.get('sphere_id')}" if r.get('sphere_id') else ""
+                        subj_lbl = f" | Subject: {r.get('subject')}" if r.get('subject') else ""
                         anchor = f" | Anchor #{r.get('anchor_msg_id')}" if r.get('anchor_msg_id') else ""
-                        print(f"  [{i}] Fact #{f_id} (Score: {score:.4f}) | Category: {cat}{sph_lbl}{anchor}")
+                        print(f"  [{i}] Fact #{f_id} (Score: {score:.4f}) | Category: {cat}{sph_lbl}{subj_lbl}{anchor}")
                         print(f"      Summary: {r.get('fact_summary')}")
                         if r.get("verbatim_quote"):
                             print(f"      Quote:   {r.get('verbatim_quote')}")

@@ -203,11 +203,18 @@ def init_fact_vector_table(conn: sqlite3.Connection) -> None:
         sphere_id TEXT,
         fact_summary TEXT,
         verbatim_quote TEXT,
-        embedding BLOB
+        embedding BLOB,
+        subject TEXT DEFAULT ''
     );
     """)
+    cur.execute("PRAGMA table_info(fact_embeddings);")
+    fe_cols = {c[1] for c in cur.fetchall()}
+    if "subject" not in fe_cols:
+        cur.execute("ALTER TABLE fact_embeddings ADD COLUMN subject TEXT DEFAULT '';")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_fact_embeddings_chat ON fact_embeddings(chat_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_fact_embeddings_sphere ON fact_embeddings(chat_id, sphere_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_fact_embeddings_subj ON fact_embeddings(chat_id, subject);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_fact_embeddings_global_subj ON fact_embeddings(subject);")
     conn.commit()
 
 
@@ -231,7 +238,7 @@ def index_facts(
         return True
 
     sql = """
-    SELECT f.fact_id, f.chat_id, f.category, f.sphere_id, f.fact_summary, f.verbatim_quote
+    SELECT f.fact_id, f.chat_id, f.category, f.sphere_id, f.fact_summary, f.verbatim_quote, coalesce(f.subject, '')
     FROM discovered_facts f
     """
     params: List[Any] = []
@@ -253,22 +260,24 @@ def index_facts(
     batch_texts = []
     batch_metadata = []
     for r in rows:
-        f_id, c_id, cat, sph, summ, quote = r
-        embed_text = f"Fact: {summ}. Category: {cat or 'general'}. Quote: {quote}"
+        f_id, c_id, cat, sph, summ, quote, subj = r
+        s_lbl = f"Subject: {subj}. " if subj else ""
+        embed_text = f"{s_lbl}Fact: {summ}. Category: {cat or 'general'}. Quote: {quote}"
         batch_texts.append(embed_text)
-        batch_metadata.append((f_id, c_id, cat, sph, summ, quote))
+        batch_metadata.append((f_id, c_id, cat, sph, summ, quote, subj))
 
     if provider in ("openrouter", "api"):
         api_key = config.get("api_key")
         model = model_override or config.get("model", "openai/text-embedding-3-small")
-        embeddings = fetch_openrouter_embeddings(batch_texts, api_key, model=model)
+        endpoint = config.get("endpoint", DEFAULT_OPENROUTER_ENDPOINT)
+        embeddings = fetch_openrouter_embeddings(batch_texts, model, api_key, endpoint)
         insert_rows = []
-        for (f_id, c_id, cat, sph, summ, quote), emb in zip(batch_metadata, embeddings):
+        for (f_id, c_id, cat, sph, summ, quote, subj), emb in zip(batch_metadata, embeddings):
             blob = serialize_vector(emb)
-            insert_rows.append((f_id, c_id, cat, sph, summ, quote, blob))
+            insert_rows.append((f_id, c_id, cat, sph, summ, quote, blob, subj))
         cur.executemany("""
-        INSERT OR REPLACE INTO fact_embeddings (fact_id, chat_id, category, sphere_id, fact_summary, verbatim_quote, embedding)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
+        INSERT OR REPLACE INTO fact_embeddings (fact_id, chat_id, category, sphere_id, fact_summary, verbatim_quote, embedding, subject)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         """, insert_rows)
         conn.commit()
         conn.close()
@@ -279,12 +288,12 @@ def index_facts(
         model = SentenceTransformer(model_name)
         embeddings = model.encode(batch_texts, normalize_embeddings=True).tolist()
         insert_rows = []
-        for (f_id, c_id, cat, sph, summ, quote), emb in zip(batch_metadata, embeddings):
+        for (f_id, c_id, cat, sph, summ, quote, subj), emb in zip(batch_metadata, embeddings):
             blob = serialize_vector(emb)
-            insert_rows.append((f_id, c_id, cat, sph, summ, quote, blob))
+            insert_rows.append((f_id, c_id, cat, sph, summ, quote, blob, subj))
         cur.executemany("""
-        INSERT OR REPLACE INTO fact_embeddings (fact_id, chat_id, category, sphere_id, fact_summary, verbatim_quote, embedding)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
+        INSERT OR REPLACE INTO fact_embeddings (fact_id, chat_id, category, sphere_id, fact_summary, verbatim_quote, embedding, subject)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         """, insert_rows)
         conn.commit()
         conn.close()

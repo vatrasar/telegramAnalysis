@@ -408,7 +408,14 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
 
     # 12. Batch Semantic Search
     if semantic_queries:
-        sem_res = get_semantic_batch_results(args.db, semantic_queries, top_k=limit, chat_id=resolved_chat_id)
+        part_filter = sender_filter or getattr(args, "subject", None) or batch_config.get("sender") or batch_config.get("subject")
+        sem_res = get_semantic_batch_results(
+            args.db,
+            semantic_queries,
+            top_k=limit,
+            chat_id=resolved_chat_id,
+            participant_filter=part_filter,
+        )
         if args.json:
             aggregated["semantic_search"] = sem_res
         else:
