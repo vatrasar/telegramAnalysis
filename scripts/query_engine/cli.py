@@ -429,4 +429,11 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
 
 def main() -> None:
     """CLI entrypoint alias."""
-    run_query_cli()
+    try:
+        run_query_cli()
+    except BrokenPipeError:
+        try:
+            sys.stdout.close()
+        except Exception:
+            pass
+        sys.exit(0)

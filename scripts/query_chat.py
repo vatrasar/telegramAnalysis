@@ -14,6 +14,14 @@ Supports:
 
 import os
 import sys
+import signal
+
+# Avoid BrokenPipeError when piping output to head/tail/grep
+if hasattr(signal, "SIGPIPE"):
+    try:
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    except (ValueError, OSError):
+        pass
 
 # Ensure project/scripts directory is on sys.path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

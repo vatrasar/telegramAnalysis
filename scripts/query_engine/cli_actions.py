@@ -94,7 +94,22 @@ def handle_entity_actions(args: Any, batch_config: Dict[str, Any], resolved_chat
         if not resolved_chat_id:
             print("[!] Error: Please specify target chat via -C <chat_id> for --candidates.")
             sys.exit(1)
-        cdata = get_candidate_entities_data(args.db, resolved_chat_id)
+        filter_noise = not getattr(args, "raw_candidates", False)
+        min_count = getattr(args, "min_count", 1)
+        # Determine display limit: if explicitly passed --limit/-n use args.limit (0 means unlimited);
+        # otherwise default to 40 for human/agent table readability
+        limit = args.limit
+        if "--limit" not in sys.argv and "-n" not in sys.argv and not args.json:
+            limit = 40
+        elif limit == 0:
+            limit = None
+        cdata = get_candidate_entities_data(
+            args.db,
+            resolved_chat_id,
+            min_count=min_count,
+            filter_noise=filter_noise,
+            limit=limit,
+        )
         if args.json:
             print(json.dumps(cdata, indent=2, ensure_ascii=False))
         else:
