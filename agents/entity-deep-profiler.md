@@ -64,7 +64,7 @@ python3 project/scripts/query_chat.py -C <chat_id> --entities
   2. **Major biographical / psychological revelations** about the subject (e.g. trauma history, childhood memories, career turning points, financial crises).
 - **NEVER discard these out-of-scope discoveries!**
 - You MUST record them in a dedicated section of your report: `### 5. Serendipitous Cross-Entity & Biographical Findings`.
-- The Supervisor will ingest these findings to enrich the database and pass them forward to subsequent workers in later waves, preventing redundant duplicate searches.
+- The Supervisor will ingest these findings to enrich the database and pass them forward to downstream workers and subsequent investigative stages, preventing redundant duplicate searches.
 
 ### 1.5 Audited Threads Awareness & Informed Autonomy
 - When inspecting threads, review the Thread Audit Cache returned by `query_chat.py`.

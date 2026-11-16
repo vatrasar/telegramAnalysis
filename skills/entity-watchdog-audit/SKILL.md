@@ -42,8 +42,8 @@ python3 project/scripts/query_chat.py -C <chat_id> --candidates --json
 ```
 Using analytical reasoning, the Supervisor consolidates raw mentions into logical character clusters of **2–3 related candidates** (e.g. Cluster 1: Workplace contacts; Cluster 2: Romantic suitors; Cluster 3: Family members).
 
-### Step 3: Parallel Investigator Dispatch on Clusters (Supervisor $\to$ 3–4 Workers per Wave)
-The Supervisor invokes 3–4 parallel `entity-investigator` subagents (`Model: "flash"`):
+### Step 3: Dynamic Parallel Investigator Dispatch on Clusters
+The Supervisor invokes parallel `entity-investigator` subagents (`Model: "flash"`), dynamically scaled to the number of candidate clusters without artificial limits or wave batching:
 - Each worker receives one specific character cluster (2–3 candidates) and associated thread IDs.
 - **Rapid Snippet Reconnaissance Protocol:** Workers execute a single initial call:
   ```bash
@@ -103,7 +103,7 @@ Exits with code 0 (`[✓] PASSED: Entity Discovery verified`).
 Once the complete entity registry is established and the Watchdog Gate is resolved:
 1. **Noise Rejection:** Retain all psychologically salient figures (family, suitors, partners, close friends, superiors, therapists); discard purely transient contacts.
 2. **Negative Boundary Injection:** Provide deep profilers with explicit boundaries.
-3. **Wave-Based Parallel Profiling (Up to 4 Workers):** Dispatch `entity-deep-profiler` subagents to perform dual lexical (`-s`) and semantic (`--semantic`) searches.
+3. **Dynamic Parallel Profiling:** Dispatch `entity-deep-profiler` subagents in parallel (scaling directly to all salient entities) to perform dual lexical (`-s`) and semantic (`--semantic`) searches.
 4. **Dossier Consolidation:** Persist dossiers into `reports/<chat_id>_entities/<Entity>.md`.
 
 ---
