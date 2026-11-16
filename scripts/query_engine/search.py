@@ -208,13 +208,29 @@ def get_semantic_batch_results(
     db_path: str,
     concepts: List[str],
     top_k: int = 5,
-    chat_id: Optional[str] = None
+    chat_id: Optional[str] = None,
+    participant_filter: Optional[str] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Execute batch semantic search over multiple psychological concepts."""
     if search_semantic_batch is not None:
-        return search_semantic_batch(db_path, concepts, top_k=top_k, chat_filter=chat_id)
+        return search_semantic_batch(
+            db_path,
+            concepts,
+            top_k=top_k,
+            chat_filter=chat_id,
+            participant_filter=participant_filter,
+        )
     elif search_semantic is not None:
-        return {c: search_semantic(db_path, c, top_k=top_k, chat_filter=chat_id) for c in concepts}
+        return {
+            c: search_semantic(
+                db_path,
+                c,
+                top_k=top_k,
+                chat_filter=chat_id,
+                participant_filter=participant_filter,
+            )
+            for c in concepts
+        }
     else:
         print("[!] vector_indexer module not available for semantic queries.")
         return {c: [] for c in concepts}

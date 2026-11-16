@@ -10,6 +10,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--db", default="chat.db", help="Path to analytical SQLite database (default: chat.db)")
     parser.add_argument("--chat", "-C", type=str, help="Filter query to a specific chat by chat_id or chat_name")
+    parser.add_argument("--subject", type=str, help="Target subject individual being profiled or queried (e.g. 'Ismi' vs 'Szymon')")
     parser.add_argument("--list-chats", action="store_true", help="Display catalog of all indexed chats in the database")
 
     # Analytical flags

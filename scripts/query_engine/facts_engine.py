@@ -117,10 +117,16 @@ def ensure_facts_tables(conn: sqlite3.Connection) -> None:
         created_at TEXT NOT NULL
     );
     """)
+    cur.execute("PRAGMA table_info(discovered_facts);")
+    f_cols = {c[1] for c in cur.fetchall()}
+    if "subject" not in f_cols:
+        cur.execute("ALTER TABLE discovered_facts ADD COLUMN subject TEXT DEFAULT '';")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_discovered_facts_chat ON discovered_facts(chat_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_discovered_facts_cat ON discovered_facts(chat_id, category);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_discovered_facts_sphere ON discovered_facts(chat_id, sphere_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_discovered_facts_thread ON discovered_facts(chat_id, thread_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_discovered_facts_subj ON discovered_facts(chat_id, subject);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_discovered_facts_global_subj ON discovered_facts(subject);")
     conn.commit()
 
 
@@ -275,6 +281,7 @@ def record_discovered_fact(
     anchor_msg_id: Optional[int] = None,
     target_agent: Optional[str] = None,
     discovered_by: Optional[str] = None,
+    subject: str = "",
 ) -> Dict[str, Any]:
     """Record an anchored discovered fact tagged for downstream report agents."""
     ensure_facts_tables(conn)
@@ -284,16 +291,17 @@ def record_discovered_fact(
     canon_cat, canon_sph = normalize_category_and_sphere(category, sphere_id)
     anchor_id = anchor_msg_id or extract_anchor_id_from_quote(verbatim_quote)
     agent = target_agent or DEFAULT_TARGET_AGENTS.get(canon_cat, "life-sphere-investigator")
+    subj_val = (subject or "").strip()
 
     cur.execute("""
     INSERT INTO discovered_facts (
         chat_id, thread_id, anchor_msg_id, category, sphere_id,
-        target_agent, fact_summary, verbatim_quote, discovered_by, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        target_agent, fact_summary, verbatim_quote, discovered_by, created_at, subject
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, (
         chat_id, thread_id, anchor_id, canon_cat, canon_sph,
         agent, fact_summary.strip(), verbatim_quote.strip(),
-        discovered_by or "agent", now_iso
+        discovered_by or "agent", now_iso, subj_val
     ))
     fact_id = cur.lastrowid
     conn.commit()
@@ -302,6 +310,7 @@ def record_discovered_fact(
         "status": "success",
         "fact_id": fact_id,
         "chat_id": chat_id,
+        "subject": subj_val,
         "thread_id": thread_id,
         "anchor_msg_id": anchor_id,
         "category": canon_cat,
@@ -318,6 +327,7 @@ def record_facts_batch(
     facts: List[Dict[str, Any]],
     discovered_by: Optional[str] = None,
     default_thread_id: Optional[str] = None,
+    default_subject: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Batch record multiple discovered facts in a single transaction."""
     ensure_facts_tables(conn)
@@ -331,6 +341,7 @@ def record_facts_batch(
         anchor = item.get("anchor_msg_id")
         agent = item.get("target_agent")
         discov = item.get("discovered_by") or discovered_by
+        subj = item.get("subject") or default_subject or ""
 
         if not summary or not quote:
             continue
@@ -346,6 +357,7 @@ def record_facts_batch(
             anchor_msg_id=anchor,
             target_agent=agent,
             discovered_by=discov,
+            subject=subj,
         )
         recorded.append(res)
 
@@ -364,17 +376,25 @@ def get_discovered_facts(
     sphere_id: Optional[str] = None,
     target_agent: Optional[str] = None,
     thread_id: Optional[str] = None,
+    subject: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Retrieve filtered discovered facts for a chat."""
     ensure_facts_tables(conn)
     cur = conn.cursor()
     sql = """
     SELECT fact_id, chat_id, thread_id, anchor_msg_id, category, sphere_id,
-           target_agent, fact_summary, verbatim_quote, discovered_by, created_at
+           target_agent, fact_summary, verbatim_quote, discovered_by, created_at, subject
     FROM discovered_facts
-    WHERE chat_id = ?
+    WHERE 1=1
     """
-    params: List[Any] = [chat_id]
+    params: List[Any] = []
+    if chat_id:
+        sql += " AND chat_id = ?"
+        params.append(chat_id)
+
+    if subject and str(subject).strip():
+        sql += " AND (lower(coalesce(subject, '')) = lower(?) OR subject = '' OR subject IS NULL)"
+        params.append(str(subject).strip())
 
     if sphere_id:
         sql += " AND sphere_id = ?"
@@ -410,6 +430,7 @@ def get_discovered_facts(
             "verbatim_quote": r[8],
             "discovered_by": r[9],
             "created_at": r[10],
+            "subject": r[11] or "",
         })
     return results
 
@@ -429,9 +450,10 @@ def print_discovered_facts(facts: List[Dict[str, Any]], filter_label: Optional[s
         return
 
     for f in facts:
+        subj_str = f"Subject: {f['subject']} | " if f.get("subject") else ""
         sph_str = f"Sphere {f['sphere_id']} | " if f.get("sphere_id") else ""
         tid_str = f"Thread: {f['thread_id']} | " if f.get("thread_id") else ""
-        print(f"\n[Fact #{f['fact_id']}] {sph_str}Category: {f['category']} | Target: {f['target_agent']}")
+        print(f"\n[Fact #{f['fact_id']}] {subj_str}{sph_str}Category: {f['category']} | Target: {f['target_agent']}")
         print(f"  {tid_str}Discovered by: {f['discovered_by']} ({f['created_at'][:10]})")
         print(f"  Summary: {f['fact_summary']}")
         print(f"  Quote:   > {f['verbatim_quote']}")

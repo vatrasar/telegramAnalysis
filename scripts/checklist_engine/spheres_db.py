@@ -33,14 +33,17 @@ def ensure_checklist_table(conn: sqlite3.Connection):
         PRIMARY KEY (chat_id, item_id)
     );
     """)
-    # Auto-migration if table already exists without semantic_queries_used
+    # Auto-migration if table already exists without semantic_queries_used or subject
     cur.execute("PRAGMA table_info(life_spheres_checklist);")
     columns = [col[1] for col in cur.fetchall()]
     if "semantic_queries_used" not in columns:
         cur.execute("ALTER TABLE life_spheres_checklist ADD COLUMN semantic_queries_used TEXT;")
+    if "subject" not in columns:
+        cur.execute("ALTER TABLE life_spheres_checklist ADD COLUMN subject TEXT DEFAULT '';")
 
     cur.execute("CREATE INDEX IF NOT EXISTS idx_checklist_chat_status ON life_spheres_checklist(chat_id, status);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_checklist_chat_sphere ON life_spheres_checklist(chat_id, sphere_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_checklist_chat_subj ON life_spheres_checklist(chat_id, subject);")
     conn.commit()
 
 
@@ -102,35 +105,46 @@ def enable_checklist(conn: sqlite3.Connection, chat_id: str) -> int:
     return re_enabled
 
 
-def resolve_chat_id(conn: sqlite3.Connection, chat_arg: Optional[str]) -> str:
-    """Resolve explicit chat_id or automatically determine if only one chat exists."""
+def resolve_chat_id(conn: sqlite3.Connection, chat_arg: Optional[str] = None, subject: Optional[str] = None) -> str:
+    """Resolve explicit chat_id or automatically determine if only one chat exists.
+
+    If subject is provided, scopes the effective chat_id to <chat_id>::<subject>.
+    """
     cur = conn.cursor()
+    base_id = ""
     if chat_arg:
-        cur.execute("SELECT chat_id FROM chats WHERE chat_id = ? OR chat_name = ?;", (chat_arg, chat_arg))
+        raw_arg = chat_arg.split("::")[0] if "::" in chat_arg else chat_arg
+        cur.execute("SELECT chat_id FROM chats WHERE chat_id = ? OR chat_name = ?;", (raw_arg, raw_arg))
         row = cur.fetchone()
-        if row:
-            return row[0]
-        return chat_arg
+        base_id = row[0] if row else raw_arg
+    else:
+        cur.execute("SELECT chat_id, chat_name FROM chats;")
+        rows = cur.fetchall()
+        if not rows:
+            raise ValueError("No chats found in database. Ingest chat logs first via db_builder.py.")
+        if len(rows) == 1:
+            base_id = rows[0][0]
+        else:
+            names = ", ".join(f"{r[0]} ('{r[1]}')" for r in rows)
+            raise ValueError(
+                f"Multiple chats found in database ({names}).\n"
+                f"Please specify --chat <chat_id> to audit a specific chat, "
+                f"or --chat global (or --chat <subject_name>) for a cross-chat personality profile."
+            )
 
-    cur.execute("SELECT chat_id, chat_name FROM chats;")
-    rows = cur.fetchall()
-    if not rows:
-        raise ValueError("No chats found in database. Ingest chat logs first via db_builder.py.")
-    if len(rows) == 1:
-        return rows[0][0]
-
-    names = ", ".join(f"{r[0]} ('{r[1]}')" for r in rows)
-    raise ValueError(
-        f"Multiple chats found in database ({names}).\n"
-        f"Please specify --chat <chat_id> to audit a specific chat, "
-        f"or --chat global (or --chat <subject_name>) for a cross-chat personality profile."
-    )
+    if subject and str(subject).strip():
+        s_clean = str(subject).strip().lower()
+        if not base_id.endswith(f"::{s_clean}"):
+            return f"{base_id}::{s_clean}"
+    return base_id
 
 
-def init_checklist(conn: sqlite3.Connection, chat_id: str, reset: bool = False) -> Tuple[int, int]:
+def init_checklist(conn: sqlite3.Connection, chat_id: str, reset: bool = False, subject: Optional[str] = None) -> Tuple[int, int]:
     """Initialize checklist items for a chat. Returns (inserted_count, total_count)."""
     ensure_checklist_table(conn)
     cur = conn.cursor()
+
+    subj_val = str(subject).strip() if subject else (chat_id.split("::")[1] if "::" in chat_id else "")
 
     if reset:
         cur.execute("DELETE FROM life_spheres_checklist WHERE chat_id = ?;", (chat_id,))
@@ -147,8 +161,8 @@ def init_checklist(conn: sqlite3.Connection, chat_id: str, reset: bool = False) 
             cur.execute("""
             INSERT INTO life_spheres_checklist (
                 chat_id, item_id, sphere_id, sphere_name, category, sub_item,
-                description, status, evidence_summary, query_terms_used, semantic_queries_used, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', '', '', '', ?);
+                description, status, evidence_summary, query_terms_used, semantic_queries_used, updated_at, subject
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', '', '', '', ?, ?);
             """, (
                 chat_id,
                 item["item_id"],
@@ -157,7 +171,8 @@ def init_checklist(conn: sqlite3.Connection, chat_id: str, reset: bool = False) 
                 item["category"],
                 item["sub_item"],
                 item["description"],
-                now_iso
+                now_iso,
+                subj_val
             ))
             inserted += 1
 
