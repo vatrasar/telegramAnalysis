@@ -57,7 +57,7 @@ def main():
     parser.add_argument("--concurrency", "-c", type=int, help="Number of concurrent API workers (default: 4)")
     parser.add_argument("--threshold", "-t", type=float, help="Override salience score threshold for escalation")
     parser.add_argument("--model", "-m", help="Override triage model name")
-    parser.add_argument("--chat-id", help="Filter by specific chat ID")
+    parser.add_argument("--chat-id", "-C", "--chat", help="Filter by specific chat ID")
     parser.add_argument("--status", action="store_true", help="Print existing triage and reduction report without running API")
     parser.add_argument("--enrich", action="store_true", help="Batch run Scaledown summaries and entity extractions on salient threads")
     parser.add_argument("--summarize-only", action="store_true", help="Generate summaries only for salient threads")
