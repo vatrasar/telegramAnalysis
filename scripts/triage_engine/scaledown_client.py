@@ -79,7 +79,11 @@ def call_openrouter_extraction(
             {
                 "role": "system",
                 "content": (
-                    "Extract all third-party human individuals mentioned or discussed in this dialogue. "
+                    "Extract all third-party human individuals mentioned or discussed in this dialogue who are "
+                    "personal, social, romantic, familial, medical, or professional acquaintances/contacts of the participants. "
+                    "STRICT EXCLUSIONS: Do NOT extract celebrities, musicians, singers, pop stars, actors, politicians, "
+                    "historical or public figures, fictional characters, medications, drugs, apps, companies, or incidental "
+                    "transactional bystanders (waiter, taxi driver, courier). "
                     "Include both personal names (e.g. 'Sarah', 'Ahmed') and relational/functional descriptions (e.g. 'my ex', 'boss', 'pediatrician', 'roommate'). "
                     "Respond ONLY with a valid JSON array of objects: [{\"mention\": \"...\", \"role\": \"...\"}]. "
                     "If no third-party individuals are mentioned, respond with []."

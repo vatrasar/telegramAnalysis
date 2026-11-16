@@ -85,7 +85,10 @@ def verify_unregistered_entities_decider(
         f"Core Question: Does this conversation thread introduce, present, discuss, or mention ANY NEW, UNKNOWN PERSON "
         f"not accounted for in the list of known persons above? "
         f"(Consider both personal names and relational or functional descriptions like 'my ex', 'new suitor', 'the doctor', 'a coworker', "
-        f"provided it refers to a distinct, new human individual)."
+        f"provided it refers to a distinct, new human individual).\n"
+        f"STRICT EXCLUSIONS: Do NOT flag famous public figures, celebrities, musicians, singers, pop stars, actors, "
+        f"politicians, historical/fictional figures, medications, apps, or incidental transactional bystanders (waiter, courier, uber driver). "
+        f"Only flag actual personal, social, romantic, familial, medical, or professional contacts interacting with or personally known to the participants."
     )
 
     is_decision_model = any(k in model.lower() for k in ["decider", "decision", "jev", "systemone"])
