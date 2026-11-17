@@ -3,6 +3,7 @@ name: search-investigator
 description: Investigates a batch of up to 5 conversation threads using single-shot snippet reconnaissance (-ts) and directional context verification, returning anchored factual findings.
 subagent: true
 mainAgent: false
+inheritCustomizations: false
 model: flash
 tools: [read_file, run_command]
 ---
