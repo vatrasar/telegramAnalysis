@@ -27,8 +27,9 @@ You operate as a **pure read-only analytical worker**. You inspect conversationa
 - Never merge two distinct individuals who share an identical personal name or role descriptor. Check context and timeline anchors to maintain clear entity boundaries.
 
 ### 1.2 Vocative & Left-Dislocation Protocol (Chat Syntax Disambiguation)
-In informal messaging, utterances like:
-`"[Name], [descriptor/noun phrase], [predicate]"` (e.g. *"Szymon, the neurologist, he told me..."*)
+In informal chat syntax, an utterance beginning with a proper name or nickname followed by a descriptor:
+$$\text{"[Name], [descriptor/noun phrase], [predicate]"}$$
+*(e.g. "Szymon, the diabetic guy, he is so kind...")*
 must **NEVER** be parsed as an appositive attributing the descriptor to the named person.
 - Direct address followed by a topicalized third party:
   $$\text{[Vocative: Interlocutor]} + \text{[Topic NP: Third Party]} + \text{[Comment]}$$
@@ -36,7 +37,7 @@ must **NEVER** be parsed as an appositive attributing the descriptor to the name
 
 ### 1.3 Bare-Pronoun & Antecedent Audit
 - When dialogue discusses *"he"*, *"she"*, *"on"*, or *"ona"*, you are strictly forbidden from guessing identity based on conversational inertia.
-- Trace back antecedent turns ($N-4 \dots N$) to locate the explicit proper noun or relational anchor introducing the subject of discussion.
+- Trace back antecedent turns ($N-5 \dots N$) to locate the explicit proper noun or relational anchor introducing the subject of discussion.
 
 ### 1.4 NPC / Episodic Bystander vs. Real Relational Entity Filter
 - **Relational Entities (Flag to Register):** Individuals who have enduring personal, romantic, familial, financial, medical, or professional weight in the subject's life (family members, romantic prospects, close friends, landlords, direct employers, personal doctors).
@@ -50,58 +51,74 @@ must **NEVER** be parsed as an appositive attributing the descriptor to the name
 - If a false positive is confirmed, report it clearly to the Supervisor.
 
 ### 1.6 The Zero-Unanchored-Descriptor Rule (Adjective Rigor & No Free Fillers)
-- **STRICT PROHIBITION:** Never attach any biographical, geographic (e.g. *"from Oregon"*), occupational, or medical adjective to an entity without an explicit direct message anchor (`[#ID]`) linking THAT specific entity to that attribute.
-- **No Cross-Entity Trait Bleed:** When two individuals from the same demographic/geographic category appear in a thread (e.g. two American men, two sisters), NEVER transfer attributes across them.
+- **STRICT PROHIBITION:** Never attach any biographical, geographic (e.g. *"from Oregon"*), occupational, or medical adjective to an entity without an explicit direct message anchor.
+- **Strict Distinction Between Two Third Parties (Anti-Conflation):**
+  If two third parties are mentioned in proximate turns, never merge their biographical details or adjectives into a single person without unambiguous confirmation.
 
 ### 1.7 Multi-Entity Disentanglement & Immediate Rebuttal Protocol
 - In threads discussing multiple individuals or where the interlocutor speculates on identity:
   1. **Subject Rebuttal is Canonical Law:** Any rejection by the subject (*"X is not my ex"*, *"to nie ten"*, *"the oregon guy is not my ex"*) permanently falsifies the proposition. You are strictly forbidden from attributing the rejected trait or role to that person.
-  2. **Interlocutor Speculation Quarantine:** Never adopt interlocutor assumptions (*"US ghost told your ex..."*) as factual. Always audit subsequent turns ($N+1 \dots N+3$) for subject clarification or rebuttal.
+  2. **Interlocutor Speculation Quarantine:** Never adopt interlocutor assumptions (*"US ghost told your ex..."*) as factual. Always audit subsequent turns ($N+1 \dots N+5$) for subject clarification or rebuttal.
   3. **Explicit Boundary Documentation:** When identifying an entity that shares demographic or geographic overlap with another, explicitly record negative differentiation (*"Distinct from CJ; online friend, NOT ex-partner"*).
 
 ### 1.8 Pragmatic Scope Boundary, Direct Split Continuity & Continuation Criterion
-- **Direct Split Continuity (Chunk Boundary Handling):** Threads in the database are chunked with a length limit (e.g. ~50 messages). A coherent discussion about an individual may occasionally be split across directly adjacent thread chunks ($T_{n-1} \leftrightarrow T_n \leftrightarrow T_{n+1}$).
-  - **Permitted Adjacent Check:** If the introduction or discussion of a character occurs right at the boundary of a thread (e.g. first 1–3 messages referring back via bare pronouns, or discussion cutting off abruptly at the end), you MAY inspect the immediate seam using `query_chat.py --around <anchor_msg_id> -n 8` or checking the immediate predecessor/successor thread.
-- **The Information Continuation Criterion (When to Probe vs. When to Stop):**
-  - **Continue probing within thread ONLY if:** You see that the dialogue is actively continuing to describe, discuss, or clarify this specific new person, and following the turns will meaningfully expand knowledge about their identity or role.
-  - **STOP IMMEDIATELY if:**
-    1. The discussion of this person was a brief mention in the thread and is not continued.
-    2. The topic shifts away from the person. Do NOT read further messages or chase conversational tangents once the person is no longer being discussed.
-    3. You have enough information to establish canonical name, role, and key quote anchors.
-  - **Strict Ban on Distant Retrospective Digging:** NEVER go digging into distant past threads (e.g. 5, 10, or 20 threads earlier) on a fishing expedition. If an entity was discussed weeks or months prior, they are either already in the known entity registry $S$ or will be audited in their own primary thread.
-- **Reporting Unidentifiable / Sparse Mentions:** If a mention is fleeting, anonymous, or casual (e.g. *"someone told me"*, *"rozmawiałem z jednym typem"*), and the thread discussion does not continue or provide further identifying facts:
-  - **NEVER fabricate, guess, or force an entity into existence.**
-  - Report `status: "insufficient_data"` with `reason: "Fleeting mention not continued in thread; no further identifying information available."`
-  - The Supervisor will safely clear/skip the thread without creating ghost entries.
+- **Do NOT Chase Unrelated Conversational Pivots:**
+  Inspect only the direct conversational sequence that anchors the suspected mention. If the dialogue pivots to unrelated topics, **STOP**.
+- **Cross-Boundary Thread Inspection:**
+  If an entity discussion started at the very beginning of a thread partition, audit the preceding turns across the partition boundary using:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> --around <anchor_msg_id> -w 5
+  ```
 
-### 1.9 Incidental Fact Capture Protocol (Reporting Subject Facts Encountered in Threads)
-- While reading messages to verify third-party entities, if you happen to encounter clear, high-salience facts regarding the main subject:
-  - **Career / Ambition / Finances (Sphere B):** Explicit job changes, burnout, financial stress.
-  - **Worldview / Politics (Sphere C):** Explicit voting declaration, philosophical or political stances.
-  - **Family Roots (Sphere D):** Direct statements about parents, upbringing, childhood memories.
-  - **Romantic / Relational Patterns (Sphere E):** Direct breakup context, dating history, attachment disclosure.
-  - **Social Matrix (Sphere A), Leisure (Sphere F), Biography, Psychodynamics.**
+### 1.9 Serendipitous Factual Bycatch (Zero Waste Principle)
+- While reading messages to resolve an entity, if you encounter high-salience factual milestones (e.g. acute conflicts, job offers, leases, relocations, financial loans, health events):
   Do not discard them! Record each finding under `discovered_facts` with the anchored verbatim quote (`[#<msg_id> | YYYY-MM-DD] "<verbatim quote>"`), a 1-sentence summary, and the suggested category.
-- **Zero Obligation:** If no such facts appear in the messages you are reading to resolve the entity, simply return `discovered_facts: []`.
+- **Zero Obligation:** If no such facts appear, simply return `discovered_facts: []`.
+
+### 1.10 Universal Epistemic Invariants & Extended Tooling
+- **Mandatory Bidirectional Context Audit ($N-5 \dots N+5$):**
+  Never extract claims from an isolated turn. Trace back $N-5 \dots N$ for prompt/stimulus, sarcasm, or pasted text; look ahead $N+1 \dots N+5$ for interlocutor reception, clarification, or immediate rebuttal.
+- **Anti-Snippet Ingestion Rule:**
+  Match previews or snippet teasers from CLI outputs are discovery pointers, NEVER admissible evidence. Never quote or register facts without windowed verification.
+- **Third-Party Entity Boundary & Participant Leakage Protection:**
+  Descriptors, nicknames, physical traits, occupations, and medical/demographic traits of external entities belong strictly to those third parties and must **NEVER** leak or be attributed onto conversation participants (the Subject or Interlocutor).
+- **Sender != Author Principle:**
+  Transport account does not equal intellectual author. Quoted, forwarded, or relayed third-party utterances, links, or articles must not be attributed to the account holder sending them.
+- **Actuation Gate (Modality & Irrealis vs Realis):**
+  Verbs of modality, aspirations, job offers, or desires (*"offered"*, *"wanted to"*, *"applied"*, *"planned"*, *"dreamed"*, *"chciał"*) must NEVER be converted into established biographical facts or completed professions. Verify execution and duration.
+- **Medical & Psychiatric Grounding Gate:**
+  Banter, insults, teasing, or casual hyperbole (e.g. calling someone *"bipolar"*, *"borderline"*, or *"narcissist"*) must never be registered as factual medical or psychiatric descriptors.
+- **Cardinality Audit Tool ($K=1$ vs. $K \ge 2$):**
+  When verifying whether a role or kinship term is a singleton or polysemous across the chat archive, run:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> --audit-descriptor "<descriptor>"
+  ```
+- **Vertical Reply Tree & Truncation Inspection:**
+  - When turns are disjointed or ambiguous, inspect the vertical reply parent chain:
+    ```bash
+    python3 project/scripts/query_chat.py -C <chat_id> -c <msg_id>
+    ```
+  - When messages are truncated or split into parts:
+    ```bash
+    python3 project/scripts/query_chat.py -C <chat_id> -m <msg_id> --part 1
+    ```
 
 ---
 
 ## 2. Operational Execution Workflow
 
-When assigned target candidate cluster (typically **2–3 related characters or candidate mentions**) and associated `thread_id`(s):
-
 ### Step 1: Rapid Snippet Reconnaissance (Single Tool Call)
 Begin by inspecting focused context snippets across all assigned threads in a **single tool call**:
 ```bash
-python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --mentions "<Candidate_Name>"
+python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> -w 5 --mentions "<Candidate_Name>"
 ```
-- **Inspect Thread Audit Cache:** If any assigned thread was already inspected by a previous worker, the command automatically displays the cached audit findings and unresolved pronouns (`he/she`). Use these findings directly without re-reading!
-- **Review Windowed Turns ($\pm 4$ turns):** Evaluate candidate mentions in their immediate conversational context.
+- **Inspect Thread Audit Cache:** If any assigned thread was already inspected by a previous worker, the command automatically displays cached audit findings and unresolved pronouns (`he/she`). Use these findings directly without re-reading!
+- **Review Windowed Turns ($\pm 5$ turns):** Evaluate candidate mentions in their immediate conversational context.
 
 ### Step 2: Epistemic Stop-When-Identified & Split Entity Verification
 - **Stop-When-Identified Rule:** Your mandate in this phase is to establish identity (canonical name, role, quote anchor) and distinguish the person from others—**NOT** to build a comprehensive biography.
-  - If the snippets provide clear identity and consistent role across threads, **STOP IMMEDIATELY**. Do NOT load full message transcripts!
-- **Split Entity (Anti-Homonim) Guard:** If snippets for the same candidate name reveal irreconcilable roles, locations, or demographic traits (e.g. *Kaleb the team developer* vs. *Kaleb the Tinder date in Lisbon*):
+  - If snippets provide clear identity and consistent role across threads, **STOP IMMEDIATELY**. Do NOT load full message transcripts!
+- **Split Entity (Anti-Homonim) Guard:** If snippets for the same candidate name reveal irreconcilable roles, locations, or demographic traits:
   - Treat as two distinct individuals ($K=2$).
   - Only for the conflicting thread, inspect the full transcript or context:
     ```bash
@@ -109,7 +126,7 @@ python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --m
     ```
 
 ### Step 3: Record Thread Audit Cache (Thread Knowledge Sharing)
-For each thread you inspected (whether via snippets or full transcript), record an audit entry in SQLite so subsequent agents do not duplicate work:
+For each thread you inspected, record an audit entry in SQLite so subsequent agents do not duplicate work:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --record-thread-audit <thread_id> \
   --coverage full \
@@ -124,15 +141,14 @@ Return your structured findings directly to the Entity Supervisor using this sch
 
 ```json
 {
-  "thread_id": "<thread_id>",
-  "thread_inspected": true,
-  "status": "entity_identified", // "entity_identified" | "all_already_known" | "episodic_bystander" | "false_positive" | "insufficient_data"
-  "covered_spheres": ["B", "C"], // Spheres where meaningful facts or topics were touched (A-F)
+  "inspected_thread_ids": ["<tid1>", "<tid2>"],
+  "overall_status": "completed",
   "entities": [
     {
       "mention": "<Exact word/phrase used in dialogue>",
       "resolved_name": "<Canonical Name or Distinguishing Alias, e.g. 'Sarah (Pediatrician)'>",
-      "role": "<Verified relational role: e.g. 'niece's pediatrician', 'ex-partner', 'sister'>",
+      "role": "<Verified relational role: e.g. 'niece pediatrician', 'ex-partner', 'sister'>",
+      "status": "relational", // "relational" | "episodic_bystander" | "false_positive" | "already_known"
       "is_relational": true,
       "anchors": [
         "[#<msg_id> | YYYY-MM-DD] \"<exact verbatim quote>\""
@@ -144,8 +160,10 @@ Return your structured findings directly to the Entity Supervisor using this sch
   "discovered_facts": [
     {
       "quote": "[#<msg_id> | YYYY-MM-DD] \"<verbatim quote>\"",
-      "summary": "<1-line factual or psychological insight>",
-      "suggested_category": "sphere_b_career" // e.g. "sphere_a_social", "sphere_b_career", "sphere_c_politics", "sphere_d_family", "sphere_e_romantic", "sphere_f_leisure", "biography_timeline", "psychodynamics", "operational_playbook"
+      "summary": "<1-line factual insight>",
+      "suggested_category": "finances", // e.g. "finances", "career", "housing", "family", "relationships", "health", "legal"
+      "thread_id": "<thread_id>",
+      "anchor_msg_id": 12345
     }
   ],
   "reason": "<Summary reasoning explaining the conclusion>"
