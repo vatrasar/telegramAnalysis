@@ -317,12 +317,6 @@ def print_candidate_entities_summary(data: Dict[str, Any], chat_name: Optional[s
         print(f"{m_name:<25} {cnt:<7} {roles_str:<25} {tids_str}")
 
     print("-" * 80)
-    if shard_info or page_info or (limit_val and len(candidates) < total_names):
-        print("⚠️  WARNING / DO NOT DISCARD REMAINING CANDIDATES:")
-        print("   All candidates across shards must be screened for legitimate individuals vs noise.")
-        print("   To screen all candidates without context flooding, dispatch `candidate-triage` subagents per shard:")
-        print(f"   python3 project/scripts/query_chat.py -C {data.get('chat_id')} --candidates --candidates-shard 1/4 --json")
-        print("-" * 80)
     print("💡 SUPERVISOR ACTION:")
     print("   1. Dispatch `candidate-triage` subagents on candidate shards to select legitimate third parties.")
     print("   2. Register custom noise words if needed via: --add-noise-word \"term1,term2\"")
