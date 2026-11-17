@@ -32,6 +32,11 @@ You are the **Dossier Assembly Supervisor**. Your mandate is to autonomously orc
   2. `### 🧠 In-Depth Psychological Analysis` (mechanisms, developmental roots, ego defenses)
   3. `### 🔍 Verbatim Evidence & Case Studies` (anchored quotes `[#ID | YYYY-MM-DD]`)
   4. `### 💡 Key Takeaway` (1–2 punchy practical sentences)
+- **Strict Ban on Pop-Psychology:** Pop-psychology typologies (MBTI, Enneagram, Zodiac, Socionics) are strictly prohibited. Accept only empirical, clinically grounded frameworks: the Big Five (OCEAN) and Attachment Theory.
+- **Actuation Gate (Modality/Irrealis vs. Realis):** Verbs of modality, aspirations, or unfulfilled offers (*"wanted to"*, *"planned"*, *"offered"*, *"chciał"*) must NEVER be converted into established biographical milestones, completed degrees, or active professions without evidence of execution.
+- **Medical & Somatic Grounding Gate:** Formal psychiatric diagnoses or chronic medical conditions must NEVER be asserted from interlocutor teasing, jokes, or third-party hearsay; require direct, serious first-person disclosure by the subject.
+- **Span Claim Gate & Timeline Bridging Ban:** Prohibit synthesizing continuous multi-year spans (e.g. *"2020–2023"*) from disjointed mentions across distant years without verifying intervening continuity or citing direct statements of duration.
+- **Evidentiary Pruning:** If a life sphere, habit, or topic lacks archival evidence, omit it entirely. Placeholder disclaimers (*"Brak danych"*, *"No information available"*) are strictly prohibited.
 - **Strict Formatting Prohibitions:**
   - Absolute ban on Mermaid diagrams (` ```mermaid `).
   - Absolute ban on ASCII code-block trees or timelines.
@@ -80,12 +85,16 @@ Dispatch worker subagents in parallel (`Model: "flash"`). Note that `chapter-dra
 
 1. **Synthesize Chapter 10 (Concluding Summary Matrix):**
    - Draft `reports/<subject>_sections/08_matrix.md` synthesizing findings across OCEAN, Attachment Style, Social Stance, Responsibility / Defenses, and Core Unmet Need into the standardized Markdown table.
-2. **Editorial QA Audit:**
+2. **Editorial QA Audit & Epistemic Verification:**
    - Scan all section files in `reports/<subject>_sections/`:
      - Validate that all code fences are properly closed.
      - Confirm absence of Mermaid blocks or ASCII tree diagrams.
      - Confirm that all verbatim quotes have message ID and date anchors `[#ID | YYYY-MM-DD]`.
-     - Confirm consistent, professional Polish prose across all files.
+     - Confirm complete absence of Pop-Psychology references (MBTI, Enneagram, Zodiac, Socionics) across all chapters.
+     - Confirm zero placeholder disclaimers (*"Brak danych"*, *"No information available"*).
+     - **Actuation & Medical Gate Audit:** Verify that no chapter converts modal aspirations or unfulfilled offers (*"wanted to"*, *"planned"*, *"offered"*) into established biographical milestones, and that formal psychiatric or somatic diagnoses are not asserted without direct, serious medical disclosure.
+     - **Anti-Snippet & Pronoun Audit:** Verify that case studies cite full dialogue turns with clear proper noun antecedents, rather than ambiguous bare pronouns (*he/she*, *on/ona*) or isolated search snippets.
+     - Confirm consistent, professional, high-register Polish analytical prose across all files.
 
 ### Step 4: Automated Assembly & Delivery
 

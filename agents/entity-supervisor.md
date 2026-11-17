@@ -58,6 +58,20 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
      ```
      This automatically tags each fact for the specific downstream subagent (e.g. `life-sphere-investigator` for Sphere C: Politics, `chapter-drafter` for Timeline) so they never have to read this thread again!
 
+### 1.6 Context Inspection, Actuation & Epistemic Gates during Collision Audits
+- **Anti-Snippet Ingestion Rule:** Candidate snippets and search previews are discovery pointers only. Never register a relational entity or persist an anchor quote without verifying surrounding dialogue context.
+- **Mandatory Context Audit ($N-5 \dots N+5$):**
+  - Inspect preceding turns $N-5 \dots N$ for prompt stimuli, teasing, irony, or sarcasm.
+  - Inspect subsequent turns $N+1 \dots N+5$ for interlocutor correction; if a proposed identity, relation, or role is refuted (*"to nie mój były"*, *"nie szef"*), you are strictly forbidden from adopting it as factual.
+- **Bare-Pronoun Resolution Rule:** In threads discussing multiple individuals, never assign an identity or role to a third party based on bare pronouns (*he*, *she*, *on*, *ona*) without verifying the explicit proper noun antecedent in $N-5 \dots N$.
+- **Sender-vs-Author Disambiguation:** Confirm candidate names and statements do not originate from forwarded quotes, external articles, questionnaires, or quiz results sent from the subject's account.
+- **Third-Party Entity Boundary & Participant Leakage Protection:** External traits, diagnoses, relational conflicts, and descriptors must never leak onto the conversation participants (Subject or Interlocutor).
+- **No Collective-to-Individual Leakage:** Beliefs, traits, or cultural norms of a social unit (family, company, ethnic group) must never be attributed to an individual without explicit personal affirmation.
+- **Message Truncation Guard:** If an anchor message exceeds 1,500 characters, inspect full text via `query_chat.py -m <msg_id> --part 1` (or `--all`). Check parent reply trees via `-c <msg_id>`.
+- **Actuation & Medical Grounding Gates:**
+  - *Actuation (Modality vs. Realis):* Prospective, rejected, or aspired roles (*"chciałem go zatrudnić jako dyrektora"*, *"wanted to hire him as director"*) must NEVER be registered as verified roles (`--role "Dyrektor"`). Only actual executed relationships count.
+  - *Medical Grounding:* Casual psychiatric slurs, teasing, or hyperbolic labels (*"wariat"*, *"narcissist"*, *"bipolar"*) must never be entered into `--desc` as factual diagnoses. Only serious, grounded medical disclosures qualify.
+
 ---
 
 ## 2. Operational Execution Workflow
@@ -83,7 +97,14 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --candidates
    ```
-2. **Handle High Candidate Volume (> 40 mentions) via Dedicated Screener Subagents:**
+2. **Inspect Audited Descriptors & Verify Role Cardinality:**
+   Inspect existing audited descriptors and verify role cardinality ($K=1$ vs $K \ge 2$) for kinship or role labels (*"sister"*, *"ex"*, *"boss"*) before clustering and investigator dispatch:
+   ```bash
+   # Inspect audited descriptors and verify role cardinality (K=1 vs K>=2):
+   python3 project/scripts/query_chat.py -C <chat_id> --descriptors
+   python3 project/scripts/query_chat.py -C <chat_id> --audit-descriptor "<role_or_descriptor>"
+   ```
+3. **Handle High Candidate Volume (> 40 mentions) via Dedicated Screener Subagents:**
    - Do NOT attempt to ingest hundreds of candidates into your own prompt and do NOT write ad-hoc Python scripts.
    - Partition the candidates into shards (e.g. 2–4 shards) and dispatch parallel `candidate-triage` subagents:
      - `TypeName`: `"candidate-triage"`
@@ -96,9 +117,9 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
        python3 project/scripts/query_chat.py -C <chat_id> --add-noise-word "<discovered_noise_words>"
        ```
      - Aggregate the verified candidates across all shards.
-3. **If Candidate Count is Compact ($\le$ 40 mentions):**
+4. **If Candidate Count is Compact ($\le$ 40 mentions):**
    Retrieve the candidate list directly: `python3 project/scripts/query_chat.py -C <chat_id> --candidates --json`.
-4. **Generate Hybrid Pre-Clusters & Conflation Risk Alerts:**
+5. **Generate Hybrid Pre-Clusters & Conflation Risk Alerts:**
    Run the deterministic co-occurrence clustering engine:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --suggest-clusters --json
@@ -143,7 +164,14 @@ Dispatch parallel investigator subagents via `invoke_subagent` for all identifie
    python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit
    ```
    Examine any character pairs flagged with high semantic/demographic overlap. If ambiguous characters need clarification, inspect `--around <anchor_id> -n 5` or assign negative boundaries (`--desc "...; NOT <Other>"`).
-2. Verify gatekeeper status:
+2. **Inspect Audited Descriptors & Role Cardinality Verification:**
+   Ensure all role descriptors and kinship tags are verified without conflation ($K=1$ vs $K \ge 2$):
+   ```bash
+   # Inspect audited descriptors and verify role cardinality (K=1 vs K>=2):
+   python3 project/scripts/query_chat.py -C <chat_id> --descriptors
+   python3 project/scripts/query_chat.py -C <chat_id> --audit-descriptor "<role_or_descriptor>"
+   ```
+3. Verify gatekeeper status:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
    ```

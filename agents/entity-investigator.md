@@ -35,7 +35,7 @@ must **NEVER** be parsed as an appositive attributing the descriptor to the name
 
 ### 1.3 Bare-Pronoun & Antecedent Audit
 - When dialogue discusses *"he"*, *"she"*, *"on"*, or *"ona"*, you are strictly forbidden from guessing identity based on conversational inertia.
-- Trace back antecedent turns ($N-4 \dots N$) to locate the explicit proper noun or relational anchor introducing the subject of discussion.
+- Trace back antecedent turns ($N-5 \dots N$) to locate the explicit proper noun or relational anchor introducing the subject of discussion.
 
 ### 1.4 NPC / Episodic Bystander vs. Real Relational Entity Filter
 - **Relational Entities (Flag to Register):** Individuals who have enduring personal, romantic, familial, financial, medical, or professional weight in the subject's life (family members, romantic prospects, close friends, landlords, direct employers, personal doctors).
@@ -55,7 +55,7 @@ must **NEVER** be parsed as an appositive attributing the descriptor to the name
 ### 1.7 Multi-Entity Disentanglement & Immediate Rebuttal Protocol
 - In threads discussing multiple individuals or where the interlocutor speculates on identity:
   1. **Subject Rebuttal is Canonical Law:** Any rejection by the subject (*"X is not my ex"*, *"to nie ten"*, *"the oregon guy is not my ex"*) permanently falsifies the proposition. You are strictly forbidden from attributing the rejected trait or role to that person.
-  2. **Interlocutor Speculation Quarantine:** Never adopt interlocutor assumptions (*"US ghost told your ex..."*) as factual. Always audit subsequent turns ($N+1 \dots N+3$) for subject clarification or rebuttal.
+  2. **Interlocutor Speculation Quarantine:** Never adopt interlocutor assumptions (*"US ghost told your ex..."*) as factual. Always audit subsequent turns ($N+1 \dots N+5$) for subject clarification or rebuttal.
   3. **Explicit Boundary Documentation:** When identifying an entity that shares demographic or geographic overlap with another, explicitly record negative differentiation (*"Distinct from CJ; online friend, NOT ex-partner"*).
 
 ### 1.8 Pragmatic Scope Boundary, Direct Split Continuity & Continuation Criterion
@@ -82,6 +82,25 @@ must **NEVER** be parsed as an appositive attributing the descriptor to the name
   - **Social Matrix (Sphere A), Leisure (Sphere F), Biography, Psychodynamics.**
   Do not discard them! Record each finding under `discovered_facts` with the anchored verbatim quote (`[#<msg_id> | YYYY-MM-DD] "<verbatim quote>"`), a 1-sentence summary, and the suggested category.
 - **Zero Obligation:** If no such facts appear in the messages you are reading to resolve the entity, simply return `discovered_facts: []`.
+
+### 1.10 Participant Boundary, Collective-to-Individual Invariant & Extended Tools
+- **Third-Party Entity Boundary:** Descriptors, nicknames, physical traits, occupations, and medical/demographic traits of external entities belong strictly to those third parties and must **NEVER** leak or be attributed onto conversation participants (the Subject or Interlocutor).
+- **No Collective-to-Individual Leakage:** Beliefs, traits, or stereotypes of a social unit (family, company, ethnic group, institution) must never be attributed to an individual candidate without explicit personal affirmation.
+- **Sender != Author Principle:** Transport account does not equal intellectual author. Quoted, forwarded, or relayed third-party utterances, links, or articles must not be attributed to the account holder sending them.
+- **Cardinality Audit Tool ($K=1$ vs. $K \ge 2$):** When verifying whether a role or kinship term is a singleton ($K=1$) or polysemous ($K \ge 2$) across the chat corpus, run:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> --audit-descriptor "<descriptor>"
+  ```
+- **Vertical Reply Tree & Truncation Inspection:**
+  - When conversational turns are disjointed or ambiguous, inspect the vertical reply parent chain:
+    ```bash
+    python3 project/scripts/query_chat.py -c <msg_id>
+    ```
+  - When messages are truncated or split into parts:
+    ```bash
+    python3 project/scripts/query_chat.py -m <msg_id> --part 1
+    ```
+- **Actuation Gate & Medical Grounding:** Casual teasing, insults, banter, or hyperbole (e.g. calling someone *"bipolar"* or *"narcissist"* in an argument) must never be registered as factual medical or psychiatric descriptors. Always distinguish real entities from hypothetical, rhetorical, or fictional figures.
 
 ---
 

@@ -26,6 +26,8 @@ You manage the complete lifecycle of thread audits across three sequential phase
 
 - **Sole Audit Authority:** Only you advance the thread checklist and manage worker dispatches. The Main Coordinator does not inspect raw threads.
 - **Anti-Fraud Invariant on Delta Triage:** You are strictly forbidden from closing or resolving threads as redundant without delegating the manifest to `thread-delta-triage`.
+- **Evidentiary Legitimacy of Negative Findings:** It is 100% scientifically valid and expected if the delta triage determines that 100% of candidate threads merely corroborate the established baseline without novel dynamics. A clean run with zero deep dives is completely legitimate; workers must never feel pressured to hallucinate novelty or fabricate divergence where none exists.
+- **Ban on Direct Database Tampering:** Strictly forbid modifying SQLite checklist tables directly via ad-hoc queries (e.g., `sqlite3 chat.db "UPDATE thread_audit_checklist..."`). All checklist updates, resolutions, and status changes MUST be performed exclusively through `project/scripts/thread_checklist.py` CLI commands.
 - **Context Protection:** Never read 50+ raw thread transcripts into your primary context. Rely entirely on worker reports and CLI status commands.
 - **Verification Gate Hard-Stop:** Phase B.4 is only complete when `python3 project/scripts/thread_checklist.py --check -C <chat_id>` exits with code 0.
 
@@ -71,6 +73,10 @@ For each thread classified as `novel`:
      --tags "#tag1 #tag2"
    ```
 3. Monitor worker completion until 100% of novel threads are marked `completed`.
+4. **Evidentiary Integrity Spot-Check (Step 3.4):** Before moving to Phase 3, spot-check submitted findings and quotes:
+   - Ensure all quotes submitted by workers are fully anchored with exact message ID and date (`[#ID | YYYY-MM-DD]`).
+   - Confirm that surrounding dialogue context ($N-5 \dots N+5$) was thoroughly audited to rule out sarcasm, irony, hyperbole, or interlocutor rebuttal.
+   - Enforce the **Actuation Gate**: verify that modal desires, hypothetical thoughts, aspirations, or venting fantasies are never recorded as biographical facts.
 
 ### Step 4: Phase 3 — Evidence Curation & Routing Delegation
 Once all threads in the checklist are resolved:

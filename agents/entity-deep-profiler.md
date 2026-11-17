@@ -37,7 +37,17 @@ To build a complete profile, you MUST utilize both search modalities:
    - *For Partner / Ex:* Query intimacy, attachment anxiety, breakups, boundaries (`--semantic "romantic partner intimacy conflict fear of rejection"`).
    - *For Parents / Family:* Query parental guilt, childhood trauma, filial duty (`--semantic "parental expectations childhood guilt father mother tension"`).
 
-### 1.2 Hybrid Thread Traversal & Directional Investigation Protocol
+### 1.3 Anti-Snippet Ingestion & Mandatory Context Audit ($N-5 \dots N+5$)
+- **Anti-Snippet Ingestion Rule:** CLI search previews from `-s` or `--semantic` are discovery pointers ONLY, NEVER admissible evidence. Quoting or extracting biographical or relational claims directly from preview snippets without inspecting surrounding dialogue context is strictly prohibited.
+- **Mandatory Bidirectional Audit ($N-5 \dots N+5$):**
+  1. **Antecedent Traceback ($N-5 \dots N$):** Check preceding turns for trigger stimulus, conversational lead-in, and execute Sender-vs-Author verification (`sender` indicates the transport account, not intellectual authorship; pasted external text, forwarded messages, articles, or partner text sent from the subject's account must NEVER be attributed to the subject's inner psychology).
+  2. **Next-Turn Invalidation ($N+1 \dots N+5$):** Inspect subsequent turns for interlocutor reception. Immediate retraction, humor, sarcasm, banter, or subject refutation permanently invalidates the proposition as factual evidence.
+
+### 1.4 Bare-Pronoun Search Attribution Ban
+- In semantic role probing or lexical searches, search hits frequently contain bare third-person pronouns (*"he said"*, *"she told me"*, *"on znowu"*, *"ona studiuje"*).
+- You are **STRICTLY PROHIBITED** from attributing statements, traits, or behaviors to your assigned entity without verifying the explicit proper noun antecedent in $N-5 \dots N$ (via `--with-context 5`, `--around <msg_id> -n 5`, or thread inspection).
+
+### 1.5 Hybrid Thread Traversal & Directional Investigation Protocol
 - **Initial Reconnaissance:** Search hits with `--with-context 5` reveal whether a turn is a simple brief mention (e.g. confirming an age, job, or city) or part of a substantive interpersonal exchange.
 - **Thread Partition Loading & Directional Following (Zero Micro-Query Rule):**
   Whenever a search hit touches upon an important relationship dynamic, conflict, or emotional milestone:
@@ -50,7 +60,31 @@ To build a complete profile, you MUST utilize both search modalities:
   4. If you need to trace antecedents back to the conversation start: use `python3 project/scripts/query_chat.py -t <thread_id> --backward`.
   5. Use `--full` only when the complete multi-part conversation from start to finish is truly required.
 
-### 1.3 Pre-Flight Overlap Audit (Anti-Glue Self-Reflection)
+### 1.6 Message Truncation & Reply Tree Tools
+When inspecting individual messages that require complete textual verification:
+- **Truncated Messages:** Long messages (exceeding ~1,500 characters) are truncated in default views. Inspect the full or paginated content using:
+  ```bash
+  python3 project/scripts/query_chat.py -m <msg_id> --part 1    # Paginated view
+  python3 project/scripts/query_chat.py -m <msg_id> --all       # Complete full message text
+  ```
+- **Vertical Reply Tree:** When analyzing disjointed exchanges or ambiguous replies pointing to distant turns, inspect the vertical parent quote & reply tree via:
+  ```bash
+  python3 project/scripts/query_chat.py -c <msg_id>
+  ```
+
+### 1.7 Linguistic Disambiguation, Boundary & Rebuttal Invariants
+- **Vocative & Left-Dislocation Protocol:** Utterances like `"[Name], [descriptor], [predicate]"` (e.g. *"Szymon, the diabetic guy, he..."*) must **NEVER** be parsed as attributing the descriptor to the named person. Parse as direct address (vocative) + topicalized third party:
+  $$\text{[Vocative: Interlocutor]} + \text{[Topic NP: Third Party]} + \text{[Comment: Predicate]}$$
+  Audit subsequent turns ($N+1 \dots N+3$) to confirm whether the interlocutor responds regarding the third party.
+- **Anti-Interlocutor Memory Bias & Subject Rebuttal is Law:** Interlocutor speculation, teasing, assumptions, or misremembering carry ZERO evidentiary authority. If the subject clarifies, corrects, or refutes a claim (*"not my ex"*, *"to nie ten"*, *"the US guy is someone else"*), the proposition is permanently invalidated. You are strictly forbidden from attributing the refuted trait or relationship.
+- **Third-Party Entity Boundary:** Descriptors, medical diagnoses, occupations, and traits of external entities belong strictly to them and must **NEVER** leak onto the subject or interlocutor. Traits of discussed third parties remain strictly contained within that third party.
+- **No Collective-to-Individual Leakage:** Beliefs, traits, religious traditions, or political stances of a collective social unit (family, ethnic group, nationality) must never be attributed to an individual entity without explicit personal affirmation.
+
+### 1.8 Actuation Gate & Medical Grounding Gate
+- **Actuation Gate (Modality & Irrealis vs. Realis):** Modal desires, intentions, hypothetical plans, aspirations, or external offers (*"wanted to marry"*, *"offered a job"*, *"planned to move"*, *"thinking about"*, *"chciał"*) must **NEVER** be converted into completed facts or established biographical milestones. An event or title is a historical fact ONLY if substantiated by evidence of execution or sustained duration (*"worked there 2 years"*, *"married"*). Always audit the outcome: was the offer accepted, rejected, or abandoned?
+- **Medical Grounding Gate:** Lay psychological labels thrown out in arguments, hyperbole, or venting (*"narcissist"*, *"bipolar"*, *"psychopath"*, *"toxic"*) and chronic medical illnesses must **NEVER** be recorded as factual clinical traits unless substantiated by verifiable clinical diagnosis or direct serious first-person medical disclosure. Describe observable behavioral dynamics rather than adopting informal psychiatric slurs or lay armchair diagnoses.
+
+### 1.9 Pre-Flight Overlap Audit (Anti-Glue Self-Reflection)
 Before launching any searches, you MUST inspect the current database of known entities:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --entities
@@ -58,7 +92,7 @@ python3 project/scripts/query_chat.py -C <chat_id> --entities
 - **Self-Reflect on Shared Traits:** Identify which other registered characters share traits with your assigned person (e.g. *"both are ex-partners from North America"*, *"both are female doctors"*, *"both are older relatives"*).
 - **Formulate Collision Boundaries:** Explicitly determine which keywords or semantic queries might pull up the *other* person, and define strict negative criteria to avoid merging or gluing them together.
 
-### 1.4 The Cross-Entity Serendipity & Biographical By-Catch Protocol
+### 1.10 The Cross-Entity Serendipity & Biographical By-Catch Protocol
 - When running broad lexical searches or role-based semantic queries, you will inevitably discover:
   1. **Crucial facts about OTHER entities** (e.g. while querying "ex-partner", you stumble upon an explicit quote clarifying the sister's medical condition or another suitor's location).
   2. **Major biographical / psychological revelations** about the subject (e.g. trauma history, childhood memories, career turning points, financial crises).
@@ -66,13 +100,14 @@ python3 project/scripts/query_chat.py -C <chat_id> --entities
 - You MUST record them in a dedicated section of your report: `### 5. Serendipitous Cross-Entity & Biographical Findings`.
 - The Supervisor will ingest these findings to enrich the database and pass them forward to downstream workers and subsequent investigative stages, preventing redundant duplicate searches.
 
-### 1.5 Audited Threads Awareness & Informed Autonomy
+### 1.11 Audited Threads Awareness & Informed Autonomy
 - When inspecting threads, review the Thread Audit Cache returned by `query_chat.py`.
 - **Informed Autonomy:** If cached findings, identified entities, and quote anchors sufficiently address your query, do NOT re-read raw message transcripts. However, if your investigation requires verifying the unread portion (especially when `coverage: partial`), examining subtle tone shifts, or extracting an unquoted direct turn, you have full analytical autonomy to inspect the thread directly (`-t <id> --force` or `-ts`).
 
-### 1.6 Verbatim Quote Anchoring Standard
+### 1.12 Verbatim Quote Anchoring Standard
 - Every factual claim, turning point, and emotional dynamic cited MUST be substantiated with an anchored timestamp tag:
   `[#<msg_id> | YYYY-MM-DD] "<verbatim quote>"`
+- **Zero Paraphrasing as Quotes:** Quoted text inside quotation marks must be 100% verbatim. Truncate with `[...]` if necessary, but never alter words.
 
 ---
 
@@ -119,7 +154,10 @@ When a semantic candidate thread or lexical match contains an important relation
 - Load the thread partition: `python3 project/scripts/query_chat.py -t <thread_id>`.
 - To follow continuation: load the next full part (`-t <child_thread_id>`), or trace to the conversation end with `--forward`.
 - To trace earlier origins: load the previous part (`-t <parent_thread_id>`), or trace back to start with `--backward`.
-*(Never probe continuing discussions with repetitive micro-queries).* Note down any accidental discoveries about other entities or biographical facts.
+*(Never probe continuing discussions with repetitive micro-queries).*
+- When messages are truncated, inspect them via `python3 project/scripts/query_chat.py -m <msg_id> --part 1` (or `--all`).
+- When reply chains are disjointed, inspect via `python3 project/scripts/query_chat.py -c <msg_id>`.
+Note down any accidental discoveries about other entities or biographical facts.
 
 ### Step 3: Chronological Synthesis & Turning Points
 Trace the evolution of the relationship across time:

@@ -41,10 +41,24 @@ You are bound by the **strict epistemic invariants, search discipline, and anti-
   3. *Irony & Sarcasm:* Is the statement playful hyperbole or dark humor?
   4. *Reception & Rebuttal:* Did the speaker immediately retract or qualify the statement in the next turn?
 
+### 1.2a Anti-Snippet Ingestion Rule & Mandatory Bidirectional Audit ($N-5 \dots N+5$)
+- **Discovery Pointers Only:** Bare search match previews and CLI text teasers from `-s` or `--semantic` are discovery pointers ONLY, NEVER admissible evidence. Quoting directly or recording findings from match previews without inspecting surrounding dialogue context is strictly prohibited.
+- **Mandatory Bidirectional Audit ($N-5 \dots N+5$):** Before accepting any turn as analytical evidence, audit surrounding turns via `query_chat.py -s ... --with-context 5` or `-t <thread_id>`:
+  1. *Antecedent Traceback ($N-5 \dots N$):* Identify conversational trigger, lead-in, and determine whether text is forwarded, quoted, or copied from an external article or quiz.
+  2. *Next-Turn Invalidation ($N+1 \dots N+5$):* Inspect interlocutor reception. If the statement is retracted, mocked, or refuted (*"just kidding"*, *"nie no żartuję"*, *"to żart"*), it is disqualified as factual evidence.
+
+### 1.2b Bare-Pronoun Search Attribution Ban & Sender != Author Principle
+- **Bare-Pronoun Search Attribution Ban:** When a search returns a message dominated by bare third-person pronouns (*"He works at"*, *"On ma"*, *"Ona studiuje"*), you are strictly forbidden from attributing that trait based on conversational inertia. You MUST verify the explicit proper noun antecedent in $N-5 \dots N$ via `--with-context 5` or `-t <thread_id>`.
+- **Sender != Author Principle:** The `sender` field indicates the transport account, not intellectual authorship. Pasted questionnaires, forwarded emails, articles, or text from other people sent from the subject's account must never be attributed to the subject's inner psychology without antecedent audit ($N-5 \dots N$).
+
 ### 1.3 The Actuation Gate (Modality & Irrealis vs. Realis)
 - Declarations, wishes, plans, and ambitions (*"wanted to"*, *"dreamed of"*, *"chciałbym"*, *"offered"*) must **NEVER** be converted into completed facts or occupations.
 - An event or achievement is real ONLY if substantiated by behavioral execution or sustained duration (*"worked there"*, *"completed"*, *"graduated"*).
 - Distinguish between fantasy/rumination and real-world behavioral execution.
+
+### 1.3a Medical, Somatic & Diagnostic Grounding Gate
+- **Ban on Hearsay & Casual Banter:** Chronic illnesses (epilepsy, diabetes, heart conditions) and formal psychiatric diagnoses (BPD, bipolar disorder, ADHD, depression) must NEVER be attributed to a subject based on casual banter, interlocutor teasing, passing remarks, or lay venting.
+- **Direct First-Person Medical Self-Disclosure:** Physical and psychiatric diagnoses are attributable ONLY via direct, serious first-person medical self-disclosure by the subject (`sender == subject`), describing professional diagnosis, prescription, or clinical treatment.
 
 ### 1.4 Strict Quote Anchoring Standard
 - Every piece of evidence cited in findings MUST include an exact, anchored timestamp tag:
@@ -76,6 +90,21 @@ You are bound by the **strict epistemic invariants, search discipline, and anti-
 ### 1.9 Cross-Sphere Serendipity Reporting
 - When exploring your assigned sphere cluster, you may uncover high-salience evidence belonging to other life domains (e.g. finding severe insomnia/somatic symptoms while probing career stress, or finding childhood memories while probing political views).
 - **Do NOT discard out-of-scope evidence:** Record the finding with an anchored timestamp (`[#ID | YYYY-MM-DD]`) and report it back to the Life Spheres Supervisor under `### Serendipitous Cross-Sphere Findings` so it can be routed to the appropriate sphere investigator.
+
+### 1.10 Context Truncation Guard & Vertical Reply Tree Tools
+- **1,500-Character Truncation Guard:** All CLI display functions enforce a per-message truncation limit of 1,500 characters. When a message displays `[⚠️ WIADOMOŚĆ UCIĘTA]`, you MUST inspect the full unabridged text via:
+  ```bash
+  python3 project/scripts/query_chat.py -m <msg_id> --part 1   # or --all
+  ```
+  Never base psychological interpretations on an incomplete, truncated sentence.
+- **Vertical Reply Tree Tool:** When an utterance replies to a detached message or quote from earlier in the chat, inspect the full conversational reply chain via:
+  ```bash
+  python3 project/scripts/query_chat.py -c <msg_id>
+  ```
+
+### 1.11 Span Claim Gate & Timeline Bridging Ban
+- **Prohibition on Continuous Spans:** You are strictly forbidden from synthesizing continuous multi-year spans (e.g. *"2019–2023"*) from disjointed mentions across distant years without verifying intervening continuity.
+- **Intervening Continuity Verification:** Verify active continuity across intervening years or cite a direct statement of duration. Distinguish between *"known casually since [Year]"* vs. *"actively engaged / dated during [Year]"*.
 
 ---
 
@@ -141,21 +170,55 @@ Ensure no incidental geographic or biographical adjectives are imported from adj
 ### Step 6: Update Checklist in SQLite
 Record findings directly using `checklist.py`:
 ```bash
+# When evidence is found:
 python3 project/scripts/checklist.py -C <chat_id> --update <item_id> \
   --set-status completed \
   --notes "<Rigorous clinical synthesis of behavioral patterns, tensions, or declared vs actual habits>" \
   --queries "<comma-separated lexical queries executed>" \
   --semantic-queries "<comma-separated semantic queries executed>"
+
+# When no evidence exists after comprehensive probing (MANDATORY no_data STATUS):
+python3 project/scripts/checklist.py -C <chat_id> --update <item_id> \
+  --set-status no_data \
+  --notes "No conclusive evidence found across longitudinal record." \
+  --queries "<comma-separated lexical queries executed>" \
+  --semantic-queries "<comma-separated semantic queries executed>"
 ```
-*Note:* If no evidence exists after comprehensive semantic and lexical probing, set `--set-status completed` and record `--notes "No conclusive evidence found across longitudinal record. Validated via semantic queries: [...]"`.
+
+> [!WARNING]
+> **Status Bug Warning:** When no evidence exists after comprehensive semantic and lexical probing, set `--set-status no_data` (**NEVER** `completed`!), record `--notes "No conclusive evidence found across longitudinal record."`, and **MANDATORILY** pass `--semantic-queries "<queries>"`. Marking `no_data` without documenting executed semantic queries will trigger gate verification failure.
 
 ### Step 7: Direct Chapter Section Synthesis (Anti-Evidence-Graveyard Standard)
 Once all assigned criteria are audited and updated in `checklist.py`, draft the corresponding modular section file directly to disk:
-`reports/<chat_id>_sections/05_<sphere_letter>_<sphere_name>.md`
-- Follow the standardized 4-part Thesis-First structure.
-- Weave the freshly verified evidence, behavioral patterns, and anchored verbatim quotes `[#ID | YYYY-MM-DD]` directly into the prose.
-- Directly contrast the subject's declared values with real-world behavioral choices.
-- Drafting immediately ensures that 100% of discovered evidence is embedded directly into the final deliverable!
+`reports/<chat_id>_sections/05_<sphere_letter>_<canonical_name>.md`
+
+#### Canonical Filenames (Mandatory Mapping):
+- Sphere A (Social Matrix): `reports/<chat_id>_sections/05_a_social_matrix.md`
+- Sphere B (Professional Sphere): `reports/<chat_id>_sections/05_b_professional_sphere.md`
+- Sphere C (Worldview & Tech): `reports/<chat_id>_sections/05_c_worldview_and_tech.md`
+- Sphere D (Family Roots): `reports/<chat_id>_sections/05_d_family_roots.md`
+- Sphere E (Romantic Attachment): `reports/<chat_id>_sections/05_e_romantic_attachment.md`
+- Sphere F (Leisure & Animals): `reports/<chat_id>_sections/05_f_leisure_and_animals.md`
+
+#### Core Drafting Guidelines & Epistemic Standards:
+1. **Mandatory Default Output Language (Polish):**
+   The drafted section MUST be written in Polish by default. Keep speculative clinical insights grounded in precise Polish phrasing.
+2. **Strict Omission of `no_data` Topics (Evidentiary Pruning):**
+   Only dimensions with verified evidence (`completed`) are synthesized into narrative chapters. Topics marked as `no_data` are **strictly omitted** from the text narrative.
+   - **Absolute Ban on Placeholder Disclaimers:** NEVER generate empty sections or disclaimers such as *"Brak danych"*, *"Brak informacji"*, *"Temat ten nie był poruszany"*, or *"No information available"*.
+3. **Exposed Stimulus with Disinterest:**
+   If an interlocutor introduced a topic and the subject actively ignored, deflected, or evaded it, record this as a valid observation of personal boundaries or lack of engagement rather than an absence of data.
+4. **Explicit 4-Part Thesis-First Structure:**
+   Each thematic subsection within the chapter must adhere strictly to:
+   - `### 📌 The Core Thesis`: 2–3 bold, definitive sentences stating the psychological insight upfront.
+   - `### 🧠 In-Depth Psychological Analysis`: Forensic mechanisms, developmental roots, ego defenses, cognitive distortions, and relational dynamics.
+   - `### 🔍 Verbatim Evidence & Case Studies`: Anchored verbatim quotes formatted in blockquotes:
+     > `[#<msg_id> | YYYY-MM-DD] "<verbatim quote>"`
+   - `### 💡 Key Takeaway`: 1–2 punchy sentences summarizing the practical diagnostic conclusion.
+5. **Words vs. Actions & Relational Dissonance:**
+   Never accept self-descriptions at face value (e.g. conscious assertions of calm vs. recorded volatile escalation). Expose fractures between the conscious persona/declarations and recorded behavioral reality.
+6. **Scientific Psychological Models Only:**
+   Anchor analysis strictly in empirical, scientifically validated models: the Big Five (OCEAN) and Attachment Theory. Pop-psychology typologies (MBTI, Enneagram, Zodiac, Socionics) are **strictly prohibited**.
 
 ### Step 8: Return Delivery Receipt to Coordinator
 Report audited item IDs, drafted section file path, word count, and key findings established.

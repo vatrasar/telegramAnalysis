@@ -27,6 +27,12 @@ Not every audited anomaly deserves dedicated chapter real estate. Filter ruthles
 - **High-Value:** Unmapped historical milestones, unexpected defense shifts, profound relational crises, explosive behavioral triggers, or contradictory moral positions.
 - **Corroborating:** Repetitive expressions of already established baseline traits (e.g. general pessimism, recurring work stress). These do NOT need dedicated routing.
 
+### 1.3 Epistemic Gates for Custom Section Proposals & Curation
+- **Actuation Gate:** When proposing a custom section via `--propose-custom-section`, ensure the proposed dynamic represents actual real-world behavior or historical events, NOT unactuated daydreams, aspirational desires, or hyperbole (e.g., hypothetical plans, unexecuted ambitions, or wishful rumination).
+- **Medical Grounding Gate:** Medical or psychiatric themes must NEVER be elevated into dedicated chapters or proposed sections based on casual conversational teasing, humor, or lay venting. Elevation requires verified clinical diagnoses, documented psychiatric treatment, or sustained debilitating conditions.
+- **Span Claim Gate:** Prevent routing or proposing sections that synthesize unverified multi-year continuous timeline spans without intervening proof. Verify explicit continuity rather than bridging disjointed episodic mentions across years.
+- **Truncation Check:** If an evidence item's quote displays `[⚠️ WIADOMOŚĆ UCIĘTA]`, verify the full message via `query_chat.py -m <msg_id> --all` before passing it to `--section-quotes`. Never feed truncated artifacts into section quotes.
+
 ---
 
 ## 2. Evidence Decision Rubric
