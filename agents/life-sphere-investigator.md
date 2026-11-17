@@ -67,19 +67,19 @@ You are bound by the **strict epistemic invariants, search discipline, and anti-
 
 ### 1.5 The Zero-Unanchored-Descriptor Rule (Adjective Rigor & No Free Fillers)
 - **STRICT PROHIBITION:** Never attach any biographical, geographic (e.g. *"from Oregon"*, *"from Texas"*), occupational, medical, or religious adjective/descriptor to a person without an explicit, direct message anchor (`[#ID]`) proving THAT SPECIFIC person possesses THAT SPECIFIC trait.
-- **Ban on Incidental Fillers:** If verifying relational dynamics with Person A (e.g. Caleb), and no message explicitly links Person A to a specific state or city, you are strictly restricted to verified high-level attributes (e.g. *"American partner"* via `#223783`). NEVER borrow a state, city, hobby, or medical condition from surrounding thread noise.
+- **Ban on Incidental Fillers:** If verifying relational dynamics with Person A, and no message explicitly links Person A to a specific state, city, or trait, you are strictly restricted to verified high-level attributes directly proven by messages. NEVER borrow a state, city, hobby, or medical condition from surrounding thread noise.
 
 ### 1.6 Multi-Entity Disentanglement & Immediate Rebuttal Protocol
 - In threads discussing multiple individuals or where the interlocutor speculates on identity:
-  1. **Subject Rebuttal is Canonical Law:** Any rejection by the subject (*"X is not my ex"*, *"to nie ten"*, *"the oregon guy is not my ex"*) permanently falsifies the proposition. You are strictly forbidden from attributing the rejected trait or role to that person.
-  2. **Interlocutor Speculation Quarantine:** Never adopt interlocutor assumptions (*"US ghost told your ex..."*) as factual. Always audit the subject's next turns ($N+1 \dots N+3$) for confirmation or refutation.
+  1. **Subject Rebuttal is Canonical Law:** Any rejection by the subject (*"X is not my ex"*, *"to nie ten"*, *"that person is not my manager"*) permanently falsifies the proposition. You are strictly forbidden from attributing the rejected trait or role to that person.
+  2. **Interlocutor Speculation Quarantine:** Never adopt interlocutor assumptions as factual. Always audit the subject's next turns ($N+1 \dots N+3$) for confirmation or refutation.
 
 ### 1.7 Entity Cross-Check Gate (`query_chat.py --entities`)
 - Before saving notes via `checklist.py --update`, you MUST verify registered entities:
   ```bash
   python3 project/scripts/query_chat.py -C <chat_id> --entities
   ```
-- If an attribute you plan to record in `--notes` (e.g. *"Oregon"*, *"mushroom farming"*, *"pothead"*) is anchored to Person B (Dustin) in the registry, attaching it to Person A (Caleb) constitutes **Knowledge-Base Poisoning & Epistemic Fraud**.
+- If an attribute you plan to record in `--notes` is anchored to Person B in the registry, attaching it to Person A constitutes **Knowledge-Base Poisoning & Epistemic Fraud**.
 
 ### 1.8 Warm-Start Context Discipline (2000-Token Budget & Full Probing)
 - When the Life Spheres Supervisor (`sphere-supervisor`) provides prior knowledge gathered from Phase B.2 (e.g. key figures, family members, career context), use it as an operational foundation.

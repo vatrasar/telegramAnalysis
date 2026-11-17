@@ -154,11 +154,11 @@ When executing direct SQL queries against `chat.db`:
 - `triage_reason` (TEXT): Concise rationale.
 
 ### `chat_entities` Table (Registered Third-Party Individuals Scoped to Chat)
-- `entity_id` (TEXT NOT NULL): Slugified entity key (e.g. `caleb`, `dustin`).
+- `entity_id` (TEXT NOT NULL): Slugified entity key (e.g. `john_smith`, `older_sister`).
 - `chat_id` (TEXT NOT NULL): Scoped conversation stream (`PRIMARY KEY (chat_id, entity_id)`).
 - `name_or_alias` (TEXT NOT NULL): Personal name or alias.
 - `verified_role` (TEXT): Verified relationship role (e.g. `ex-partner`, `platonic friend`).
-- `associated_descriptors` (TEXT): Geographic, occupational, or social labels (`US guy, Oregon`).
+- `associated_descriptors` (TEXT): Geographic, occupational, or social labels (`software engineer`, `university mentor`).
 - `is_ex_partner` (INTEGER DEFAULT 0): Explicit binary flag.
 - `is_romantic` (INTEGER DEFAULT 0): Explicit binary romantic flag.
 - `confidence` (TEXT DEFAULT 'unverified'): Verification status (`verified`, `unverified`, `hypothetical`).

@@ -22,11 +22,11 @@ You are strictly an **early-stage screening filter**. You do NOT dive into threa
 
 Evaluate each candidate strictly by entity substance rather than artificial count thresholds:
 - **KEEP (Legitimate Third Parties):**
-  - Proper names of third persons (e.g. *Caleb, Gunsel, Mobina, Silvi, Dr. Nowak*).
+  - Proper names of third persons (e.g. *Alice, Bob, Dr. Nowak*).
   - Specific kinship/family designations (e.g. *second sister, mother, father, uncle*).
-  - Specific relational or professional figures who had personal interaction (e.g. *high school friend, pediatrician, colleague from Afghanistan, therapist*).
+  - Specific relational or professional figures who had personal interaction (e.g. *high school friend, pediatrician, colleague, therapist*).
 - **DISCARD (Noise / Non-Entities):**
-  - **Primary chat participants:** Author/Subject or direct interlocutor (e.g. *Szymon, Ismi*).
+  - **Primary chat participants:** Author/Subject or direct interlocutor (the active chat participants themselves).
   - **Purely transactional, transient figures:** One-off workers with zero personal relationship (e.g. *food courier, taxi driver, random cashier, mechanic from a single tyre change*).
   - **Collective, indefinite, or demographic groups:** *random children, foreigners, classmates, crowd, polish people*.
   - **Abstract concepts, religious deities, or errors:** *prophet, god, philosophy, destiny*.

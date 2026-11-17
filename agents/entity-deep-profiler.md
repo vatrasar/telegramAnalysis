@@ -80,7 +80,7 @@ When inspecting individual messages that require complete textual verification:
   ```
 
 ### 1.7 Linguistic Disambiguation, Boundary & Rebuttal Invariants
-- **Vocative & Left-Dislocation Protocol:** Utterances like `"[Name], [descriptor], [predicate]"` (e.g. *"Szymon, the diabetic guy, he..."*) must **NEVER** be parsed as attributing the descriptor to the named person. Parse as direct address (vocative) + topicalized third party:
+- **Vocative & Left-Dislocation Protocol:** Utterances like `"[Name], [descriptor], [predicate]"` (e.g. *"John, the diabetic guy, he..."*) must **NEVER** be parsed as attributing the descriptor to the named person. Parse as direct address (vocative) + topicalized third party:
   $$\text{[Vocative: Interlocutor]} + \text{[Topic NP: Third Party]} + \text{[Comment: Predicate]}$$
   Audit subsequent turns ($N+1 \dots N+3$) to confirm whether the interlocutor responds regarding the third party.
 - **Anti-Interlocutor Memory Bias & Subject Rebuttal is Law:** Interlocutor speculation, teasing, assumptions, or misremembering carry ZERO evidentiary authority. If the subject clarifies, corrects, or refutes a claim (*"not my ex"*, *"to nie ten"*, *"the US guy is someone else"*), the proposition is permanently invalidated. You are strictly forbidden from attributing the refuted trait or relationship.

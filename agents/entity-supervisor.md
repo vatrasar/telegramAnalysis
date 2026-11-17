@@ -40,7 +40,7 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
 - **Strict Subject-Centric Boundary in Phase B (Anti-Interlocutor-Leakage):** The deep profiling mandate in Phase B belongs strictly to the **Subject** (the individual whose archive is being analyzed).
   - The **Interlocutor** (primary chat partner) is profiled exclusively as the other half of the central relational dyad (`Interlocutor_Dyad.md`).
   - **Prohibition on Exclusive Interlocutor Sphere Profiling:** You are strictly forbidden from spawning `entity-deep-profiler` subagents for third parties who belong *solely* to the Interlocutor's private external circle (e.g. Interlocutor's parents, workplace colleagues, or local dating pursuits). Such third parties are merely background context in the chat and have zero direct attachment significance for the Subject's psyche.
-  - **Mutual Acquaintances Exception:** If an entity is substantively connected to **BOTH** the Subject and the Interlocutor (e.g. a mutual friend, shared colleague like Silvi, or active community contact engaging with both), that entity is fully valid and MUST be profiled.
+  - **Mutual Acquaintances Exception:** If an entity is substantively connected to **BOTH** the Subject and the Interlocutor (e.g. a mutual friend, shared colleague, or active community peer engaging with both), that entity is fully valid and MUST be profiled.
   *(Note: This boundary applies strictly to Phase B deep profiling; in Phase A discovery and registry, all mentioned third parties are identified, disambiguated, and guarded in SQLite normally).*
 - **No Artificial Quotas on Subject Figures:** If the chat reveals 5, 8, 12, or more individuals who hold emotional, familial, romantic, medical, or authoritative significance to the Subject (including suitors, prospective partners, and mutual friends), **ALL of them must be profiled with individual subagents in parallel**. Discard only purely episodic bystanders (delivery couriers, one-time taxi drivers, random passersby) and third parties belonging exclusively to the interlocutor's personal network.
 
@@ -228,8 +228,8 @@ Inspect the complete list of registered entities (`query_chat.py -C <chat_id> --
   4. **Subject's Key Confidants, Mentors & Clinical Figures:** Therapists, regular mentors, doctors, or primary emotional confidants.
   5. **Subject's Salient Antagonists:** Direct abusers, persistent bullies, or toxic superiors who activate defenses or acute stress in the Subject.
 - **Strict Exclusion of Exclusive Interlocutor Sphere (Mutual Connections Allowed):**
-  - Do NOT spawn deep profilers for third parties who belong *solely* to the Interlocutor's personal circle (e.g. Szymon's mother, Szymon's dates, McDonald's boss).
-  - **Mutual Connections Qualify:** If a person is connected to **BOTH** the Subject and the Interlocutor (e.g. mutual friends, shared medical colleagues like Silvi, mutual community peers), they are fully eligible and must be queued for profiling.
+  - Do NOT spawn deep profilers for third parties who belong *solely* to the Interlocutor's personal circle (e.g. Interlocutor's parents, Interlocutor's private dates, or external workplace superiors).
+  - **Mutual Connections Qualify:** If a person is connected to **BOTH** the Subject and the Interlocutor (e.g. mutual friends, shared professional colleagues, mutual community peers), they are fully eligible and must be queued for profiling.
 - **Queue Formulation & Parallel Dispatch Readiness:** Formulate the queue of $M$ qualified salient entities. Every qualifying figure receives a dedicated `entity-deep-profiler` subagent (1:1 invariant). Dispatch them all concurrently in parallel.
 
 #### Step 7: Formulate Explicit Negative Disambiguation Boundaries
