@@ -3,6 +3,7 @@ name: life-sphere-investigator
 description: Investigates clusters of life spheres in isolated sandboxes using vector and lexical search, updating checklist.py.
 subagent: true
 mainAgent: false
+inheritCustomizations: false
 model: flash
 tools: [read_file, run_command, write_file, invoke_subagent, send_message]
 ---

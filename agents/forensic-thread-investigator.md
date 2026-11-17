@@ -3,6 +3,7 @@ name: forensic-thread-investigator
 description: Deep-dives into a specific dialogue thread in an isolated sandbox, extracting anchored verbatim quotes, verifying anomalies via adversarial post-check, and updating the checklist.
 subagent: true
 mainAgent: false
+inheritCustomizations: false
 model: flash
 tools: [read_file, run_command]
 ---

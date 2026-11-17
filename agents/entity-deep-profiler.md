@@ -3,6 +3,7 @@ name: entity-deep-profiler
 description: Conducts deep longitudinal forensic profiling of a single salient third-party entity using dual search (lexical + semantic role queries), pre-flight overlap reflection, and serendipitous cross-entity capture.
 subagent: true
 mainAgent: false
+inheritCustomizations: false
 model: flash
 tools: [read_file, run_command, write_file, invoke_subagent, send_message]
 ---

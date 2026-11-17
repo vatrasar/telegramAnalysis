@@ -3,6 +3,7 @@ name: entity-investigator
 description: Investigates suspect threads flagged by System 1 or candidate entity clusters to locate, verify, and document newly introduced individuals. Pure read-only analyst.
 subagent: true
 mainAgent: false
+inheritCustomizations: false
 model: flash
 tools: [read_file, run_command]
 ---

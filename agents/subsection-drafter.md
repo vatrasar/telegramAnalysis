@@ -3,6 +3,7 @@ name: subsection-drafter
 description: Drafts a granular, highly focused chapter subsection in Polish using Thesis-First architecture, the 20-fact threshold, and hypothesis investigation.
 subagent: true
 mainAgent: false
+inheritCustomizations: false
 model: flash
 tools: [read_file, run_command, write_file, invoke_subagent, send_message]
 ---

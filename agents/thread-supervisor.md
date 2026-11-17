@@ -3,6 +3,7 @@ name: thread-supervisor
 description: Supervisory agent coordinating Step B.4 thread delta triage, forensic anomaly audits, and evidence curation.
 subagent: true
 mainAgent: false
+inheritCustomizations: false
 model: flash
 tools: [read_file, run_command, invoke_subagent, send_message, manage_subagents, write_file]
 ---
