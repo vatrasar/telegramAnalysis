@@ -43,7 +43,7 @@ To maximize throughput while eliminating duplicate registrations and character c
 2. **If Candidate Count is High (> 40 mentions):**
    The Supervisor shards candidates and dispatches lightweight `candidate-triage` screener subagents:
    - `python3 project/scripts/query_chat.py -C <chat_id> --candidates --candidates-shard <X/Y> --json`
-   - Screeners separate genuine third parties (including single mentions $N=1$) from transactional noise, reporting back candidates to keep and any recurring noise words to register permanently (`--add-noise-word "<words>"`).
+   - Screeners separate genuine third parties from transactional noise, reporting back candidates to keep and any recurring noise words to register permanently (`--add-noise-word "<words>"`).
 3. **If Candidate Count is Compact ($\le$ 40 mentions):**
    The Supervisor inspects candidates directly via `--candidates --json`.
 4. **Generate Hybrid Clusters & Conflation Alerts:**

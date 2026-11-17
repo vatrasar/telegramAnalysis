@@ -89,7 +89,7 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
      - `TypeName`: `"candidate-triage"`
      - `Model`: `"flash"`
      - `Role`: `"Candidate Screener - Shard <X/Y>"`
-     - `Prompt`: "Screen candidate shard <X/Y> using `python3 project/scripts/query_chat.py -C <chat_id> --candidates --candidates-shard <X/Y> --json`. Follow the Single-Mention Salience Invariant: never drop legitimate individuals just because count is 1. Return structured JSON with candidates_to_keep and discovered_noise_words."
+     - `Prompt`: "Screen candidate shard <X/Y> using `python3 project/scripts/query_chat.py -C <chat_id> --candidates --candidates-shard <X/Y> --json`. Evaluate candidates by substance (proper names, kinship, personal relational figures) and discard purely transactional noise. Return structured JSON with candidates_to_keep and discovered_noise_words."
    - When screeners return:
      - If screeners found recurring noise words, register them permanently in the database:
        ```bash

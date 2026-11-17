@@ -319,7 +319,7 @@ def print_candidate_entities_summary(data: Dict[str, Any], chat_name: Optional[s
     print("-" * 80)
     if shard_info or page_info or (limit_val and len(candidates) < total_names):
         print("⚠️  WARNING / DO NOT DISCARD REMAINING CANDIDATES:")
-        print("   Figures mentioned only once (Count: 1) may be vital psychological figures!")
+        print("   All candidates across shards must be screened for legitimate individuals vs noise.")
         print("   To screen all candidates without context flooding, dispatch `candidate-triage` subagents per shard:")
         print(f"   python3 project/scripts/query_chat.py -C {data.get('chat_id')} --candidates --candidates-shard 1/4 --json")
         print("-" * 80)
