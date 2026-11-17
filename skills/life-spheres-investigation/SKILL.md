@@ -16,8 +16,8 @@ This skill defines the operational workflow, two-tier delegation structure, fore
 Longitudinal chat archives contain rich behavioral evidence across 6 life spheres (50 standardized criteria). To conduct a thorough, high-throughput investigation without context exhaustion or stranded findings:
 
 1. **Two-Tier Delegation Structure:**
-   - **Sphere Supervisor:** Coordinates sphere allocation across 6 life spheres (A–F), assigning focused subagents (`life-sphere-investigator`, `Model: "flash"`).
-   - **Sphere Investigators (2–3 Subagents per Sphere):** Execute targeted semantic/lexical probes, update `checklist.py`, and immediately synthesize the modular chapter section.
+   - **Sphere Supervisor (`sphere-supervisor`):** Autonomously coordinates Step B.3, verifies the Watchdog Gate, initializes `checklist.py`, allocates the 6 life spheres (A–F) across dedicated parallel subagents (`life-sphere-investigator`, `Model: "flash"`), routes cross-sphere serendipity, and enforces gate clearance.
+   - **Sphere Investigators (`life-sphere-investigator`):** Execute targeted semantic/lexical probes, update `checklist.py`, and immediately synthesize modular chapter sections (`05_*`).
 2. **Informed Autonomy on Audit Cache:**
    - Pre-extracted facts (`--facts-for-sphere`) and audited threads (`--inspected-threads`) are checked first. If cached findings answer the criteria, raw transcript reads are skipped; investigators retain informed autonomy to inspect (`-ts` or `-t --force`) for quote verification or unread turns.
 3. **Direct Chapter Section Synthesis (Anti-Evidence Graveyard):**

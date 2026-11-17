@@ -81,16 +81,15 @@ When a chat is updated with new messages or threads:
 - *Note:* Step B.3 initialization (`checklist.py --init` and `thread_checklist.py --init`) is **programmatically blocked** until the watchdog gate returns exit code 0.
 
 #### Step B.3: Life Spheres Baseline Investigation & Direct Section Synthesis (`checklist.py`)
-- Activate `life-spheres-investigation` skill for criteria, lexicons, and vector queries.
-- Init: `python3 project/scripts/checklist.py --init -C <chat_id>` (Enforces completed Watchdog Gate)
-- **Pre-Extracted Evidence First & Informed Autonomy:**
-  Before executing new queries across the chat archive, subagents (`life-sphere-investigator`) retrieve tagged evidence (`--facts-for-sphere`) and review audited threads (`--inspected-threads`). If cached findings answer the question, workers avoid raw transcript re-reads; however, workers maintain full autonomy to inspect (`-ts` or `-t --force`) when verifying unread turns (especially `coverage: partial`) or extracting exact quotes.
-- **Two-Tier Delegation & Direct Section Synthesis (Anti-Evidence Graveyard):**
-  Each life sphere (A–F) is assigned to a dedicated subagent team. To ensure 100% of discovered evidence is embedded directly into the final deliverable rather than stranded in SQLite:
-  - *Autonomous Self-Scaling:* If a sphere/cluster contains $> 6$ threads (`query_chat.py --shard-sphere <Letter>`), the investigator self-scales by dispatching worker subagents per shard.
-  - As soon as a sphere's criteria are audited in `checklist.py`, the sphere investigator drafts its corresponding modular chapter section directly:
+- Activate `life-spheres-investigation` skill.
+- **Mandatory Supervisory Delegation (Zero Main Coordinator Flooding):**
+  To protect primary context and ensure systematic coverage of all 50 dimensions, the Main Coordinator does NOT process individual criteria or manage field workers directly. The Main Coordinator delegates Step B.3 entirely to the **Life Spheres Supervisor** (`sphere-supervisor`, `Model: "flash"`):
+  - **Phase B.3a (Checklist Pre-Flight & Sphere Allocation):** The Supervisor verifies the completed Watchdog Gate (`--check-watchdog-gate` exits 0), initializes the checklist (`checklist.py --init -C <chat_id>`), and allocates the 6 core life spheres (A–F) across dedicated parallel `life-sphere-investigator` subagents (`Model: "flash"`).
+  - **Phase B.3b (Pre-Extracted Evidence First & Informed Autonomy):** Before executing raw searches, investigators retrieve tagged evidence (`--facts-for-sphere`) and review audited threads (`--inspected-threads`). If cached findings answer the criteria, investigators avoid raw transcript re-reads; however, workers maintain full autonomy to inspect (`-ts` or `-t --force`) when verifying unread turns or extracting exact quotes.
+  - **Phase B.3c (Autonomous Self-Scaling & Direct Section Synthesis - Anti-Evidence Graveyard):** If a sphere contains $> 6$ threads (`query_chat.py --shard-sphere <Letter>`), the investigator self-scales by dispatching worker subagents per shard. As soon as a sphere's criteria are audited in `checklist.py`, the investigator drafts its corresponding modular chapter section directly:
     `reports/<chat_id>_sections/05_<sphere_letter>_<sphere_name>.md`
-  - Drafting immediately in the same context weaves fresh evidence, tensions, and anchored quotes (`[#ID | YYYY-MM-DD]`) directly into the final report.
+    Drafting immediately in the same context weaves fresh evidence, tensions, and anchored quotes (`[#ID | YYYY-MM-DD]`) directly into the deliverable.
+  - **Phase B.3d (Serendipity Routing & Gate Clearance):** The Supervisor tracks progress (`checklist.py --status`), routes cross-sphere findings between workers, and ensures the hard-stop gate (`checklist.py --check -C <chat_id>`) exits with code 0 before reporting completion to the Main Coordinator.
 - Completing the 50 spheres establishes the core psychological baseline.
 
 #### Step B.4: Subagent Thread Delta Audit, Forensic Deep Dives & Evidence Curation (`thread_checklist.py`)
