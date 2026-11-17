@@ -70,39 +70,47 @@ The Supervisor invokes parallel `entity-investigator` subagents (`Model: "flash"
   ```
 - Workers report findings to Supervisor.
 
-### Step 4: Atomic Registration, Fact Ingestion & Consolidated Anti-Conflation Audit
-1. **Initial Registration of All Vetted Candidates:**
+### Step 4: Candidate Staging, Review & Consolidated Anti-Conflation Audit
+1. **Worker Candidate Staging Protocol:**
+   Workers immediately persist all identified candidate entities into SQLite staging to prevent data loss:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> \
-     --register-entity "<Name>" --role "<Role>" --desc "<Anchors & Context>"
+     --stage-entity "<Canonical_Name>" --role "<Role>" \
+     --desc "<Anchors & Context>" --source-thread <tid>
    ```
-2. **Ingest Discovered Facts Tagged for Downstream Specialists:**
+2. **Supervisor Staging Review & Resolution:**
+   The Supervisor inspects pending proposals (`query_chat.py -C <chat_id> --pending-entities`) and resolves each proposal individually:
+   - **Approve New Entity:** `query_chat.py -C <chat_id> --approve-entity <id> [--canonical-name "<Name>"]`
+   - **Merge Duplicate / Alias:** `query_chat.py -C <chat_id> --merge-entity <id> --into-entity "<Target_Name>" --reason "<reason>"`
+   - **Reject Noise / Bystander:** `query_chat.py -C <chat_id> --reject-entity <id> --reason "<explicit_reason>"`
+3. **Ingest Discovered Facts Tagged for Downstream Specialists:**
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> \
      --record-facts-batch '<json_facts_array>' \
      --fact-thread <thread_id> \
      --discovered-by "entity-investigator"
    ```
-3. **🚨 Consolidated Anti-Conflation Audit (Single Pass Across All Entities):**
-   Once initial vetting of candidate entities is completed, run the audit across the entire cast before deep research:
+4. **🚨 Consolidated Anti-Conflation Audit & Disambiguation Scans:**
+   Once initial staging review is completed, run the audit across the entire cast:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit
    ```
-   If any collision risk is flagged (e.g. two entities sharing a role like *sister* or trait like *Indian*):
-   - Review threads for each flagged group together to separate individuals.
-   - **⚠️ Explicitly Mark Ambiguities:** If any quote, event, or trait cannot be definitively pinned to one specific person due to ambiguous pronouns, **DO NOT guess**. Explicitly record it in `--desc` as `[AMBIGUOUS ATTRIBUTION: <fact>]`.
-   - Enforce explicit **Negative Boundaries** in `--desc`:
+   If any collision risk is flagged (`HIGH_RISK`):
+   - Dispatch an `entity-investigator` subagent for a **Disambiguation Scan** comparing the suspect pair.
+   - **If confirmed DISTINCT individuals:**
      ```bash
      python3 project/scripts/query_chat.py -C <chat_id> \
-       --register-entity "<Name>" --desc "<Existing desc>; NOT <Other_Entity>; [AMBIGUOUS ATTRIBUTION: <uncertain fact>]"
+       --record-distinct-pair "<EntityA>" "<EntityB>" --reason "<evidence anchors>"
      ```
+     This automatically updates notes on both entities with negative boundaries (`NOT <Other>`), marks them as `GUARDED`, and caches the pair.
+   - **If confirmed SAME individual:** Merge via `--merge-entity`.
 
 ### Step 5: Gate Clearance & Verification
 Verify that the gatekeeper passes:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
 ```
-Exits with code 0 (`[✓] PASSED: Entity Discovery verified`).
+Exits with code 0 (`[✓] PASSED: Entity Discovery verified`) when 0 pending proposals remain in staging and 0 high-risk conflations exist.
 
 ---
 
@@ -129,11 +137,20 @@ python3 project/scripts/query_chat.py -C <chat_id> --candidates --candidates-sha
 # Register discovered recurring noise words (Supervisor ONLY):
 python3 project/scripts/query_chat.py -C <chat_id> --add-noise-word "<word1>, <word2>"
 
-# Suggest deterministic co-occurrence character clusters & conflation risks:
-python3 project/scripts/query_chat.py -C <chat_id> --suggest-clusters --json
+# Stage a candidate entity into staging table (Workers):
+python3 project/scripts/query_chat.py -C <chat_id> --stage-entity "<Name>" --role "<Role>" --desc "<Context>" --source-thread <tid>
+python3 project/scripts/query_chat.py -C <chat_id> --stage-entities-batch '<json_array>' --source-thread <tid>
 
-# Rapid snippet reconnaissance across candidate threads (Workers ONLY):
-python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> --mentions "<Name>"
+# Inspect pending candidate entities in staging (Supervisor ONLY):
+python3 project/scripts/query_chat.py -C <chat_id> --pending-entities
+
+# Approve, merge, or reject a staged candidate entity (Supervisor ONLY):
+python3 project/scripts/query_chat.py -C <chat_id> --approve-entity <staging_id> --canonical-name "<Canonical_Name>"
+python3 project/scripts/query_chat.py -C <chat_id> --merge-entity <staging_id> --into-entity "<Target_Name>" --reason "<reason>"
+python3 project/scripts/query_chat.py -C <chat_id> --reject-entity <staging_id> --reason "<explicit_reason>"
+
+# Record an audited distinct entity pair with negative boundaries (Supervisor ONLY):
+python3 project/scripts/query_chat.py -C <chat_id> --record-distinct-pair "<EntityA>" "<EntityB>" --reason "<anchors>"
 
 # Run immediate anti-conflation and collision audit across registered entities:
 python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit
@@ -141,15 +158,6 @@ python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit --json
 
 # Verify hard-stop gate status (exit 0 on complete, 1 on fail):
 python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
-
-# Register a verified third-party entity (Supervisor ONLY):
-python3 project/scripts/query_chat.py -C <chat_id> --register-entity "<Name>" --role "<Role>" --desc "<Notes>"
-
-# Mark a thread as inspected/read (Supervisor ONLY):
-python3 project/scripts/query_chat.py -C <chat_id> --mark-inspected <thread_id> --inspected-by "entity-investigator" --findings "<summary>" --covered-spheres "<e.g. B,C>"
-
-# Batch record discovered facts into evidence repository (Supervisor ONLY):
-python3 project/scripts/query_chat.py -C <chat_id> --record-facts-batch '<json_array>' --fact-thread <thread_id> --discovered-by "entity-investigator"
 ```
 
 ---
@@ -157,6 +165,9 @@ python3 project/scripts/query_chat.py -C <chat_id> --record-facts-batch '<json_a
 ## 4. Hard-Stop Blocking Gate & Downstream Prerequisites
 
 The Entity Watchdog is a **strict programmatic prerequisite**:
-1. `thread_checklist.py --init -C <chat_id>` and `checklist.py --init -C <chat_id>` verify the watchdog gate (`--check-watchdog-gate`). They require verified third-party entities to be registered in `chat_entities` before allowing downstream checklist initialization.
-2. `assemble_report.py --check-gates` verifies that all investigative gates (watchdog, spheres, threads) pass before report assembly.
-3. The Supervisor NEVER executes raw thread message dumps (`-t`) or legacy thread-by-thread scans (`--watchdog-scan`). Full character discovery is driven through candidate triage, dynamic screener sharding, and parallel snippet investigators.
+1. `thread_checklist.py --init -C <chat_id>` and `checklist.py --init -C <chat_id>` verify the watchdog gate (`--check-watchdog-gate`).
+2. Programmatically blocks (`exit 1`) if:
+   - Any candidate entity proposals in `staging_entities` remain in `pending` status.
+   - Any unresolved `HIGH_RISK` collisions exist in `--conflation-audit`.
+3. Passes (`exit 0`) only when all candidate proposals are resolved (approved/merged/rejected), zero conflation risks remain, and handles 0-entity chats gracefully.
+4. The Supervisor NEVER executes raw thread message dumps (`-t`) or legacy thread-by-thread scans (`--watchdog-scan`). Full character discovery is driven through candidate triage, dynamic screener sharding, parallel snippet investigators, and supervised staging resolution.

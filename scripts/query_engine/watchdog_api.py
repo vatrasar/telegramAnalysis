@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 
 from common.config import load_config
 from .entities import ensure_entities_tables
+from .conflation_audit import run_conflation_audit
 
 try:
     from triage_threads import verify_unregistered_entities_decider, verify_secondary_anomaly_decider
@@ -293,17 +294,21 @@ def print_watchdog_status(db_path: str, chat_id: str) -> None:
 
 
 def check_watchdog_gate(conn_or_db: Any, chat_id: str) -> int:
-    """Validate Entity Discovery & Candidate Review gate.
+    """Validate Entity Discovery, Staging Review, and Conflation Audit gate.
 
-    Verifies that third-party entity candidate review has been conducted and verified entities
-    are registered in chat_entities. Does NOT require a brute-force System-1 thread sweep.
+    Verifies:
+    1. Zero unreviewed pending candidate entities in staging_entities (must be 0).
+    2. Zero unresolved HIGH_RISK collisions in conflation_audit (must be 0).
+    3. Handles 0-entity chats gracefully (exemption when no candidates/third parties exist).
     Returns 0 on pass, 1 on fail.
     """
     if isinstance(conn_or_db, str):
         conn = sqlite3.connect(conn_or_db)
+        db_path = conn_or_db
         should_close = True
     else:
         conn = conn_or_db
+        db_path = conn.cursor().execute("PRAGMA database_list;").fetchall()[0][2]
         should_close = False
 
     ensure_entities_tables(conn)
@@ -326,42 +331,45 @@ def check_watchdog_gate(conn_or_db: Any, chat_id: str) -> int:
     overall_failed = False
 
     for cid in target_chats:
+        print(f"\n[*] Checking Entity Discovery Gate for chat '{cid}'...")
+
+        # 1. Check pending staging entities
+        cur.execute("SELECT COUNT(*) FROM staging_entities WHERE chat_id = ? AND status = 'pending';", (cid,))
+        pending_count = cur.fetchone()[0]
+        if pending_count > 0:
+            cur.execute("SELECT staging_id, proposed_name, proposed_role FROM staging_entities WHERE chat_id = ? AND status = 'pending' LIMIT 10;", (cid,))
+            unreviewed = cur.fetchall()
+            print(f"[!] GATE BLOCKED: {pending_count} unreviewed candidate entity proposals remain in staging table!")
+            for sid, sname, srole in unreviewed:
+                print(f"    - [#{sid}] {sname} ({srole or 'no role'})")
+            if pending_count > 10:
+                print(f"    ... and {pending_count - 10} more.")
+            print(f"    ACTION: Run 'python3 project/scripts/query_chat.py -C {cid} --pending-entities' and review via --approve-entity, --merge-entity, or --reject-entity.")
+            overall_failed = True
+
+        # 2. Check conflation audit
+        caudit = run_conflation_audit(db_path, cid)
+        high_risk_count = caudit.get("high_risk_unresolved", 0)
+        if high_risk_count > 0:
+            print(f"[!] GATE BLOCKED: Conflation audit detected {high_risk_count} unresolved HIGH_RISK collisions!")
+            for cp in caudit.get("collision_pairs", []):
+                if cp.get("risk_level") == "HIGH_RISK":
+                    e1_name = cp["entity_1"]["name"]
+                    e2_name = cp["entity_2"]["name"]
+                    reasons = "; ".join(cp.get("reasons", []))
+                    print(f"    - Collision: '{e1_name}' vs '{e2_name}' ({reasons})")
+            print(f"    ACTION: Dispatch an entity-investigator for disambiguation scan and record distinct pairs via '--record-distinct-pair' or merge via '--merge-entity'.")
+            overall_failed = True
+
+        # 3. Check registered count vs chat nature
         cur.execute("SELECT COUNT(*) FROM chat_entities WHERE chat_id = ?;", (cid,))
         registered_count = cur.fetchone()[0]
 
-        cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
-        has_triage = cur.fetchone()[0] > 0
-
-        total_third_party = 0
-        if has_triage:
-            cur.execute("""
-            SELECT COUNT(*) FROM threads t
-            LEFT JOIN thread_triage tt ON t.thread_id = tt.thread_id
-            WHERE t.chat_id = ? AND (tt.mentions_third_party = 1 OR tt.thread_id IS NULL);
-            """, (cid,))
-            total_third_party = cur.fetchone()[0]
-
-        if total_third_party == 0 and registered_count == 0:
-            print(f"[✓] PASSED (EXEMPT): No third-party threads for chat '{cid}'.")
-            continue
-
-        if registered_count > 0:
-            print(f"[✓] PASSED: Entity Discovery verified for chat '{cid}' ({registered_count} entities registered).")
-        else:
-            # Check if any threads were audited in inspected_threads
-            cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='inspected_threads';")
-            has_inspected = cur.fetchone()[0] > 0
-            inspected_count = 0
-            if has_inspected:
-                cur.execute("SELECT COUNT(*) FROM inspected_threads WHERE chat_id = ?;", (cid,))
-                inspected_count = cur.fetchone()[0]
-
-            if inspected_count > 0:
-                print(f"[✓] PASSED: Entity audit completed for chat '{cid}' ({inspected_count} threads inspected, no salient entities registered).")
+        if not overall_failed:
+            if registered_count > 0:
+                print(f"[✓] PASSED: Entity Discovery verified for chat '{cid}' ({registered_count} entities registered, 0 pending in staging, 0 conflation risks).")
             else:
-                print(f"[!] NOTICE: Entity Discovery has 0 registered entities for chat '{cid}'.")
-                print(f"    If third-party figures exist, review candidates: python3 project/scripts/query_chat.py -C {cid} --candidates")
-                print(f"[✓] PASSED: Entity Discovery gate cleared.")
+                print(f"[✓] PASSED (EXEMPT): No third-party entities registered for chat '{cid}' (0 pending in staging, 0 conflation risks).")
 
     if should_close:
         conn.close()

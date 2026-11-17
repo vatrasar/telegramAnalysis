@@ -141,18 +141,31 @@ Dispatch parallel investigator subagents via `invoke_subagent` for all identifie
   - Instruct the worker to use the **rapid snippet reconnaissance** protocol:
     `python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --mentions "<Candidate_Name>"`
   - Emphasize the **Stop-When-Identified** rule: once identity, role, and quote anchors are established and no contradictions exist across snippets, do NOT load full message transcripts.
+  - Instruct workers to **stage all candidate findings into SQLite** via:
+    `python3 project/scripts/query_chat.py -C <chat_id> --stage-entity "<Name>" --role "<Role>" --desc "<Context & Anchors>" --source-thread <tid>`
+    *(or `--stage-entities-batch '<json_array>' --source-thread <tid>`)* so no proposal is lost in chat buffers.
   - Workers leverage and update the **Thread Audit Cache** (`--record-thread-audit`), capturing unresolved `he/she` clues for other agents.
   - Return structured JSON findings.
 
-#### Step 4: Atomic Registration, Deduplication & Fact Ingestion
-1. **Register All Vetted Candidates from Extraction:**
-   As workers return reports, perform database registrations:
+#### Step 4: Staging Review, Deduplication & Fact Ingestion
+1. **Review Pending Staged Proposals from Workers:**
+   Query the staging table to inspect all proposals submitted by workers:
    ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> \
-     --register-entity "<Canonical Name or Descriptor>" \
-     --role "<Verified Role>" \
-     --desc "<Anchor evidence [#ID], aliases, key context, and explicit negative distinctions>"
+   python3 project/scripts/query_chat.py -C <chat_id> --pending-entities
    ```
+   For each pending staged proposal, execute the appropriate supervisory resolution (do NOT approve blindly in bulk):
+   - **Approve as New Entity:** If verified as an authentic, unique third party:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --approve-entity <staging_id> [--canonical-name "<Name>"] [--role "<Role>"]
+     ```
+   - **Merge Duplicate / Alias:** If the proposal is an alternative mention or alias of an existing registered entity:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --merge-entity <staging_id> --into-entity "<Target_Name>" --reason "<reason>"
+     ```
+   - **Reject Noise / Bystander / False Alarm:** If the proposal is a one-off transactional contact, non-human token, or disproven hypothesis:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --reject-entity <staging_id> --reason "<explicit_reason>"
+     ```
 2. **Ingest Pre-Extracted Facts Tagged for Downstream Agents:**
    If the worker returned `discovered_facts`:
    ```bash
@@ -162,26 +175,39 @@ Dispatch parallel investigator subagents via `invoke_subagent` for all identifie
      --discovered-by "entity-investigator"
    ```
 
-#### Step 5: Consolidated Anti-Conflation Audit & Gate Clearance
-1. Run the consolidated anti-conflation and collision audit across all registered entities:
+#### Step 5: Consolidated Anti-Conflation Audit, Disambiguation Scans & Gate Clearance
+1. **Run Conflation Audit & Resolve Collision Risks:**
+   Run the consolidated anti-conflation and collision audit across all registered entities:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit
    ```
-   Examine any character pairs flagged with high semantic/demographic overlap. If ambiguous characters need clarification, inspect `--around <anchor_id> -n 5` or assign negative boundaries (`--desc "...; NOT <Other>"`).
+   Examine any character pairs flagged with `HIGH_RISK` overlap.
+   - If collision or conflation is suspected between two entities (e.g. sharing a role like *sister* or *doctor*):
+     - Dispatch an `entity-investigator` subagent for a **Disambiguation Scan** comparing Entity A and Entity B across relevant threads.
+     - **If confirmed DISTINCT individuals:** Record the distinct pair:
+       ```bash
+       python3 project/scripts/query_chat.py -C <chat_id> \
+         --record-distinct-pair "<EntityA>" "<EntityB>" \
+         --reason "<evidence anchors distinguishing the two persons>"
+       ```
+       This automatically updates notes on both entities with negative boundaries (`NOT <Other>`), marks them as `GUARDED` in `--conflation-audit`, and persists them in the disambiguation cache.
+     - **If confirmed SAME individual:** Merge via `--merge-entity <staging_id> --into-entity "<Canonical_Name>"`.
 2. **Inspect Audited Descriptors & Role Cardinality Verification:**
    Ensure all role descriptors and kinship tags are verified without conflation ($K=1$ vs $K \ge 2$):
    ```bash
-   # Inspect audited descriptors and verify role cardinality (K=1 vs K>=2):
    python3 project/scripts/query_chat.py -C <chat_id> --descriptors
    python3 project/scripts/query_chat.py -C <chat_id> --audit-descriptor "<role_or_descriptor>"
    ```
-3. Verify gatekeeper status:
+3. **Verify Gatekeeper Status:**
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
    ```
-   Exits with code 0 (`[✓] PASSED: Entity Discovery verified`) once verified entities are registered in the database.
-   - **DO NOT run legacy sequential thread scans (`--watchdog-scan` or `--watchdog-scan --sweep`):** The candidate extraction, screening (`candidate-triage`), and investigator clustering pipeline has already resolved all third-party entities.
-   - **DO NOT inspect threads with `-t`:** If any ambiguity remains from the conflation audit, dispatch an `entity-investigator` subagent instead of reading threads directly.
+   Exits with code 0 (`[✓] PASSED: Entity Discovery verified`) when:
+   - Exactly **0 pending proposals remain in `staging_entities`** (all proposals approved, merged, or rejected).
+   - Exactly **0 unresolved `HIGH_RISK` collisions exist in `--conflation-audit`** (all colliding pairs disambiguated and guarded).
+   - Handles 0-entity chats gracefully (exemption when chat contains no third parties).
+   - **DO NOT run legacy sequential thread scans (`--watchdog-scan` or `--watchdog-scan --sweep`):** The staging review, investigator clustering, and conflation audit pipeline replaces all legacy scans.
+   - **DO NOT inspect threads with `-t`:** If any ambiguity remains from the conflation audit, dispatch an `entity-investigator` subagent for a disambiguation scan.
 
 ---
 

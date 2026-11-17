@@ -28,6 +28,7 @@ from .conflation_audit import (
     run_conflation_audit,
     print_conflation_audit,
 )
+from .staging_actions import handle_staging_cli_actions
 from .watchdog_api import (
     run_watchdog_check,
     print_watchdog_result,
@@ -42,6 +43,9 @@ from .watchdog_scan import run_sequential_watchdog_scan
 
 def handle_entity_actions(args: Any, batch_config: Dict[str, Any], resolved_chat_id: Optional[str], resolved_chat_name: Optional[str]) -> bool:
     """Handle entity and descriptor registration/audit CLI flags. Returns True if handled."""
+    if handle_staging_cli_actions(args, resolved_chat_id, resolved_chat_name):
+        return True
+
     if args.register_entity:
         if not resolved_chat_id:
             print("[!] Error: Multiple chats found in database. Please specify chat using -C <chat_id>.")

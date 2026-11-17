@@ -56,6 +56,37 @@ def ensure_entities_tables(conn: sqlite3.Connection) -> None:
     );
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_thread_entity_audit_chat ON thread_entity_audit(chat_id);")
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS staging_entities (
+        staging_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id TEXT NOT NULL,
+        proposed_name TEXT NOT NULL,
+        proposed_role TEXT,
+        anchors TEXT,
+        context_notes TEXT,
+        source_thread_id TEXT,
+        proposed_by TEXT NOT NULL DEFAULT 'entity-investigator',
+        status TEXT NOT NULL DEFAULT 'pending',
+        reviewed_at TEXT,
+        resolution_notes TEXT,
+        created_at TEXT NOT NULL
+    );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_staging_entities_chat_status ON staging_entities(chat_id, status);")
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS entity_disambiguation_pairs (
+        chat_id TEXT NOT NULL,
+        entity_a TEXT NOT NULL,
+        entity_b TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'verified_distinct',
+        audited_at TEXT NOT NULL,
+        reason TEXT,
+        PRIMARY KEY (chat_id, entity_a, entity_b)
+    );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_disambiguation_pairs_chat ON entity_disambiguation_pairs(chat_id);")
     conn.commit()
 
 
