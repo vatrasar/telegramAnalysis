@@ -118,7 +118,7 @@ Exits with code 0 (`[✓] PASSED: Entity Discovery verified`) when 0 pending pro
 
 Once the complete entity registry is established and the Watchdog Gate is resolved:
 1. **Subject-Centric Salience Screening:** Retain all figures of psychological, attachment, familial, romantic (including suitors), or clinical significance to the **Subject** (the profiled individual).
-   - **Strict Interlocutor Boundary in Phase B:** Profile the Interlocutor solely for the direct conversational dyad (`Interlocutor_Dyad.md`). Never spawn deep profilers for the Interlocutor's personal circle (parents, friends, dates, coworkers).
+   - **Strict Interlocutor Boundary in Phase B:** Profile the Interlocutor solely for the direct conversational dyad (`Interlocutor_Dyad.md`). Never spawn deep profilers for figures belonging *solely* to the Interlocutor's personal circle (parents, coworkers, local dates). However, **mutual acquaintances** connected to both the Subject and the Interlocutor (e.g. shared friends, mutual colleagues like Silvi) ARE valid and qualified for profiling.
    - **No Artificial Cap on Subject Figures:** Dispatch all qualifying subject figures concurrently in parallel (1 subagent per entity). Discard only purely transient contacts and interlocutor-sphere figures.
 2. **Negative Boundary Injection:** Provide deep profilers with explicit boundaries.
 3. **Dynamic Parallel Profiling, Volume Ceiling & Snippet-First Protocol:**
