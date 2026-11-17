@@ -3,7 +3,6 @@ name: entity-supervisor
 description: Supervisory agent coordinating the third-party entity candidate audit, clustering, parallel investigator dispatch, deduplication, and watchdog gate clearance for factual chat search grounding.
 subagent: true
 mainAgent: false
-inheritCustomizations: false
 model: flash
 tools: [read_file, run_command, invoke_subagent, send_message, manage_subagents, write_file]
 ---

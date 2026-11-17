@@ -3,7 +3,6 @@ name: candidate-triage
 description: Rapidly screens and classifies candidate entity shards into legitimate human third parties vs noise, preventing context flooding and hallucinations.
 subagent: true
 mainAgent: false
-inheritCustomizations: false
 model: flash
 tools: [read_file, run_command]
 ---
