@@ -176,6 +176,16 @@ def find_entity_threads(conn: sqlite3.Connection, chat_id: str, entity_name: str
         except Exception:
             pass
 
+    # 6. Automated System-1 verification sweep with negative boundaries
+    if thread_ids:
+        try:
+            from .entity_decider import filter_candidate_threads_system1
+            decisions = filter_candidate_threads_system1(conn, chat_id, entity_name, list(thread_ids))
+            if decisions:
+                thread_ids = {tid for tid in thread_ids if decisions.get(tid, {}).get("is_present", True)}
+        except Exception:
+            pass
+
     if not thread_ids:
         return []
 
