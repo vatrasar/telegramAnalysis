@@ -122,26 +122,47 @@ Group clusters into batches of 2–3 related candidates. For each batch, invoke 
   ```bash
   python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> -w 5 --mentions "<Candidate_Name>"
   ```
+  Instruct worker to **stage all candidate findings into SQLite** via:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> --stage-entity "<Name>" --role "<Role>" --desc "<Context & Anchors>" --source-thread <tid>
+  ```
 Wait for investigator structured reports (`inspected_thread_ids`, `entities`, `discovered_facts`).
 
-### Step 5: Deduplicate Findings, Register Entities & Batch Facts
-For each verified entity returned:
-1. Verify no collision with existing registry (`query_chat.py -C <chat_id> --entities`).
-2. Register the entity with anchors:
+### Step 5: Staging Review, Deduplication & Fact Ingestion
+1. **Review Pending Staged Proposals from Workers:**
+   Query the staging table to inspect all proposals submitted by workers:
    ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> \
-     --register-entity "<Canonical Name>" \
-     --role "<Verified Relational Role>" \
-     --desc "<Anchors [#ID | YYYY-MM-DD], descriptors, negative boundaries>"
+   python3 project/scripts/query_chat.py -C <chat_id> --pending-entities
    ```
-3. If the worker returned `discovered_facts`, register them via `--record-facts-batch`.
+   For each pending staged proposal, execute the appropriate supervisory resolution (do NOT approve blindly in bulk):
+   - **Approve as New Entity:** If verified as an authentic, unique third party:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --approve-entity <staging_id> [--canonical-name "<Name>"] [--role "<Role>"]
+     ```
+   - **Merge Duplicate / Alias:** If the proposal is an alternative mention or alias of an existing registered entity:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --merge-entity <staging_id> --into-entity "<Target_Name>" --reason "<reason>"
+     ```
+   - **Reject Noise / Bystander / False Alarm:** If the proposal is a one-off transactional contact, non-human token, or disproven hypothesis:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --reject-entity <staging_id> --reason "<explicit_reason>"
+     ```
+2. If the worker returned `discovered_facts`, register them via `--record-facts-batch`.
 
-### Step 6: Anti-Conflation Audit & Watchdog Hard-Stop Gate Clearance
-1. **Run Conflation Audit:**
+### Step 6: Anti-Conflation Audit, Disambiguation Scans & Gate Clearance
+1. **Run Conflation Audit & Resolve Collision Risks:**
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit
    ```
-   Examine any character pairs flagged with high semantic/demographic overlap. If ambiguous characters need clarification, inspect `--around <anchor_id> -w 5` or assign negative boundaries (`--desc "...; NOT <Other>"`).
+   Examine any character pairs flagged with `HIGH_RISK` overlap.
+   - If collision is suspected: dispatch an `entity-investigator` for a **Disambiguation Scan** comparing Entity A and Entity B across relevant threads.
+   - **If confirmed DISTINCT individuals:**
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> \
+       --record-distinct-pair "<EntityA>" "<EntityB>" --reason "<anchors & distinct traits>"
+     ```
+     This automatically updates notes on both entities with negative boundaries (`NOT <Other>`), marks them as `GUARDED` in `--conflation-audit`, and persists them in the disambiguation cache.
+   - **If confirmed SAME individual:** Merge via `--merge-entity <staging_id> --into-entity "<Canonical_Name>"`.
 2. **Verify Descriptor Cardinality:**
    Ensure all role descriptors and kinship tags are verified without conflation:
    ```bash
@@ -151,8 +172,10 @@ For each verified entity returned:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
    ```
-   - If exit code 0 (`[✓ WATCHDOG GATE PASSED]`): Proceed to handoff.
-   - If exit code 1 (`[GATE BLOCKED]`): Resolve remaining flagged candidates/threads before proceeding.
+   Exits with code 0 (`[✓ WATCHDOG GATE PASSED]`) when:
+   - Exactly **0 pending proposals remain in `staging_entities`** (all proposals approved, merged, or rejected).
+   - Exactly **0 unresolved `HIGH_RISK` collisions exist in `--conflation-audit`** (all colliding pairs disambiguated and guarded).
+   - Handles 0-entity chats gracefully (exemption when chat contains no third parties).
    - **DO NOT run legacy sequential thread scans (`--watchdog-scan` or `--watchdog-scan --sweep`):** The candidate extraction, screening (`candidate-triage`), and investigator clustering pipeline has already resolved all third-party entities.
    - **DO NOT inspect threads with `-t`:** If any ambiguity remains from the conflation audit, dispatch an `entity-investigator` subagent instead of reading threads directly.
 4. **Handoff to Main Coordinator:**
