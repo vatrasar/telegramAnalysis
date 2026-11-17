@@ -108,8 +108,8 @@ If completed evidence items $> 5$, the curator shards items into batches of up t
 For each evidence item, the curator determines value-add and records routing in SQLite:
 ```bash
 python3 project/scripts/thread_checklist.py -C <chat_id> --route-evidence <thread_id> \
-  --target-agent "<chapter-drafter|operational-playbook-architect>" \
-  --target-chapter "<family|career|worldview|romantic|lifestyle|playbook>" \
+  --target-agent "chapter-drafter" \
+  --target-chapter "<family|career|worldview|romantic|lifestyle|playbook_tactics|creed_quirks|reliability_defenses>" \
   --significance "<Significance note>"
 ```
 

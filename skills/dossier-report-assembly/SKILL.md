@@ -135,7 +135,7 @@ reports/<subject>_sections/
 
 ### Step 2: Parallel Chapter Drafting & Subsection Stitching
 The `dossier-supervisor` dispatches specialized worker subagents in parallel (`Model: "flash"`):
-- `chapter-drafter` & `operational-playbook-architect`: Operate as **Chapter Supervisors** for their assigned chapters.
+- `chapter-drafter`: Operates as the **Chapter Supervisor** for all assigned narrative, clinical, tactical, and custom chapters.
   - Deconstruct each chapter into 4–6 modular subsections staged under `reports/<subject>_sections/<chapter_name>_subsections/`.
   - Dispatch `subsection-drafter` for each subpoint.
   - Enforce the **20-fact threshold** via `cluster_facts.py` (partitioning facts into semantic clusters when facts > 20).

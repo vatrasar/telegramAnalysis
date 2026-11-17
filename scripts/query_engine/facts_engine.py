@@ -37,7 +37,7 @@ DEFAULT_TARGET_AGENTS: Dict[str, str] = {
     "sphere_c_politics": "life-sphere-investigator", "sphere_d_family": "life-sphere-investigator",
     "sphere_e_romantic": "life-sphere-investigator", "sphere_f_leisure": "life-sphere-investigator",
     "biography_timeline": "chapter-drafter", "psychodynamics": "forensic-thread-investigator",
-    "personality_ocean": "chapter-drafter", "operational_playbook": "operational-playbook-architect",
+    "personality_ocean": "chapter-drafter", "operational_playbook": "chapter-drafter",
 }
 
 

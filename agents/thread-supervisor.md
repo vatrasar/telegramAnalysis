@@ -93,5 +93,5 @@ Once all threads in the checklist are resolved:
    ```
 3. Return a structured completion report to the Main Coordinator:
    - Total threads audited (redundant vs novel deep dives),
-   - Evidence routed per target agent (`chapter-drafter`, `operational-playbook-architect`),
+   - Evidence routed per target chapter (`chapter-drafter`),
    - Any proposed custom sections/chapters that require dedicated drafter assignments.

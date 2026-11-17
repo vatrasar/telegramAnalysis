@@ -95,7 +95,7 @@ def main():
     parser.add_argument("--export-evidence", action="store_true", help="Export complete bank of audited forensic evidence and quotes for final report synthesis")
     parser.add_argument("--evidence-catalog", action="store_true", help="Display thematic category/tag catalog of audited evidence to guide modular chapter drafting")
     parser.add_argument("--route-evidence", type=str, metavar="THREAD_ID", help="Route audited evidence to a target drafter agent and report chapter")
-    parser.add_argument("--target-agent", type=str, help="Target drafter agent (e.g. chapter-drafter, operational-playbook-architect)")
+    parser.add_argument("--target-agent", type=str, help="Target drafter agent (e.g. chapter-drafter, subsection-drafter)")
     parser.add_argument("--target-chapter", type=str, help="Target report chapter or sphere category (e.g. family, career, playbook)")
     parser.add_argument("--significance", type=str, help="Significance or rationale note for routed evidence")
     parser.add_argument("--evidence-for-target", type=str, metavar="TARGET", help="Display audited evidence routed specifically to an agent role or chapter")

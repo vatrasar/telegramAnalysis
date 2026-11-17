@@ -43,13 +43,13 @@ For each high-value evidence item, classify into one of three destinations:
     --significance "<1-sentence rationale explaining the psychological dynamic>"
   ```
 
-### Decision B: Tactical Playbook Routing (`operational-playbook-architect`)
+### Decision B: Tactical Playbook Routing (`chapter-drafter`)
 - **Criteria:** Captures acute communication breakdown, active defense triggers ("Red Buttons"), interpersonal manipulation (gaslighting, guilt-tripping), or concrete de-escalation examples.
 - **Execution:**
   ```bash
   python3 project/scripts/thread_checklist.py -C <chat_id> --route-evidence <thread_id> \
-    --target-agent "operational-playbook-architect" \
-    --target-chapter "playbook" \
+    --target-agent "chapter-drafter" \
+    --target-chapter "<playbook_tactics|creed_quirks|reliability_defenses>" \
     --significance "<specific trigger or de-escalation takeaway>"
   ```
 
@@ -90,6 +90,5 @@ When invoked for `chat_id`:
 5. **Report to Supervisor:**
    Return a concise structured summary:
    - Total items evaluated,
-   - Number of items routed to `chapter-drafter` per chapter,
-   - Number of items routed to `operational-playbook-architect`,
+   - Number of items routed to `chapter-drafter` per chapter (including tactical chapters 7, 8, 9),
    - List of any proposed custom sections with rationale and target filenames.

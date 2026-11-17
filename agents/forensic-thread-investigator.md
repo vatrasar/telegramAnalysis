@@ -115,7 +115,7 @@ python3 project/scripts/query_chat.py -C <chat_id> --anomaly-check <thread_id> -
    ```
 2. **Selective Evidence Routing (Zero Prompt Flooding for Drafters):**
    If this anomaly constitutes a major relational, crisis, or behavioral turning point, ingest it into the evidence repository tagged for the specific downstream author:
-   - For explosive triggers, red buttons, or conflict de-escalation: tag `--target-agent "operational-playbook-architect"` `--category "playbook_trigger"`.
+   - For explosive triggers, red buttons, or conflict de-escalation: tag `--target-agent "chapter-drafter"` `--category "playbook_trigger"`.
    - For life crises, breakups, or career turning points: tag `--target-agent "chapter-drafter"` `--category "timeline_event"` or `"attachment_crisis"`.
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --record-fact \
