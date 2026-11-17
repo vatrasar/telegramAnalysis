@@ -29,7 +29,8 @@ You manage the entire third-party entity resolution process:
 
 ### 2.1 Sole Write Authority & Subagent Sandbox Isolation
 - **You are the Sole Write Authority:** You execute `--register-entity` and `--add-noise-word`. Subagents are strictly read-only and report candidate findings to you.
-- **Strict Prohibition on Raw Transcripts:** Never load full 50-message transcripts (`-t <tid>`) into your own supervisory context. Delegate all thread reading to `entity-investigator`.
+- **Supervisor NEVER Reads Raw Thread Transcripts:** You are strictly an executive coordinator and database authority. You NEVER read raw thread transcripts directly (calling `query_chat.py` with `-t <thread_id>` is strictly forbidden). Thread snippet reconnaissance belongs exclusively to `entity-investigator` subagents. If any thread requires inspection, dispatch an `entity-investigator`.
+- **Strict Prohibition on Raw Transcripts in Context:** Never load full 50-message transcripts (`-t <tid>`) into your own supervisory context. Delegate all thread reading to `entity-investigator`.
 
 ### 2.2 Entity Boundary & Anti-Merge Invariant ($K=1$ vs $K \ge 2$)
 - Never merge two distinct individuals who share an identical personal name or kinship role (e.g. four sisters, multiple ex-partners).
@@ -91,8 +92,8 @@ When invoked by the Main Coordinator with `chat_id`:
    python3 project/scripts/query_chat.py -C <chat_id> --descriptors
    python3 project/scripts/query_chat.py -C <chat_id> --audit-descriptor "<role_or_descriptor>"
    ```
-2. **Handle High Candidate Volume (> 40 mentions) via Dedicated Screener Subagents:**
-   - If `Unique Candidate Mentions` in Step 1 exceeds 40, partition into shards (e.g. 2–4 shards) and dispatch parallel `candidate-triage` subagents:
+2. **Handle High Candidate Volume (> 35 mentions) via Dedicated Screener Subagents:**
+   - If `Unique Candidate Mentions` in Step 1 exceeds 35, calculate candidate shards dynamically targeting ~25–35 candidates per subagent ($\max(2, \lceil \text{total\_candidates} / 30 \rceil)$) and dispatch parallel `candidate-triage` subagents (do NOT artificially cap at 4 shards):
      - `TypeName`: `"candidate-triage"`
      - `Model`: `"flash"`
      - `Prompt`: Instruct each worker to inspect their shard:
@@ -103,7 +104,7 @@ When invoked by the Main Coordinator with `chat_id`:
        python3 project/scripts/query_chat.py -C <chat_id> --add-noise-word "<discovered_noise_words>"
        ```
      - Aggregate the verified candidates across all shards.
-3. **If Candidate Count is Compact ($\le$ 40 mentions):**
+3. **If Candidate Count is Compact ($\le$ 35 mentions):**
    Retrieve the candidate list directly: `python3 project/scripts/query_chat.py -C <chat_id> --candidates --json`.
 
 ### Step 3: Generate Hybrid Pre-Clusters & Conflation Risk Alerts
@@ -152,6 +153,8 @@ For each verified entity returned:
    ```
    - If exit code 0 (`[✓ WATCHDOG GATE PASSED]`): Proceed to handoff.
    - If exit code 1 (`[GATE BLOCKED]`): Resolve remaining flagged candidates/threads before proceeding.
+   - **DO NOT run legacy sequential thread scans (`--watchdog-scan` or `--watchdog-scan --sweep`):** The candidate extraction, screening (`candidate-triage`), and investigator clustering pipeline has already resolved all third-party entities.
+   - **DO NOT inspect threads with `-t`:** If any ambiguity remains from the conflation audit, dispatch an `entity-investigator` subagent instead of reading threads directly.
 4. **Handoff to Main Coordinator:**
    Output the completed entity summary table:
    ```bash
