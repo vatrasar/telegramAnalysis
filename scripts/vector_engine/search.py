@@ -14,9 +14,69 @@ from .client import (
     fetch_openrouter_embeddings,
 )
 from .indexer import index_threads
+from .chunks import resolve_thread_snippet, DEFAULT_CONTEXT_WINDOW
 
 
 DEFAULT_MIN_SCORE: float = 0.55
+
+
+def _fts5_fallback_search(
+    cur: sqlite3.Cursor,
+    queries: List[str],
+    top_k: int = 5,
+    chat_filter: Optional[str] = None,
+    participant_filter: Optional[str] = None
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Execute BM25 search over threads_fts as a fallback when vector embeddings are unavailable."""
+    results_map: Dict[str, List[Dict[str, Any]]] = {}
+    for query in queries:
+        clean_q = "".join(c if c.isalnum() or c.isspace() else " " for c in query).strip()
+        words = clean_q.split()
+        if not words:
+            results_map[query] = []
+            continue
+        terms = []
+        for w in words:
+            terms.append(f'"{w}"')
+            if len(w) >= 5:
+                stem = w[:-2] if w.endswith(('ść', 'ch', 'em', 'om', 'ów', 'mi')) else (w[:-1] if w.endswith(('a', 'e', 'y', 'i', 'o', 'u', 'ę', 'ą')) else w)
+                if len(stem) >= 3:
+                    terms.append(f'"{stem}"*')
+        match_query = " OR ".join(terms)
+        try:
+            sql = """
+            SELECT tf.thread_id, tf.chat_id, coalesce(c.chat_name, tf.chat_id) as chat_name,
+                   tf.start_date, tf.participants, tf.dialogue_text, bm25(threads_fts) as rank
+            FROM threads_fts tf
+            LEFT JOIN chats c ON tf.chat_id = c.chat_id
+            WHERE threads_fts MATCH ?
+            """
+            p = [match_query]
+            if chat_filter:
+                sql += " AND (tf.chat_id = ? OR c.chat_name = ? OR c.chat_name LIKE ?) "
+                p.extend([chat_filter, chat_filter, f"%{chat_filter}%"])
+            if participant_filter and str(participant_filter).strip():
+                sql += " AND lower(tf.participants) LIKE ? "
+                p.append(f"%{str(participant_filter).strip().lower()}%")
+            sql += " ORDER BY rank ASC LIMIT ?; "
+            p.append(top_k)
+
+            cur.execute(sql, p)
+            q_res = []
+            for r in cur.fetchall():
+                q_res.append({
+                    "thread_id": r[0],
+                    "chat_id": r[1],
+                    "chat_name": r[2],
+                    "start_date": r[3],
+                    "participants": r[4],
+                    "dialogue_text": r[5],
+                    "score": round(-float(r[6]), 3)
+                })
+            results_map[query] = q_res
+        except Exception:
+            results_map[query] = []
+    return results_map
 
 
 def search_semantic_batch(
@@ -44,11 +104,10 @@ def search_semantic_batch(
         cur.execute("SELECT count(*) FROM thread_embeddings")
         table_exists = cur.fetchone()[0] > 0
 
-    if not table_exists:
-        # Check if we should automatically run index
-        has_openrouter = provider in ("openrouter", "api") and config.get("api_key") and "YOUR_OPENROUTER_API_KEY" not in config.get("api_key", "")
-        has_local = provider == "local" and is_local_ml_available()
+    has_openrouter = provider in ("openrouter", "api", "openai") and config.get("api_key") and "YOUR_OPENROUTER_API_KEY" not in config.get("api_key", "")
+    has_local = provider == "local" and is_local_ml_available()
 
+    if not table_exists:
         if has_openrouter or has_local:
             print("[*] Vectors not yet indexed. Generating embeddings now...")
             conn.close()
@@ -56,78 +115,47 @@ def search_semantic_batch(
             conn = sqlite3.connect(db_path)
             cur = conn.cursor()
         else:
-            # Fallback to FTS5 for each query
             print(f"\n[!] WARNING: Database '{db_path}' contains NO vector embeddings!", file=sys.stderr)
             print("    Embedding configuration in config/embeddings_config.json is missing or placeholder.", file=sys.stderr)
             print("    Falling back to lexical FTS5 (BM25) search. Real semantic embeddings were NOT used.", file=sys.stderr)
             print("    To fix: Complete setup ('python3 project/scripts/setup_config.py') and run vector indexing ('python3 project/scripts/vector_indexer.py --db <db> --index').\n", file=sys.stderr)
-            results_map: Dict[str, List[Dict[str, Any]]] = {}
-            for query in queries:
-                clean_q = "".join(c if c.isalnum() or c.isspace() else " " for c in query).strip()
-                words = clean_q.split()
-                if not words:
-                    results_map[query] = []
-                    continue
-                terms = []
-                for w in words:
-                    terms.append(f'"{w}"')
-                    if len(w) >= 5:
-                        stem = w[:-2] if w.endswith(('ść', 'ch', 'em', 'om', 'ów', 'mi')) else (w[:-1] if w.endswith(('a', 'e', 'y', 'i', 'o', 'u', 'ę', 'ą')) else w)
-                        if len(stem) >= 3:
-                            terms.append(f'"{stem}"*')
-                match_query = " OR ".join(terms)
-                try:
-                    sql = """
-                    SELECT tf.thread_id, tf.chat_id, coalesce(c.chat_name, tf.chat_id) as chat_name,
-                           tf.start_date, tf.participants, tf.dialogue_text, bm25(threads_fts) as rank
-                    FROM threads_fts tf
-                    LEFT JOIN chats c ON tf.chat_id = c.chat_id
-                    WHERE threads_fts MATCH ?
-                    """
-                    p = [match_query]
-                    if chat_filter:
-                        sql += " AND (tf.chat_id = ? OR c.chat_name = ? OR c.chat_name LIKE ?) "
-                        p.extend([chat_filter, chat_filter, f"%{chat_filter}%"])
-                    if participant_filter and str(participant_filter).strip():
-                        sql += " AND lower(tf.participants) LIKE ? "
-                        p.append(f"%{str(participant_filter).strip().lower()}%")
-                    sql += " ORDER BY rank ASC LIMIT ?; "
-                    p.append(top_k)
-
-                    cur.execute(sql, p)
-                    q_res = []
-                    for r in cur.fetchall():
-                        q_res.append({
-                            "thread_id": r[0],
-                            "chat_id": r[1],
-                            "chat_name": r[2],
-                            "start_date": r[3],
-                            "participants": r[4],
-                            "dialogue_text": r[5],
-                            "score": round(-float(r[6]), 3)
-                        })
-                    results_map[query] = q_res
-                except Exception:
-                    results_map[query] = []
+            res = _fts5_fallback_search(cur, queries, top_k, chat_filter, participant_filter)
             conn.close()
-            return results_map
+            return res
 
     # Generate query embeddings in batch
     if provider in ("openrouter", "api", "openai"):
         api_key = config.get("api_key", "")
+        if not api_key or "YOUR_OPENROUTER_API_KEY" in api_key:
+            print(f"\n[!] WARNING: Valid OpenRouter API key not configured in config/embeddings_config.json.", file=sys.stderr)
+            print("    Falling back to lexical FTS5 (BM25) search. Real semantic embeddings were NOT used.\n", file=sys.stderr)
+            res = _fts5_fallback_search(cur, queries, top_k, chat_filter, participant_filter)
+            conn.close()
+            return res
         model = config.get("model", "openai/text-embedding-3-small")
         endpoint = config.get("endpoint", DEFAULT_OPENROUTER_ENDPOINT)
         query_vecs = fetch_openrouter_embeddings(queries, model, api_key, endpoint)
     else:
+        if not is_local_ml_available():
+            print(f"\n[!] WARNING: Local sentence-transformers is not available.", file=sys.stderr)
+            print("    Falling back to lexical FTS5 (BM25) search.\n", file=sys.stderr)
+            res = _fts5_fallback_search(cur, queries, top_k, chat_filter, participant_filter)
+            conn.close()
+            return res
         from sentence_transformers import SentenceTransformer
         model_name = config.get("model", DEFAULT_LOCAL_MODEL)
         model = SentenceTransformer(model_name)
         query_vecs = model.encode(queries, normalize_embeddings=True).tolist()
 
+    cur.execute("PRAGMA table_info(thread_embeddings);")
+    cols = {c[1] for c in cur.fetchall()}
+    has_hash = "content_hash" in cols
+    hash_col = ", te.content_hash" if has_hash else ", NULL as content_hash"
+
     # Read stored thread vectors
-    sql = """
+    sql = f"""
     SELECT te.thread_id, te.chat_id, coalesce(c.chat_name, te.chat_id) as chat_name,
-           te.start_date, te.participants, te.dialogue_text, te.embedding
+           te.start_date, te.participants, te.dialogue_text, te.embedding{hash_col}
     FROM thread_embeddings te
     LEFT JOIN chats c ON te.chat_id = c.chat_id
     WHERE 1=1
@@ -143,13 +171,13 @@ def search_semantic_batch(
     cur.execute(sql, params)
     thread_rows = []
     for r in cur.fetchall():
-        thread_rows.append((r[0], r[1], r[2], r[3], r[4], r[5], deserialize_vector(r[6])))
+        thread_rows.append((r[0], r[1], r[2], r[3], r[4], r[5], deserialize_vector(r[6]), r[7]))
     conn.close()
 
     results_map: Dict[str, List[Dict[str, Any]]] = {}
     for q_text, q_vec in zip(queries, query_vecs):
         scored = []
-        for t_id, c_id, c_name, s_date, parts, text, emb in thread_rows:
+        for t_id, c_id, c_name, s_date, parts, text, emb, c_hash in thread_rows:
             sim = dot_product(q_vec, emb)
             if effective_min_score is not None and sim < effective_min_score:
                 continue
@@ -160,10 +188,30 @@ def search_semantic_batch(
                 "start_date": s_date,
                 "participants": parts,
                 "dialogue_text": text,
+                "content_hash": c_hash,
                 "score": round(float(sim), 4)
             })
         scored.sort(key=lambda x: x["score"], reverse=True)
-        results_map[q_text] = scored[:top_k]
+        top_threads = scored[:top_k]
+
+        # Extract focused snippets on-demand for top matching threads
+        for item in top_threads:
+            try:
+                snip = resolve_thread_snippet(
+                    db_path=db_path,
+                    thread_id=item["thread_id"],
+                    chat_id=item["chat_id"],
+                    query_vec=q_vec,
+                    content_hash=item.get("content_hash"),
+                    config=config,
+                    min_score=effective_min_score,
+                    context_window=DEFAULT_CONTEXT_WINDOW
+                )
+                item["snippet"] = snip
+            except Exception:
+                item["snippet"] = None
+
+        results_map[q_text] = top_threads
 
     return results_map
 

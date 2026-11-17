@@ -20,6 +20,12 @@ from .search import (
     search_semantic,
     search_semantic_facts,
 )
+from .chunks import (
+    init_chunk_vector_table,
+    chunk_thread_messages,
+    ensure_thread_chunks_embedded,
+    resolve_thread_snippet,
+)
 
 __all__ = [
     "DEFAULT_LOCAL_MODEL",
@@ -36,4 +42,8 @@ __all__ = [
     "search_semantic_batch",
     "search_semantic",
     "search_semantic_facts",
+    "init_chunk_vector_table",
+    "chunk_thread_messages",
+    "ensure_thread_chunks_embedded",
+    "resolve_thread_snippet",
 ]

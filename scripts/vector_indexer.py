@@ -90,7 +90,20 @@ def main():
             c_label = res.get("chat_name", res.get("chat_id"))
             print(f"\n[{i}] Thread: {res['thread_id']} | Chat: {c_label} | Date: {res['start_date'][:10]} | Score: {res['score']}")
             print(f"Participants: {res['participants']}")
-            print(res["dialogue_text"])
+            snippet = res.get("snippet")
+            if snippet and not snippet.get("is_full_thread") and snippet.get("formatted_snippet"):
+                msg_range = f"#{snippet['start_msg_id']}-#{snippet['end_msg_id']} ({snippet['msg_count']} of {snippet['total_messages']} msgs)"
+                print(f"   📍 Matched Snippet [{msg_range} | Chunk Score: {snippet.get('score', res['score'])}]:")
+                print("   " + "-" * 50)
+                for line in snippet["formatted_snippet"].split("\n"):
+                    print(f"   {line}")
+                print("   " + "-" * 50)
+            else:
+                lines = res["dialogue_text"].split("\n")
+                preview = "\n".join(lines[:12])
+                if len(lines) > 12:
+                    preview += f"\n   ... ({len(lines) - 12} more messages in thread)"
+                print(preview)
             print("-" * 50)
     else:
         parser.print_help()

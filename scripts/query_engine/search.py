@@ -252,9 +252,21 @@ def print_semantic_results(concept: str, results: List[Dict[str, Any]]) -> None:
         c_label = f" | Chat: {res.get('chat_name', res.get('chat_id'))}" if res.get("chat_name") else ""
         print(f"\n[{i}] Thread: {res['thread_id']}{c_label} | Date: {res['start_date'][:10]} | Relevance Score: {res['score']}")
         print(f"Participants: {res['participants']}")
-        lines = res["dialogue_text"].split("\n")
-        preview = "\n".join(lines[:6])
-        if len(lines) > 6:
-            preview += f"\n   ... ({len(lines) - 6} more messages in thread)"
-        print(preview)
+        snippet = res.get("snippet")
+        if snippet and not snippet.get("is_full_thread") and snippet.get("formatted_snippet"):
+            msg_range = f"#{snippet['start_msg_id']}-#{snippet['end_msg_id']} ({snippet['msg_count']} of {snippet['total_messages']} msgs)"
+            print(f"   📍 Matched Snippet [{msg_range} | Chunk Score: {snippet.get('score', res['score'])}]:")
+            print("   " + "-" * 50)
+            for line in snippet["formatted_snippet"].split("\n"):
+                print(f"   {line}")
+            print("   " + "-" * 50)
+            print(f"   (Use --thread {res['thread_id']} if you ever need the full raw thread)")
+        else:
+            if snippet and snippet.get("reason") == "multi_cluster_fallback":
+                print(f"   ℹ️ Multiple topic clusters detected across thread ({snippet.get('total_messages', 0)} msgs). Showing thread:")
+            lines = res["dialogue_text"].split("\n")
+            preview = "\n".join(lines[:12])
+            if len(lines) > 12:
+                preview += f"\n   ... ({len(lines) - 12} more messages in thread. Use --thread {res['thread_id']} for complete log)"
+            print(preview)
         print("-" * 50)
