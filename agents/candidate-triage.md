@@ -1,6 +1,6 @@
 ---
 name: candidate-triage
-description: Rapidly screens and classifies a candidate entity shard into legitimate third parties (including single mentions) vs generic noise, preventing context flooding and misattributions.
+description: Rapidly screens and classifies a candidate entity shard into legitimate third parties vs generic noise, preventing context flooding and misattributions.
 subagent: true
 mainAgent: false
 model: flash
