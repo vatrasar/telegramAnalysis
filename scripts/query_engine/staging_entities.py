@@ -213,15 +213,18 @@ def approve_staging_entity(
         combined_desc.append(f"Context: {p_context}")
     final_desc = "; ".join(combined_desc) if combined_desc else None
 
+    infer_ex = is_ex or ("ex" in (final_role or "").lower() and "extra" not in (final_role or "").lower())
+    infer_rom = is_romantic or infer_ex or any(k in (final_role or "").lower() for k in ["suitor", "romantic", "crush", "husband", "wife", "dating", "boyfriend", "girlfriend"])
+
     # Register into main chat_entities
     reg_res = register_entity(
-        conn=conn,
+        db_path=db_path,
         chat_id=chat_id,
-        name=final_name,
-        role=final_role,
-        descriptors=final_desc,
-        is_ex=is_ex,
-        is_romantic=is_romantic,
+        name_or_alias=final_name,
+        verified_role=final_role,
+        associated_descriptors=final_desc,
+        is_ex_partner=infer_ex,
+        is_romantic=infer_rom,
         notes=final_desc
     )
 

@@ -42,14 +42,51 @@ NEGATIVE_BOUNDARY_PATTERNS = [
 ]
 
 
-def _extract_tokens(text: str) -> Set[str]:
-    """Tokenize text into lowercase alphanumeric words (min 3 chars)."""
+GENERIC_IGNORE_TOKENS = {"the", "and", "suitor", "friend", "person", "candidate", "someone"}
+
+
+def _get_chat_participant_tokens(db_path: str, chat_id: str) -> Set[str]:
+    """Fetch participant and chat name tokens to exclude from cross-entity collisions dynamically."""
+    tokens = set(GENERIC_IGNORE_TOKENS)
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT chat_name FROM chats WHERE chat_id = ?", (chat_id,))
+        r = cur.fetchone()
+        if r and r[0]:
+            for w in re.findall(r"\b[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,}\b", r[0].lower()):
+                tokens.add(w)
+        cur.execute("SELECT DISTINCT sender FROM messages WHERE chat_id = ? LIMIT 20", (chat_id,))
+        for (sender,) in cur.fetchall():
+            if sender:
+                for w in re.findall(r"\b[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,}\b", sender.lower()):
+                    tokens.add(w)
+        conn.close()
+    except Exception:
+        pass
+    return tokens
+
+
+def _extract_tokens(text: str, exclude_tokens: Optional[Set[str]] = None) -> Set[str]:
+    """Tokenize text into lowercase alphanumeric words (min 3 chars), excluding participant/noise tokens."""
     words = re.findall(r"\b[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]{3,}\b", text.lower())
+    if exclude_tokens:
+        return {w for w in words if w not in exclude_tokens}
     return set(words)
 
 
-def _check_negative_boundary(e1: Dict[str, Any], e2: Dict[str, Any]) -> bool:
-    """Check if entity e1 explicitly sets a negative boundary referencing e2."""
+def _check_negative_boundary(
+    e1: Dict[str, Any],
+    e2: Dict[str, Any],
+    verified_pairs: Optional[Set[Tuple[str, str]]] = None
+) -> bool:
+    """Check if entity e1 explicitly sets a negative boundary referencing e2 or is cached in disambiguation table."""
+    name1 = e1.get("name_or_alias", "").lower()
+    name2 = e2.get("name_or_alias", "").lower()
+    pair = tuple(sorted([name1, name2]))
+    if verified_pairs and pair in verified_pairs:
+        return True
+
     notes1 = (e1.get("associated_descriptors", "") + " " + e1.get("notes", "")).lower()
     e2_name = e2.get("name_or_alias", "").lower()
     e2_id = e2.get("entity_id", "").lower()
@@ -57,6 +94,14 @@ def _check_negative_boundary(e1: Dict[str, Any], e2: Dict[str, Any]) -> bool:
     mentions_other = (e2_name in notes1) or (e2_id in notes1)
     has_neg_pattern = any(p.search(notes1) for p in NEGATIVE_BOUNDARY_PATTERNS)
     return mentions_other and has_neg_pattern
+
+
+def _matches_keyword(text: str, kws: List[str]) -> bool:
+    """Check if any keyword matches as a whole word in text."""
+    for kw in kws:
+        if re.search(r"\b" + re.escape(kw) + r"\b", text, re.IGNORECASE):
+            return True
+    return False
 
 
 def run_conflation_audit(db_path: str, chat_id: str) -> Dict[str, Any]:
@@ -71,6 +116,24 @@ def run_conflation_audit(db_path: str, chat_id: str) -> Dict[str, Any]:
             "message": "Fewer than 2 entities registered. No collision risk possible yet."
         }
 
+    # Load dynamic participant tokens to prevent self-collision
+    exclude_tokens = _get_chat_participant_tokens(db_path, chat_id)
+
+    # Load verified distinct pairs from SQLite
+    verified_pairs: Set[Tuple[str, str]] = set()
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT entity_a, entity_b FROM entity_disambiguation_pairs WHERE chat_id = ? AND status = 'verified_distinct';",
+            (chat_id,)
+        )
+        for r in cur.fetchall():
+            verified_pairs.add(tuple(sorted([r[0].lower(), r[1].lower()])))
+        conn.close()
+    except Exception:
+        pass
+
     collision_pairs: List[Dict[str, Any]] = []
 
     for i in range(len(entities)):
@@ -78,21 +141,25 @@ def run_conflation_audit(db_path: str, chat_id: str) -> Dict[str, Any]:
             e1 = entities[i]
             e2 = entities[j]
 
-            t1_name = _extract_tokens(e1["name_or_alias"])
-            t2_name = _extract_tokens(e2["name_or_alias"])
+            t1_name = _extract_tokens(e1["name_or_alias"], exclude_tokens)
+            t2_name = _extract_tokens(e2["name_or_alias"], exclude_tokens)
             shared_name_tokens = t1_name.intersection(t2_name)
 
-            all_text1 = f"{e1['name_or_alias']} {e1['verified_role']} {e1['associated_descriptors']} {e1['notes']}".lower()
-            all_text2 = f"{e2['name_or_alias']} {e2['verified_role']} {e2['associated_descriptors']} {e2['notes']}".lower()
+            # Restrict role checking to name and verified_role (plus short descriptor), not full background notes
+            role_text1 = f"{e1['name_or_alias']} {e1['verified_role'] or ''}".lower()
+            role_text2 = f"{e2['name_or_alias']} {e2['verified_role'] or ''}".lower()
 
             shared_roles = []
             for role_group, kws in ROLE_KEYWORDS.items():
-                if any(kw in all_text1 for kw in kws) and any(kw in all_text2 for kw in kws):
+                if _matches_keyword(role_text1, kws) and _matches_keyword(role_text2, kws):
                     shared_roles.append(role_group)
+
+            demo_text1 = f"{e1['name_or_alias']} {e1['verified_role'] or ''} {e1['associated_descriptors'] or ''}".lower()
+            demo_text2 = f"{e2['name_or_alias']} {e2['verified_role'] or ''} {e2['associated_descriptors'] or ''}".lower()
 
             shared_demographics = []
             for demo_group, kws in DEMOGRAPHIC_KEYWORDS.items():
-                if any(kw in all_text1 for kw in kws) and any(kw in all_text2 for kw in kws):
+                if _matches_keyword(demo_text1, kws) and _matches_keyword(demo_text2, kws):
                     shared_demographics.append(demo_group)
 
             reasons = []
@@ -104,9 +171,10 @@ def run_conflation_audit(db_path: str, chat_id: str) -> Dict[str, Any]:
                 reasons.append(f"Shared demographic/trait: [{', '.join(sorted(shared_demographics))}]")
 
             if reasons:
-                e1_guarded = _check_negative_boundary(e1, e2)
-                e2_guarded = _check_negative_boundary(e2, e1)
-                is_fully_guarded = e1_guarded and e2_guarded
+                e1_guarded = _check_negative_boundary(e1, e2, verified_pairs)
+                e2_guarded = _check_negative_boundary(e2, e1, verified_pairs)
+                pair_key = tuple(sorted([e1['name_or_alias'].lower(), e2['name_or_alias'].lower()]))
+                is_fully_guarded = e1_guarded or e2_guarded or (pair_key in verified_pairs)
 
                 risk_level = "GUARDED" if is_fully_guarded else "HIGH_RISK"
 
