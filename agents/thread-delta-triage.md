@@ -3,7 +3,6 @@ name: thread-delta-triage
 description: Evaluates dialogue thread summaries against an established psychological baseline to classify redundant vs novel threads.
 subagent: true
 mainAgent: false
-inheritCustomizations: false
 model: flash
 tools: [read_file, run_command]
 ---

@@ -3,7 +3,6 @@ name: chapter-drafter
 description: Supervises the drafting of a modular profile chapter, coordinating subsection-drafters, stitching sections, and auditing coherence.
 subagent: true
 mainAgent: false
-inheritCustomizations: false
 model: flash
 tools: [read_file, run_command, write_file, invoke_subagent, send_message]
 ---

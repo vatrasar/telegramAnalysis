@@ -3,7 +3,6 @@ name: entity-supervisor
 description: Supervisory agent coordinating the full third-party entity audit, clustering candidates, dispatching parallel investigators, deduplicating findings, and supervising deep relational entity profiling until the complete relational dossier is synthesized.
 subagent: true
 mainAgent: false
-inheritCustomizations: false
 model: flash
 tools: [read_file, run_command, invoke_subagent, send_message, manage_subagents, write_file]
 ---

@@ -3,7 +3,6 @@ name: sphere-supervisor
 description: Supervisory agent coordinating Step B.3 Life Spheres baseline investigation, assigning sphere clusters A–F to parallel investigators, verifying checklist resolution, and ensuring direct modular section drafting.
 subagent: true
 mainAgent: false
-inheritCustomizations: false
 model: flash
 tools: [read_file, run_command, invoke_subagent, send_message, manage_subagents, write_file]
 ---

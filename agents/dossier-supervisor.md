@@ -3,7 +3,6 @@ name: dossier-supervisor
 description: Supervisory agent coordinating Step B.6 modular chapter drafting, custom section synthesis, playbook formulation, and final dossier report assembly.
 subagent: true
 mainAgent: false
-inheritCustomizations: false
 model: flash
 tools: [read_file, run_command, invoke_subagent, send_message, manage_subagents, write_file]
 ---

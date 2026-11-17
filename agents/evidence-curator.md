@@ -3,7 +3,6 @@ name: evidence-curator
 description: Evaluates completed thread evidence for novelty and value-add, routes evidence to target drafter roles, and proposes custom report sections.
 subagent: true
 mainAgent: false
-inheritCustomizations: false
 model: flash
 tools: [read_file, run_command, invoke_subagent, send_message, manage_subagents, write_file]
 ---
