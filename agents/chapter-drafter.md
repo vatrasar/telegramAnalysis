@@ -51,6 +51,21 @@ When assigned a chapter, identify its mandatory subsections:
   - `04_extraversion.md`: Extraversion, social energy, solitude seeking, public presentation.
   - `05_agreeableness.md`: Agreeableness, conditional compliance, boundary defense, door-slamming.
   - `06_neuroticism.md`: Neuroticism, emotional volatility, somatic stress, anxiety patterns.
+* **For Chapter 7 (`05_tactical_playbook.md` - Tactical Communication & De-escalation):**
+  - `01_triggers_and_warnings.md`: Emotional Triggers ("Red Buttons") & early warning signs.
+  - `02_acute_deescalation.md`: Acute conflict step-by-step procedure & cooldown protocols.
+  - `03_dos_and_donts_cases.md`: Categorical prohibitions vs recommended patterns from case studies.
+  - `04_boundary_enforcement.md`: Constructive confrontation and setting boundaries without triggering panic.
+* **For Chapter 8 (`06_creed_and_quirks.md` - Personal Creed, Norms & Quirks Matrix):**
+  - `01_dating_relational_norms.md`: Dating etiquette, who pays, gender expectations, money lending.
+  - `02_socioeconomic_philosophy.md`: Convictions regarding institutions, economy, taxes, and society.
+  - `03_lifestyle_comfort_quirks.md`: Consumption habits, comfort/fashion standards (anti-formalism).
+  - `04_culinary_pet_peeves.md`: Staple foods, culinary preferences, and visceral daily irritants (*pet peeves*).
+* **For Chapter 9 (`07_reliability_and_defenses.md` - Statement Reliability & Defenses):**
+  - `01_statement_reliability_index.md`: Ironclad declarations vs wishful thinking / phantom plans.
+  - `02_cognitive_blind_spots.md`: What the subject chronically fails to perceive about their impact.
+  - `03_unspoken_core_need.md`: Primary unmet emotional hunger behind defensive postures.
+  - `04_defusing_distortions.md`: Concrete response templates neutralizing blame-shifting and double binds.
 * **For Custom Sections (`03_custom_<slug>.md`):**
   - Deconstruct into 2–4 targeted thematic subsections based on the approved topic roadmap.
 

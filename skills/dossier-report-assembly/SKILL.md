@@ -76,20 +76,28 @@ A complete personality dossier report consists of these 8 sequential components:
 ### 6. Big Five Personality Model (OCEAN)
 - Rate all 5 spectrums (Low, Moderate, High) with concrete conversational markers. Do NOT assign MBTI types.
 
-### 7. Operational User Manual (Actionable Playbook)
-A practical interaction guide comprising:
-- **Blind Spots:** What the subject chronically fails to perceive about their own behavior or impact on others.
+### 7. Tactical Communication & De-escalation Playbook
+A practical, prescriptive interaction manual:
 - **Emotional Triggers (Red Buttons):** Specific words, attitudes, and scenarios that spark instant defensive regression, anger, or withdrawal.
-- **Unspoken Core Need:** The primary emotional hunger they yearn for but rarely voice directly.
-- **Communication Protocols:** Concrete rules on how to de-escalate tension, persuade, and resolve conflict (*What NEVER to do* vs. *What ALWAYS works*).
-- **Personal Creed, Norms & Quirks Matrix (Kodeks Osobisty i Idiosynkrazje):**
-  A dedicated profile grounding the subject's everyday life rules, societal views, and visceral tastes:
-  - *Relational & Dating Rules:* Norms on dating etiquette, who pays, gender expectations, lending money to friends, honesty vs. diplomacy.
-  - *Socio-Economic Philosophy:* Concrete institutional/economic convictions (e.g., universal pensions vs. capital systems, tax burden, state role).
-  - *Lifestyle Quirks & Pet Peeves:* Distinct consumption habits, comfort/fashion standards (e.g., aversion to jeans/formal wear), culinary preferences (favorite everyday foods, dishes, cuisines), and daily irritants (*pet peeves*).
-- **Statement Reliability Index:** Where their declarations are ironclad vs. where their words represent wishful thinking, temporary venting, or phantom plans.
+- **Early Warning Indicators:** Subtle shifts in communication frequency or tone preceding escalation.
+- **Acute Phase Step-by-Step Procedure:** Concrete rules on how to de-escalate tension (mandatory cooldown windows, emotional validation phrasing, verbal minimalism).
+- **Categorical Do's and Don'ts:** Explicit best practices vs forbidden behaviors, grounded in real chat case studies.
+- **Boundary Enforcement:** Constructive confrontation formulas setting interpersonal limits without triggering abandonment panic.
 
-### 8. Concluding Summary Matrix
+### 8. Personal Creed, Social Norms & Quirks Matrix
+A dedicated profile grounding the subject's everyday life rules, societal views, and visceral tastes:
+- **Relational & Dating Rules:** Norms on dating etiquette, who pays, gender expectations, lending money to friends, honesty vs. diplomacy.
+- **Socio-Economic Philosophy:** Concrete institutional/economic convictions (universal pensions vs capital systems, tax burden, state role).
+- **Lifestyle Quirks & Comfort Standards:** Distinct consumption habits, comfort/fashion standards (e.g. aversion to formal wear/jeans).
+- **Culinary Preferences & Pet Peeves:** Staple everyday foods, preferred cuisines, and visceral daily irritants (*pet peeves*).
+
+### 9. Statement Reliability Index & Defenses
+- **Statement Reliability Index:** Where their declarations are ironclad vs. where their words represent wishful thinking, temporary venting, or phantom plans.
+- **Cognitive Blind Spots:** What the subject chronically fails to perceive about their own behavior or impact on others.
+- **Unspoken Core Need:** The primary emotional hunger they yearn for but rarely voice directly.
+- **Defusing Cognitive Distortions & Manipulation:** Concrete response templates neutralizing blame-shifting, minimization, and double binds.
+
+### 10. Concluding Summary Matrix
 A structured markdown synthesis table:
 
 ```markdown
@@ -114,32 +122,33 @@ To prevent context exhaustion and ensure strict quality control during deep prof
 The `dossier-supervisor` receives the target `chat_id`, subject identifier, and approved custom sections from the Main Coordinator, auditing existing modular sections (e.g. Life Spheres `05_*` from Step B.3) to establish the roadmap:
 ```
 reports/<subject>_sections/
-├── 01_dossier.md           # Executive summary & biographical timeline
-├── 02_cast.md              # Cast of characters relational constellation table
-├── 03_thematic_spheres.md  # Core life spheres (social, work, worldview, family, leisure)
-├── 03_custom_<slug>.md     # Approved custom sections passed by Main Coordinator
-├── 04_attachment_ocean.md  # Attachment style diagnosis & Big Five ratings
-├── 05_playbook.md          # Operational User Manual (blind spots, triggers, protocols)
-└── 06_matrix.md            # Concluding Summary Matrix
+├── 01_dossier.md                 # Executive summary & biographical timeline
+├── 02_cast.md                    # Cast of characters relational constellation table
+├── 03_thematic_spheres.md        # Core life spheres (social, work, worldview, family, leisure)
+├── 03_custom_<slug>.md           # Approved custom sections passed by Main Coordinator
+├── 04_attachment_ocean.md        # Attachment style diagnosis & Big Five ratings
+├── 05_tactical_playbook.md       # Tactical Communication & De-escalation Playbook (Ch. 7)
+├── 06_creed_and_quirks.md        # Personal Creed, Norms & Quirks Matrix (Ch. 8)
+├── 07_reliability_and_defenses.md# Statement Reliability Index & Defenses (Ch. 9)
+└── 08_matrix.md                  # Concluding Summary Matrix (Ch. 10)
 ```
 
 ### Step 2: Parallel Chapter Drafting & Subsection Stitching
 The `dossier-supervisor` dispatches specialized worker subagents in parallel (`Model: "flash"`):
-- `chapter-drafter`: Operates as a **Chapter Supervisor** for core chapters (`01_dossier.md`, `02_cast.md`, `04_attachment_ocean.md`) and custom sections (`03_custom_*.md`).
-  - Deconstructs chapters into modular subsections staged under `reports/<subject>_sections/<chapter_name>_subsections/`.
-  - Dispatches `subsection-drafter` for each subpoint.
-  - Enforces the **20-fact threshold** via `cluster_facts.py` (partitioning facts into semantic clusters when facts > 20).
-  - Integrates and audits subsections using `stitch_chapter.py`:
+- `chapter-drafter` & `operational-playbook-architect`: Operate as **Chapter Supervisors** for their assigned chapters.
+  - Deconstruct each chapter into 4–6 modular subsections staged under `reports/<subject>_sections/<chapter_name>_subsections/`.
+  - Dispatch `subsection-drafter` for each subpoint.
+  - Enforce the **20-fact threshold** via `cluster_facts.py` (partitioning facts into semantic clusters when facts > 20).
+  - Integrate and audit subsections using `stitch_chapter.py`:
     ```bash
     python3 project/scripts/stitch_chapter.py \
       -d reports/<subject>_sections/<chapter_name>_subsections/ \
       -o reports/<subject>_sections/<chapter_filename>.md \
       --chapter-title "<Title>"
     ```
-- `operational-playbook-architect`: Synthesizes Chapter 7 (`05_playbook.md`) using selective trigger case studies (`--evidence-for-target "operational-playbook-architect"`).
 
 ### Step 3: Synthesis, QA & Gate-Checked Assembly
-1. The supervisor synthesizes the Concluding Summary Matrix (`06_matrix.md`) and audits all drafts for code fence closure, anchored citations, and absence of Mermaid/ASCII trees.
+1. The supervisor synthesizes the Concluding Summary Matrix (`08_matrix.md`) and audits all drafts for code fence closure, anchored citations, and absence of Mermaid/ASCII trees.
 2. Execute the automated assembly script:
 ```bash
 python3 project/scripts/assemble_report.py \
@@ -161,7 +170,7 @@ Before finalizing the dossier report, verify:
   - Entity Watchdog: `python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate`
   - Thread Forensic Checklist: `python3 project/scripts/thread_checklist.py --check -C <chat_id>`
   - Life Spheres Checklist: `python3 project/scripts/checklist.py --check -C <chat_id>`
-- [ ] Are all 8 mandatory components present?
+- [ ] Are all 10 mandatory components present?
 - [ ] Is the document written in Polish by default?
 - [ ] Are all thematic chapters structured with the 4-part Thesis-First headings?
 - [ ] Is the timeline formatted strictly as Markdown bullets (no Mermaid, no ASCII trees)?

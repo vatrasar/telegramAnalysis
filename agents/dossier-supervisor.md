@@ -51,12 +51,14 @@ Verify existing sections generated during earlier pipeline steps and establish t
 - `03_thematic_spheres.md` / `05_*`: Life Spheres baseline chapters (pre-synthesized in Step B.3)
 - `03_custom_<slug>.md`: Any approved custom sections passed by the Main Coordinator
 - `04_attachment_ocean.md`: Attachment Style Diagnosis & Big Five (OCEAN)
-- `05_playbook.md`: Operational Relational Playbook & Communication Guide
-- `06_matrix.md`: Concluding Summary Matrix
+- `05_tactical_playbook.md`: Tactical Communication & De-escalation Playbook (Chapter 7)
+- `06_creed_and_quirks.md`: Personal Creed, Social Norms & Quirks Matrix (Chapter 8)
+- `07_reliability_and_defenses.md`: Statement Reliability Index, Blind Spots & Defenses (Chapter 9)
+- `08_matrix.md`: Concluding Summary Matrix (Chapter 10)
 
 ### Step 2: Parallel Drafter Subagent Delegation
 
-Dispatch worker subagents in parallel (`Model: "flash"`). Note that `chapter-drafter` operates as a **Chapter Supervisor**, deconstructing each chapter into modular subsections, delegating them to `subsection-drafter` subagents (which enforce the 20-fact clustering threshold via `cluster_facts.py`), and assembling them via `stitch_chapter.py`:
+Dispatch worker subagents in parallel (`Model: "flash"`). Note that `chapter-drafter` and `operational-playbook-architect` operate as **Chapter Supervisors**, deconstructing each chapter into modular subsections, delegating them to `subsection-drafter` subagents (which enforce the 20-fact clustering threshold via `cluster_facts.py`), and assembling them via `stitch_chapter.py`:
 
 1. **Chapter 1 (Executive Summary & Timeline) & Chapter 2 (Cast of Characters):**
    - Dispatch `chapter-drafter` for `01_dossier.md` (Executive summary, opening motto, chronological life timeline).
@@ -67,15 +69,17 @@ Dispatch worker subagents in parallel (`Model: "flash"`). Note that `chapter-dra
      - Stitches subsections using `stitch_chapter.py`.
 3. **Approved Custom Sections:**
    - For each approved custom section, dispatch a dedicated `chapter-drafter` subagent to draft `reports/<subject>_sections/03_custom_<slug>.md`.
-4. **Chapter 7 (Operational Playbook):**
-   - Dispatch `operational-playbook-architect` to draft `reports/<subject>_sections/05_playbook.md`:
-     - Query playbook triggers: `python3 project/scripts/query_chat.py -C <chat_id> --facts --target-agent "operational-playbook-architect"`.
-     - Query routed playbook evidence: `python3 project/scripts/thread_checklist.py -C <chat_id> --evidence-for-target "operational-playbook-architect"`.
+4. **Chapters 7, 8, 9 (Tactical Playbook, Personal Creed, Statement Reliability):**
+   - Dispatch `operational-playbook-architect` (or `chapter-drafter`) for:
+     - `05_tactical_playbook.md` (Triggers, de-escalation protocols, Do's & Don'ts case studies, boundaries).
+     - `06_creed_and_quirks.md` (Dating & relational rules, socioeconomic philosophy, lifestyle comfort quirks, culinary pet peeves).
+     - `07_reliability_and_defenses.md` (Statement reliability index, blind spots, unspoken core need, defusing distortions).
+     - Each chapter deconstructs into 4 subsections delegated to `subsection-drafter` and assembled via `stitch_chapter.py`.
 
 ### Step 3: Concluding Summary Matrix & Editorial QA
 
-1. **Synthesize Chapter 8 (Concluding Summary Matrix):**
-   - Draft `reports/<subject>_sections/06_matrix.md` synthesizing findings across OCEAN, Attachment Style, Social Stance, Responsibility / Defenses, and Core Unmet Need into the standardized Markdown table.
+1. **Synthesize Chapter 10 (Concluding Summary Matrix):**
+   - Draft `reports/<subject>_sections/08_matrix.md` synthesizing findings across OCEAN, Attachment Style, Social Stance, Responsibility / Defenses, and Core Unmet Need into the standardized Markdown table.
 2. **Editorial QA Audit:**
    - Scan all section files in `reports/<subject>_sections/`:
      - Validate that all code fences are properly closed.
