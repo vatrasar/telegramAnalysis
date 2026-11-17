@@ -127,7 +127,9 @@ def export_audited_evidence(
 
     sql = """
     SELECT thread_id, start_date, primary_category, radar_sources,
-           findings_summary, key_quotes, thematic_tags, notes, updated_at
+           findings_summary, key_quotes, thematic_tags, notes, updated_at,
+           coalesce(target_agent, '') as target_agent,
+           coalesce(target_chapter, '') as target_chapter
     FROM thread_audit_checklist
     WHERE chat_id = ? AND status = 'completed'
       AND (findings_summary IS NOT NULL AND findings_summary NOT LIKE 'Theoretical Saturation%'
@@ -139,8 +141,8 @@ def export_audited_evidence(
         clean_tag = f"%{tag.strip()}%"
         params.extend([clean_tag, clean_tag])
     if category:
-        sql += " AND primary_category = ? "
-        params.append(category.strip())
+        sql += " AND (primary_category = ? OR target_chapter = ?) "
+        params.extend([category.strip(), category.strip()])
 
     sql += " ORDER BY start_date ASC;"
     cur.execute(sql, params)
@@ -157,6 +159,102 @@ def export_audited_evidence(
             "quotes": r[5] or "",
             "tags": r[6] or "",
             "notes": r[7] or "",
-            "updated_at": r[8]
+            "updated_at": r[8],
+            "target_agent": r[9] or "",
+            "target_chapter": r[10] or ""
         })
     return evidence
+
+
+def route_thread_evidence(
+    conn: sqlite3.Connection,
+    chat_id: str,
+    thread_id: str,
+    target_agent: Optional[str] = None,
+    target_chapter: Optional[str] = None,
+    significance: Optional[str] = None,
+    tags: Optional[str] = None
+) -> Dict[str, Any]:
+    """Route audited thread evidence to a target drafter agent and report chapter."""
+    ensure_thread_checklist_table(conn)
+    cur = conn.cursor()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    updates = ["updated_at = ?"]
+    params: List[Any] = [now_iso]
+
+    if target_agent:
+        updates.append("target_agent = ?")
+        params.append(target_agent.strip())
+    if target_chapter:
+        updates.append("target_chapter = ?")
+        params.append(target_chapter.strip())
+    if tags:
+        updates.append("thematic_tags = coalesce(thematic_tags || ' ', '') || ?")
+        params.append(tags.strip())
+    if significance:
+        updates.append("notes = coalesce(notes || ' | ', '') || ?")
+        params.append(f"Significance: {significance.strip()}")
+
+    params.extend([chat_id, thread_id])
+    sql = f"UPDATE thread_audit_checklist SET {', '.join(updates)} WHERE chat_id = ? AND thread_id = ?;"
+    cur.execute(sql, params)
+    updated = cur.rowcount
+    conn.commit()
+
+    return {
+        "chat_id": chat_id,
+        "thread_id": thread_id,
+        "target_agent": target_agent,
+        "target_chapter": target_chapter,
+        "significance": significance,
+        "success": updated > 0
+    }
+
+
+def get_evidence_for_target(
+    conn: sqlite3.Connection,
+    chat_id: str,
+    target: str
+) -> List[Dict[str, Any]]:
+    """Retrieve audited evidence items routed specifically to a given agent role or chapter."""
+    ensure_thread_checklist_table(conn)
+    cur = conn.cursor()
+    clean_target = target.strip().lower()
+
+    sql = """
+    SELECT thread_id, start_date, primary_category, radar_sources,
+           findings_summary, key_quotes, thematic_tags, notes, updated_at,
+           coalesce(target_agent, '') as target_agent,
+           coalesce(target_chapter, '') as target_chapter
+    FROM thread_audit_checklist
+    WHERE chat_id = ? AND status = 'completed'
+      AND (
+        lower(coalesce(target_agent, '')) = ?
+        OR lower(coalesce(target_chapter, '')) = ?
+        OR lower(coalesce(primary_category, '')) = ?
+        OR lower(coalesce(thematic_tags, '')) LIKE ?
+      )
+    ORDER BY start_date ASC;
+    """
+    pattern = f"%{clean_target}%"
+    cur.execute(sql, (chat_id, clean_target, clean_target, clean_target, pattern))
+    rows = cur.fetchall()
+
+    items = []
+    for r in rows:
+        items.append({
+            "thread_id": r[0],
+            "date": r[1],
+            "category": r[2],
+            "radars": r[3],
+            "findings": r[4] or "",
+            "quotes": r[5] or "",
+            "tags": r[6] or "",
+            "notes": r[7] or "",
+            "updated_at": r[8],
+            "target_agent": r[9],
+            "target_chapter": r[10]
+        })
+    return items
+

@@ -87,26 +87,49 @@ Invoke the custom Antigravity subagent using `invoke_subagent`:
      python3 project/scripts/query_chat.py -C <chat_id> --anomaly-check <thread_id> --identified "<primary_finding>"
   5. If any unmapped third-party individual or relational figure is introduced, register them:
      python3 project/scripts/query_chat.py -C <chat_id> --register-entity "<Name/Role>" --role "<Role>" --desc "<Context>"
-  6. Targeted Evidence Routing (Zero Prompt Flooding):
-     Tag confirmed crisis anomalies by target agent role and category:
-     python3 project/scripts/thread_checklist.py -C <chat_id> --record-evidence <thread_id> \
-       --quote "[#ID | YYYY-MM-DD] text" \
-       --significance "..." \
-       --category "<timeline|attachment|playbook|crisis>" \
-       --target-agent "<chapter-drafter|operational-playbook-architect>"
-  7. Update the thread checklist status:
+  6. Update the thread checklist status:
      python3 project/scripts/thread_checklist.py -C <chat_id> --update <thread_id> --set-status completed --findings "<Dynamics>" --quotes "<Anchored quotes>" --tags "<Tags>"
-  8. Return a concise (150-250 words) structured evidence summary to the coordinator.
+  7. Return a concise (150-250 words) structured evidence summary to the supervisor.
   ```
-
-### Step 2.2: Main Agent Evidence Ingestion & Synthesis
-The Main Agent verifies that all novel threads are marked `completed`, confirms the thread checklist gate exits 0 (`thread_checklist.py --check`), and ensures drafters query targeted anomalies selectively during Step B.6.
 
 ---
 
-## 4. Invariants & Prohibitions
+## 4. Phase 3: Evidence Curation & Chapter Routing (`evidence-curator`)
 
-- **Prohibition on Context Flooding:** The Main Agent must NEVER sequentially dump 50+ raw transcripts into its primary context.
+Once all novel threads are audited and marked `completed`, the Supervisor dispatches the `evidence-curator` subagent:
+- **TypeName:** `evidence-curator`
+- **Role:** `Forensic Evidence Curator`
+- **Model:** `flash`
+
+### Step 4.1: Autonomous Sharding Invariant ($\le 5$ Items per Worker)
+If completed evidence items $> 5$, the curator shards items into batches of up to 5 items and delegates evaluation to parallel helper subagents.
+
+### Step 4.2: Evidence Valuation & Chapter Routing
+For each evidence item, the curator determines value-add and records routing in SQLite:
+```bash
+python3 project/scripts/thread_checklist.py -C <chat_id> --route-evidence <thread_id> \
+  --target-agent "<chapter-drafter|operational-playbook-architect>" \
+  --target-chapter "<family|career|worldview|romantic|lifestyle|playbook>" \
+  --significance "<Significance note>"
+```
+
+### Step 4.3: Dynamic Custom Section Proposal
+If anomalous evidence reveals high-salience themes that exceed standard chapter schemas (e.g. secret gambling addiction, unmapped crisis, radical break), the curator proposes a dedicated custom section:
+```bash
+python3 project/scripts/thread_checklist.py -C <chat_id> --propose-custom-section \
+  --section-title "<Title>" \
+  --section-filename "03_custom_<slug>.md" \
+  --section-rationale "<Rationale>" \
+  --section-threads "<threads>" \
+  --section-quotes "<quotes>" \
+  --target-agent "chapter-drafter"
+```
+
+---
+
+## 5. Invariants & Prohibitions
+
+- **Prohibition on Context Flooding:** The Main Agent must NEVER sequentially dump 50+ raw transcripts into its primary context. The Main Coordinator delegates the entire Step B.4 to `thread-supervisor`.
 - **Prohibition on Unverified Summaries:** Scaledown summaries are routing metadata only; no claim may appear in the final report without verbatim quoted message anchors (`[#ID | YYYY-MM-DD]`).
 - **Prohibition on Ad-Hoc SQL Updates:** Marking threads completed via direct `sqlite3 "UPDATE..."` commands is strictly prohibited.
-- **FRAUD Invariant: Mandatory Subagent Triage:** The Main Agent is strictly forbidden from closing or resolving threads as redundant without delegating the manifest to the `thread-delta-triage` subagent. A finding where all threads are classified as redundant is fully valid and acceptable, but skipping subagent evaluation constitutes investigative fraud and immediately invalidates the dossier.
+- **FRAUD Invariant: Mandatory Subagent Triage:** Closing or resolving threads as redundant without delegating the manifest to the `thread-delta-triage` subagent is strictly prohibited. A finding where all threads are classified as redundant is fully valid, but skipping evaluation constitutes investigative fraud.

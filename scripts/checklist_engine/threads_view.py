@@ -262,3 +262,32 @@ def print_evidence_catalog(conn: sqlite3.Connection, chat_id: str):
         tags_str = ", ".join(sorted(tags_set)[:8]) if tags_set else "no specific tags"
         print(f"  • Category: {cat:<22} | Threads: {count:>2} | Associated Tags: {tags_str}")
     print("=" * 80)
+
+
+def print_evidence_for_target(items: List[Dict[str, Any]], target: str) -> None:
+    """Print evidence items routed to a specific target agent or chapter."""
+    print("=" * 80)
+    print(f"🎯 TARGETED EVIDENCE FOR: '{target}' ({len(items)} ITEMS)")
+    print("=" * 80)
+    if not items:
+        print(f"  No evidence items routed to '{target}'. Check general evidence catalog.")
+        print("=" * 80)
+        return
+
+    for i, e in enumerate(items, 1):
+        target_info = []
+        if e.get("target_agent"):
+            target_info.append(f"Agent: {e['target_agent']}")
+        if e.get("target_chapter"):
+            target_info.append(f"Chapter: {e['target_chapter']}")
+        tag_str = f" | {', '.join(target_info)}" if target_info else ""
+
+        print(f"[{i:02d}] Thread `{e['thread_id']}` | Date: {e['date']} | Category: {e['category']}{tag_str}")
+        if e['findings']:
+            print(f"     Findings: {e['findings']}")
+        if e['quotes']:
+            print(f"     Quotes:   {e['quotes']}")
+        if e['notes']:
+            print(f"     Notes:    {e['notes']}")
+        print()
+    print("=" * 80)

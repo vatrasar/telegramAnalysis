@@ -32,12 +32,23 @@ def ensure_thread_checklist_table(conn: sqlite3.Connection):
         key_quotes TEXT,
         thematic_tags TEXT,
         notes TEXT,
+        target_agent TEXT,
+        target_chapter TEXT,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (chat_id, thread_id)
     );
     """)
+    cur.execute("PRAGMA table_info(thread_audit_checklist);")
+    tcols = {col[1] for col in cur.fetchall()}
+    if "target_agent" not in tcols:
+        cur.execute("ALTER TABLE thread_audit_checklist ADD COLUMN target_agent TEXT;")
+    if "target_chapter" not in tcols:
+        cur.execute("ALTER TABLE thread_audit_checklist ADD COLUMN target_chapter TEXT;")
+
     cur.execute("CREATE INDEX IF NOT EXISTS idx_thread_checklist_status ON thread_audit_checklist(chat_id, status);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_thread_checklist_radar ON thread_audit_checklist(chat_id, radar_sources);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_thread_checklist_agent ON thread_audit_checklist(chat_id, target_agent);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_thread_checklist_chap ON thread_audit_checklist(chat_id, target_chapter);")
     conn.commit()
 
 

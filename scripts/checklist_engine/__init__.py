@@ -36,6 +36,14 @@ from checklist_engine.threads_evidence import (
     export_delta_manifest,
     resolve_redundant_threads,
     export_audited_evidence,
+    route_thread_evidence,
+    get_evidence_for_target,
+)
+from checklist_engine.custom_sections import (
+    ensure_custom_sections_table,
+    propose_custom_section,
+    get_custom_sections,
+    print_custom_sections,
 )
 from checklist_engine.threads_gate import check_gate as check_threads_gate
 from checklist_engine.threads_view import (
@@ -44,6 +52,7 @@ from checklist_engine.threads_view import (
     print_delta_manifest,
     print_audited_evidence,
     print_evidence_catalog,
+    print_evidence_for_target,
 )
 
 __all__ = [
@@ -76,10 +85,17 @@ __all__ = [
     "export_delta_manifest",
     "resolve_redundant_threads",
     "export_audited_evidence",
+    "route_thread_evidence",
+    "get_evidence_for_target",
+    "ensure_custom_sections_table",
+    "propose_custom_section",
+    "get_custom_sections",
+    "print_custom_sections",
     "check_threads_gate",
     "print_thread_status",
     "print_next_thread",
     "print_delta_manifest",
     "print_audited_evidence",
     "print_evidence_catalog",
+    "print_evidence_for_target",
 ]

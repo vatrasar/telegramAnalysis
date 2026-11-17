@@ -93,21 +93,24 @@ When a chat is updated with new messages or threads:
   - Drafting immediately in the same context weaves fresh evidence, tensions, and anchored quotes (`[#ID | YYYY-MM-DD]`) directly into the final report.
 - Completing the 50 spheres establishes the core psychological baseline.
 
-#### Step B.4: Subagent Thread Delta Audit & Forensic Deep Dives (`thread_checklist.py`)
+#### Step B.4: Subagent Thread Delta Audit, Forensic Deep Dives & Evidence Curation (`thread_checklist.py`)
 - Activate `subagent-thread-delta-audit` skill.
 - Init: `python3 project/scripts/thread_checklist.py --init -C <chat_id>` (Automatically inherits inspected status and findings from `inspected_threads` for threads audited in Step B.2).
-- **Absolute Ban on Main Agent Context Flooding:** The Main Agent must NEVER sequentially read 50+ raw thread transcripts into its primary context window.
-- **Phase 1 (Delta Triage - 5 Threads per Subagent):** Export manifest (`--export-delta-manifest`) and slice pending threads into batches of **up to 5 threads per subagent** (`thread-delta-triage`). Resolve redundant threads formally using:
-  `python3 project/scripts/thread_checklist.py -C <chat_id> --resolve-redundant <id1> <id2> ... --reason "<theme>"`
-- **Anti-Fraud Invariant on Delta Triage:** The Main Agent is strictly forbidden from closing or resolving threads without delegating the manifest to `thread-delta-triage`.
-- **Phase 2 (Snipers' Deep Dive with Adversarial Anomaly Post-Check):** For all novel/anomalous threads identified by triage, invoke dedicated forensic subagents (`Model: "flash"`, `TypeName: "forensic-thread-investigator"`):
-  - Subagents check `--is-inspected <thread_id>` before reading; if already audited, they leverage existing findings.
-  - Subagents inspect windowed snippets ($\pm 4$ turns) around the anomaly epicenter instead of reading 100 messages linearly.
-  - Subagents run the **Adversarial Post-Check** (`query_chat.py -C <chat_id> --anomaly-check <id> --identified "<primary_anomaly>"`) to ensure secondary crises were not prematurely overlooked.
-  - **Targeted Evidence Routing (Zero Prompt Flooding):** To avoid dumping dozens of uncurated anomalies into drafting prompts, forensic snipers tag confirmed crisis anomalies by destination role and chapter category when recording evidence:
-    `thread_checklist.py -C <chat_id> --record-evidence <thread_id> --quote "[#ID | YYYY-MM-DD] text" --significance "..." --category "<category>" --target-agent "<chapter-drafter|operational-playbook-architect>"`
+- **Mandatory Supervisory Delegation (Zero Main Coordinator Flooding):**
+  To protect primary context, the Main Coordinator does NOT process individual threads or evaluate raw evidence. The Main Coordinator delegates the entire phase to the **Thread Audit Supervisor** (`thread-supervisor`, `Model: "flash"`):
+  - **Phase B.4a (Delta Triage - 5 Threads per Subagent):** Supervisor exports delta manifest (`--export-delta-manifest`) and dispatches parallel `thread-delta-triage` subagents in batches of **up to 5 threads**. Resolves redundant threads formally via:
+    `python3 project/scripts/thread_checklist.py -C <chat_id> --resolve-redundant <id1> <id2> ... --reason "<theme>"`
+  - **Phase B.4b (Snipers' Deep Dive with Adversarial Post-Check):** For all novel/anomalous threads, Supervisor dispatches dedicated forensic subagents (`forensic-thread-investigator`):
+    - Subagents inspect windowed snippets ($\pm 4$ turns), run adversarial checks (`query_chat.py --anomaly-check`), and record findings and anchored quotes (`thread_checklist.py --update <id> --set-status completed ...`).
+  - **Phase B.4c (Evidence Curation, Chapter Routing & Custom Sections):** Once all threads are completed, Supervisor dispatches the **Forensic Evidence Curator** (`evidence-curator`, `Model: "flash"`):
+    - *Autonomous Sharding Invariant:* If completed evidence items $> 5$, curator shards into batches of up to 5 items across parallel helper subagents.
+    - *Evidentiary Value-Add & Routing:* Routes high-value evidence items directly in SQLite:
+      `python3 project/scripts/thread_checklist.py -C <chat_id> --route-evidence <id> --target-agent "<chapter-drafter|operational-playbook-architect>" --target-chapter "<chapter>" --significance "..."`
+    - *Dynamic Custom Sections Proposal:* If anomalous themes exceed standard templates, Curator proposes custom chapters/subsections:
+      `python3 project/scripts/thread_checklist.py -C <chat_id> --propose-custom-section --section-title "..." --section-filename "03_custom_..." --section-rationale "..."`
+  - Supervisor verifies `thread_checklist.py --check -C <chat_id>` exits 0 and reports completion and custom section proposals to the Main Coordinator.
 
-#### Step B.5: Mandatory Triple Hard-Stop Gate, Fact Blackboard & Evidence Ingestion
+#### Step B.5: Mandatory Triple Hard-Stop Gate, Fact Blackboard & Custom Plan Review
 Drafting final profile chapters is **STRICTLY FORBIDDEN** until all three investigative gates pass verification (exit code 0):
 ```bash
 python3 project/scripts/query_chat.py --check-watchdog-gate -C <chat_id>
@@ -116,22 +119,23 @@ python3 project/scripts/checklist.py --check -C <chat_id>
 ```
 - **Fact Blackboard Generation:** Compile a dense, structured fact snapshot: `reports/<chat_id>_facts_snapshot.md` containing metrics, timeline anchors, and the Cast of Characters:
   - *Character Threshold Rule:* If $\le 50$ characters, list all with 1-line verified role/descriptor. If $> 50$, list the most salient characters and add an explicit truncation disclaimer referencing `chat_entities`.
-Once all gates pass, export the complete bank of verified evidence:
-```bash
-python3 project/scripts/thread_checklist.py -C <chat_id> --export-evidence
-```
-- **Evidentiary Value-Add Invariant:** The Main Agent evaluates all verified evidence items. Whenever an item introduces an unmapped historical event, unexpected relational dynamic, coping mechanism, or emotional turning point that enriches the profile, the agent synthesizes it with exact anchored quotes (`[#ID | YYYY-MM-DD]`) into the corresponding report chapter.
+- **Review Proposed Custom Sections:** Main Coordinator reviews custom sections registered by the curator:
+  ```bash
+  python3 project/scripts/thread_checklist.py -C <chat_id> --list-custom-sections
+  ```
+  Incorporate approved custom sections into the chapter drafting roadmap for Step B.6.
 - The assembly script (`assemble_report.py --check-gates`) automatically enforces all three gates before compilation.
 
 #### Step B.6: Diagnostic Frameworks & Modular Dossier Assembly
 - Activate `forensic-personality-frameworks` skill for Big Five (OCEAN) and Attachment Style rubrics.
 - Activate `dossier-report-assembly` skill for the 8-component report blueprint and compilation.
-- **Subagent Drafting Delegation (Selective Anomaly Fetching):** Delegate drafting of substantive profile chapters to `chapter-drafter` (`Model: "flash"`), and Chapter 7 (Operational Playbook) to `operational-playbook-architect` (`Model: "flash"`). Drafters do NOT receive massive uncurated lists of anomalies in their prompts; instead, each drafter queries 3–5 targeted case studies using CLI filters:
+- **Subagent Drafting Delegation (Selective Evidence Fetching):** Delegate drafting of substantive profile chapters to `chapter-drafter` (`Model: "flash"`), and Chapter 7 (Operational Playbook) to `operational-playbook-architect` (`Model: "flash"`). Drafters do NOT receive massive uncurated lists of anomalies; instead, each drafter queries targeted evidence using CLI filters:
   ```bash
   python3 project/scripts/thread_checklist.py -C <chat_id> --evidence-for-target "chapter-drafter"
   python3 project/scripts/thread_checklist.py -C <chat_id> --evidence-for-target "operational-playbook-architect"
   ```
-  The Main Agent reviews drafts against epistemic invariants, integrates pre-synthesized Life Sphere sections (`05_*`), synthesizes the Summary Matrix, and compiles via:
+- **Custom Section Drafting:** For any approved custom sections from Step B.5, dispatch dedicated `chapter-drafter` subagents to draft `reports/<subject>_sections/<custom_filename>.md`.
+- The Main Agent reviews drafts against epistemic invariants, integrates pre-synthesized Life Sphere sections (`05_*`), synthesizes the Summary Matrix, and compiles via:
   ```bash
   python3 project/scripts/assemble_report.py --sections-dir reports/<subject>_sections/ -o reports/<subject>_profile.md
   ```

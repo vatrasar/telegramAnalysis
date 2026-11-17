@@ -31,6 +31,14 @@ from checklist_engine.threads_evidence import (
     export_delta_manifest,
     resolve_redundant_threads,
     export_audited_evidence,
+    route_thread_evidence,
+    get_evidence_for_target,
+)
+from checklist_engine.custom_sections import (
+    ensure_custom_sections_table,
+    propose_custom_section,
+    get_custom_sections,
+    print_custom_sections,
 )
 from checklist_engine.threads_gate import check_gate
 from checklist_engine.threads_view import (
@@ -39,6 +47,7 @@ from checklist_engine.threads_view import (
     print_delta_manifest,
     print_audited_evidence,
     print_evidence_catalog,
+    print_evidence_for_target,
 )
 
 DEFAULT_DB_PATH = get_default_db_path()
@@ -85,6 +94,19 @@ def main():
     parser.add_argument("--export-delta-manifest", action="store_true", help="Export manifest of pending threads with summaries for Delta Triage Subagent")
     parser.add_argument("--export-evidence", action="store_true", help="Export complete bank of audited forensic evidence and quotes for final report synthesis")
     parser.add_argument("--evidence-catalog", action="store_true", help="Display thematic category/tag catalog of audited evidence to guide modular chapter drafting")
+    parser.add_argument("--route-evidence", type=str, metavar="THREAD_ID", help="Route audited evidence to a target drafter agent and report chapter")
+    parser.add_argument("--target-agent", type=str, help="Target drafter agent (e.g. chapter-drafter, operational-playbook-architect)")
+    parser.add_argument("--target-chapter", type=str, help="Target report chapter or sphere category (e.g. family, career, playbook)")
+    parser.add_argument("--significance", type=str, help="Significance or rationale note for routed evidence")
+    parser.add_argument("--evidence-for-target", type=str, metavar="TARGET", help="Display audited evidence routed specifically to an agent role or chapter")
+    parser.add_argument("--propose-custom-section", action="store_true", help="Propose a novel custom chapter or subsection based on curated evidence")
+    parser.add_argument("--section-title", type=str, help="Title of proposed custom section")
+    parser.add_argument("--section-filename", type=str, help="Target markdown filename (e.g. 03_custom_gambling.md)")
+    parser.add_argument("--section-rationale", type=str, help="Analytical justification and significance of proposed section")
+    parser.add_argument("--section-type", type=str, choices=["chapter", "subsection"], default="chapter", help="Type of proposed section (default: chapter)")
+    parser.add_argument("--section-threads", type=str, default="", help="Associated thread IDs for custom section")
+    parser.add_argument("--section-quotes", type=str, default="", help="Key anchor quotes supporting custom section")
+    parser.add_argument("--list-custom-sections", action="store_true", help="List all proposed custom report sections")
     parser.add_argument("--tag", type=str, help="Filter --export-evidence by thematic tag (e.g. #family, #ex, #career, #defense)")
     parser.add_argument("--category", type=str, help="Filter --export-evidence by primary category")
     parser.add_argument("--part", type=int, default=1, help="Part/slice number to display for long evidence lists (default: 1)")
@@ -161,6 +183,66 @@ def main():
 
     if args.evidence_catalog:
         print_evidence_catalog(conn, chat_id)
+        conn.close()
+        sys.exit(0)
+
+    if args.route_evidence:
+        res = route_thread_evidence(
+            conn, chat_id, args.route_evidence,
+            target_agent=args.target_agent,
+            target_chapter=args.target_chapter,
+            significance=args.significance,
+            tags=args.tags
+        )
+        conn.close()
+        if args.json:
+            print(json.dumps(res, indent=2))
+        else:
+            print(f"[✓] Routed evidence for thread '{args.route_evidence}':")
+            if args.target_agent:
+                print(f"    Target Agent:   {args.target_agent}")
+            if args.target_chapter:
+                print(f"    Target Chapter: {args.target_chapter}")
+            if args.significance:
+                print(f"    Significance:   {args.significance}")
+        sys.exit(0)
+
+    if args.evidence_for_target:
+        items = get_evidence_for_target(conn, chat_id, args.evidence_for_target)
+        conn.close()
+        if args.json:
+            print(json.dumps(items, indent=2, ensure_ascii=False))
+        else:
+            print_evidence_for_target(items, args.evidence_for_target)
+        sys.exit(0)
+
+    if args.propose_custom_section:
+        if not args.section_title or not args.section_rationale or not args.section_filename:
+            print("[!] Error: --propose-custom-section requires --section-title, --section-rationale, and --section-filename.")
+            conn.close()
+            sys.exit(1)
+        res = propose_custom_section(
+            conn, chat_id,
+            title=args.section_title,
+            rationale=args.section_rationale,
+            target_filename=args.section_filename,
+            section_type=args.section_type,
+            suggested_target_agent=args.target_agent or "chapter-drafter",
+            associated_threads=args.section_threads,
+            key_quotes=args.section_quotes
+        )
+        conn.close()
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            print(f"[✓] Proposed custom report section #{res['section_id']}: \"{res['section_title']}\"")
+            print(f"    Target File:  reports/<subject>_sections/{res['target_filename']}")
+            print(f"    Drafter:      {res['suggested_target_agent']}")
+            print(f"    Rationale:    {res['rationale']}")
+        sys.exit(0)
+
+    if args.list_custom_sections:
+        print_custom_sections(conn, chat_id)
         conn.close()
         sys.exit(0)
 
