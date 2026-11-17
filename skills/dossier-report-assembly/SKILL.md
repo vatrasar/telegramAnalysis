@@ -108,22 +108,16 @@ A structured markdown synthesis table:
 
 ## 4. Modular Section Drafting & Supervisory Assembly Workflow
 
-To prevent context exhaustion and ensure strict quality control during deep profiling, the entire phase is orchestrated by the **Dossier Assembly Supervisor** (`dossier-supervisor`):
+To prevent context exhaustion and ensure strict quality control during deep profiling, the drafting and compilation phase (Step B.6) is orchestrated by the **Dossier Assembly Supervisor** (`dossier-supervisor`) after the Main Coordinator clears Step B.5 (Triple Hard-Stop Gate verification & custom section approval):
 
-### Step 1: Pre-Flight Gatekeeper & Section Roadmap
-Verify that all 3 blocking investigative gates pass with exit code 0:
-```bash
-python3 project/scripts/query_chat.py --check-watchdog-gate -C <chat_id>
-python3 project/scripts/thread_checklist.py --check -C <chat_id>
-python3 project/scripts/checklist.py --check -C <chat_id>
-```
-Audit pre-existing modular sections generated during earlier pipeline steps (e.g. Life Spheres `05_*` from Step B.3) and establish the section roadmap in `reports/<subject>_sections/`:
+### Step 1: Section Roadmap Initialization
+The `dossier-supervisor` receives the target `chat_id`, subject identifier, and approved custom sections from the Main Coordinator, auditing existing modular sections (e.g. Life Spheres `05_*` from Step B.3) to establish the roadmap:
 ```
 reports/<subject>_sections/
 ├── 01_dossier.md           # Executive summary & biographical timeline
 ├── 02_cast.md              # Cast of characters relational constellation table
 ├── 03_thematic_spheres.md  # Core life spheres (social, work, worldview, family, leisure)
-├── 03_custom_<slug>.md     # Any approved custom sections proposed by curator
+├── 03_custom_<slug>.md     # Approved custom sections passed by Main Coordinator
 ├── 04_attachment_ocean.md  # Attachment style diagnosis & Big Five ratings
 ├── 05_playbook.md          # Operational User Manual (blind spots, triggers, protocols)
 └── 06_matrix.md            # Concluding Summary Matrix
@@ -131,7 +125,7 @@ reports/<subject>_sections/
 
 ### Step 2: Parallel Drafter Subagent Delegation
 The `dossier-supervisor` dispatches specialized worker subagents in parallel (`Model: "flash"`):
-- `chapter-drafter`: Drafts core analytical chapters (`01_dossier.md`, `02_cast.md`, `04_attachment_ocean.md`) and any approved custom sections (`03_custom_*.md`) using selective evidence queries (`--evidence-for-target "chapter-drafter"`).
+- `chapter-drafter`: Drafts core analytical chapters (`01_dossier.md`, `02_cast.md`, `04_attachment_ocean.md`) and approved custom sections (`03_custom_*.md`) using selective evidence queries (`--evidence-for-target "chapter-drafter"`).
 - `operational-playbook-architect`: Synthesizes Chapter 7 (`05_playbook.md`) using selective trigger case studies (`--evidence-for-target "operational-playbook-architect"`).
 
 ### Step 3: Synthesis, QA & Gate-Checked Assembly
@@ -143,7 +137,7 @@ python3 project/scripts/assemble_report.py \
   -o reports/<subject>_personality_analysis.md \
   --check-gates
 ```
-- The script automatically verifies all 3 investigative gates.
+- The script automatically verifies all 3 investigative gates as a programmatic safety net.
 - Verifies code fence closure.
 - Automatically generates the Table of Contents.
 - Validates structural completeness.
