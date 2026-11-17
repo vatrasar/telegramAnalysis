@@ -1,30 +1,107 @@
 """Automatic volume assessment and thread sharding for entities and life spheres."""
 
 import json
+import re
 import sqlite3
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set
+
+
+def _extract_clean_aliases(conn: sqlite3.Connection, chat_id: str, entity_name: str) -> Set[str]:
+    """Extract strictly verified aliases for target entity, avoiding negative boundary bleed."""
+    cur = conn.cursor()
+    aliases = {entity_name.strip()}
+    
+    # Check parenthetical aliases like 'Caleb (CJ)' -> add 'Caleb' and 'CJ'
+    m_paren = re.match(r"^([^(]+)\s*\(([^)]+)\)$", entity_name.strip())
+    if m_paren:
+        aliases.add(m_paren.group(1).strip())
+        aliases.add(m_paren.group(2).strip())
+
+    # Query strictly the target entity to prevent matching other entities that mention it in Boundaries
+    cur.execute("""
+    SELECT name_or_alias, associated_descriptors FROM chat_entities
+    WHERE chat_id = ? AND lower(name_or_alias) = lower(?)
+    """, (chat_id, entity_name.strip()))
+    for row in cur.fetchall():
+        if row[0]:
+            aliases.add(row[0].strip())
+        desc = row[1] or ""
+        if desc:
+            # Check explicit 'Aliases: x, y, z' section
+            m_alias = re.search(r"aliases:\s*([^;]+)", desc, re.IGNORECASE)
+            if m_alias:
+                for a in m_alias.group(1).split(","):
+                    a_clean = a.strip()
+                    if a_clean and len(a_clean) >= 2:
+                        aliases.add(a_clean)
+            elif not any(marker in desc.lower() for marker in ["context:", "anchors:", "boundaries:", "[#"]):
+                for part in desc.split(","):
+                    p_clean = part.strip()
+                    if 2 <= len(p_clean) <= 35:
+                        aliases.add(p_clean)
+
+    # Check staging_entities for canonical/alias proposals
+    try:
+        cur.execute("""
+        SELECT name_or_alias FROM staging_entities
+        WHERE chat_id = ? AND (lower(canonical_proposal) = lower(?) OR lower(name_or_alias) = lower(?))
+        """, (chat_id, entity_name.strip(), entity_name.strip()))
+        for r in cur.fetchall():
+            if r[0] and len(r[0].strip()) >= 2:
+                aliases.add(r[0].strip())
+    except Exception:
+        pass
+
+    return aliases
+
+
+def _match_candidate_mention(mention: str, entity_name: str, aliases: Set[str]) -> bool:
+    """Check if candidate mention matches target entity while preventing cross-owner conflation."""
+    m_lower = mention.lower().strip()
+    if not m_lower:
+        return False
+
+    for a in aliases:
+        if m_lower == a.lower():
+            return True
+
+    # Guard against possessive role conflation (e.g. "Szymon's father" vs "Ismi's Father")
+    t_lower = entity_name.lower().strip()
+    t_poss = re.match(r"^([a-z0-9_-]+)'s\s+(.+)$", t_lower)
+    if t_poss:
+        target_owner, target_role = t_poss.group(1), t_poss.group(2)
+        m_poss = re.match(r"^([a-z0-9_-]+)'s\s+(.+)$", m_lower)
+        if m_poss:
+            m_owner, m_role = m_poss.group(1), m_poss.group(2)
+            if m_owner != target_owner and (target_role in m_role or m_role in target_role):
+                return False
+        # Disallow distinct relational modifiers (friend's father, son of father's friend, nurse, colleague)
+        if any(w in m_lower for w in ["friend", "colleague", "nurse", "teacher", "coworker"]):
+            return False
+        if target_owner in m_lower and (target_role in m_lower or "dad" in m_lower or "mom" in m_lower):
+            return True
+        # Allow generic mentions in primary subject's chat (e.g. "my father", "her father", "father", "dad")
+        if target_owner in ("ismi", "subject") and m_lower in ("father", "my father", "dad", "my dad", "her father", "my mother and father"):
+            return True
+        if target_owner in ("ismi", "subject") and m_lower in ("mother", "my mother", "mom", "my mom", "her mother"):
+            return True
+        return False
+
+    # Default substring matching with word boundaries
+    for a in aliases:
+        if re.search(r"\b" + re.escape(a.lower()) + r"\b", m_lower):
+            return True
+    return False
 
 
 def find_entity_threads(conn: sqlite3.Connection, chat_id: str, entity_name: str) -> List[Dict[str, Any]]:
     """Find all threads associated with an entity name or alias, sorted chronologically."""
     cur = conn.cursor()
-    aliases = {entity_name.strip()}
-    cur.execute("""
-    SELECT name_or_alias, associated_descriptors FROM chat_entities
-    WHERE chat_id = ? AND (lower(name_or_alias) = lower(?) OR lower(associated_descriptors) LIKE ?)
-    """, (chat_id, entity_name.strip(), f"%{entity_name.lower().strip()}%"))
-    for row in cur.fetchall():
-        if row[0]:
-            aliases.add(row[0].strip())
-        if row[1]:
-            for desc in row[1].split(","):
-                d = desc.strip()
-                if d and len(d) > 2:
-                    aliases.add(d)
+    aliases = _extract_clean_aliases(conn, chat_id, entity_name)
 
     thread_ids = set()
 
-    # 1. Check thread_triage candidate_entities
+    # 1. Check thread_triage candidate_entities (parsed per candidate)
     cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
     if cur.fetchone()[0] > 0:
         cur.execute(
@@ -32,9 +109,20 @@ def find_entity_threads(conn: sqlite3.Connection, chat_id: str, entity_name: str
             (chat_id,)
         )
         for tid, cand in cur.fetchall():
-            cand_lower = cand.lower()
-            if any(a.lower() in cand_lower for a in aliases):
-                thread_ids.add(tid)
+            try:
+                cand_list = json.loads(cand)
+                if isinstance(cand_list, list):
+                    for c in cand_list:
+                        m = c.get("mention", "") if isinstance(c, dict) else str(c)
+                        if _match_candidate_mention(m, entity_name, aliases):
+                            thread_ids.add(tid)
+                            break
+            except Exception:
+                cand_lower = cand.lower()
+                for a in aliases:
+                    if re.search(r"\b" + re.escape(a.lower()) + r"\b", cand_lower):
+                        thread_ids.add(tid)
+                        break
 
     # 2. Check inspected_threads entities_detected
     cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='inspected_threads';")
@@ -45,8 +133,10 @@ def find_entity_threads(conn: sqlite3.Connection, chat_id: str, entity_name: str
         )
         for tid, ents in cur.fetchall():
             ents_lower = ents.lower()
-            if any(a.lower() in ents_lower for a in aliases):
-                thread_ids.add(tid)
+            for a in aliases:
+                if re.search(r"\b" + re.escape(a.lower()) + r"\b", ents_lower):
+                    thread_ids.add(tid)
+                    break
 
     # 3. Check chat_facts
     cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='chat_facts';")

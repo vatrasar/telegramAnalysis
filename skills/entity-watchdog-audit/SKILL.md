@@ -119,11 +119,13 @@ Exits with code 0 (`[✓] PASSED: Entity Discovery verified`) when 0 pending pro
 Once the complete entity registry is established and the Watchdog Gate is resolved:
 1. **Noise Rejection:** Retain all psychologically salient figures (family, suitors, partners, close friends, superiors, therapists, interlocutor); discard purely transient contacts.
 2. **Negative Boundary Injection:** Provide deep profilers with explicit boundaries.
-3. **Dynamic Parallel Profiling & Volume Ceiling:**
+3. **Dynamic Parallel Profiling, Volume Ceiling & Snippet-First Protocol:**
    - Dispatch `entity-deep-profiler` subagents in parallel (scaling directly to all salient entities).
    - **Autonomous Sharding Rule ($N \le 8$ vs. $N > 8$):**
      - When an assigned entity has $\le 8$ associated threads, the profiler investigates them directly within its context.
      - When an entity has **$> 8$ threads (8–10+ threads)** (e.g. primary romantic partners, core family members, or the Interlocutor), the profiler **MUST self-scale autonomously** by spawning worker subagents (`TypeName: "forensic-thread-investigator"`, `Model: "flash"`). Each worker audits a chronological shard of 4–5 threads, allowing the profiler to synthesize the dossier from shard summaries without primary context flooding or attention degradation.
+   - **Snippet-First Reconnaissance Invariant:** Just as in Phase A, profilers must NEVER blindly dump full transcripts (`-t`). They MUST inspect threads via targeted snippets first (`-ts <thread_id> --mentions "<Name>"`), escalating to full thread reads (`-t`) only when substantive interpersonal dialogue or emotional ruptures require complete turn-by-turn verification.
+   - **Noise-Gated Semantic Searches:** Semantic concept queries (`--semantic`) automatically apply a minimum similarity threshold (`--min-score 0.55`) to eliminate irrelevant vector noise.
 4. **Dossier Consolidation:** Persist dossiers into `reports/<chat_id>_entities/<Entity>.md`.
 
 ---

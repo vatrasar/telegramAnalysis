@@ -16,18 +16,23 @@ from .client import (
 from .indexer import index_threads
 
 
+DEFAULT_MIN_SCORE: float = 0.55
+
+
 def search_semantic_batch(
     db_path: str,
     queries: List[str],
     top_k: int = 5,
     chat_filter: Optional[str] = None,
     participant_filter: Optional[str] = None,
+    min_score: Optional[float] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Search conversation threads by multiple semantic concepts in a single batch pass."""
     if not queries:
         return {}
 
     config = load_config()
+    effective_min_score = min_score if min_score is not None else float(config.get("min_semantic_score", DEFAULT_MIN_SCORE))
     provider = config.get("provider", "openrouter").lower()
 
     conn = sqlite3.connect(db_path)
@@ -146,6 +151,8 @@ def search_semantic_batch(
         scored = []
         for t_id, c_id, c_name, s_date, parts, text, emb in thread_rows:
             sim = dot_product(q_vec, emb)
+            if effective_min_score is not None and sim < effective_min_score:
+                continue
             scored.append({
                 "thread_id": t_id,
                 "chat_id": c_id,
@@ -167,6 +174,7 @@ def search_semantic(
     top_k: int = 5,
     chat_filter: Optional[str] = None,
     participant_filter: Optional[str] = None,
+    min_score: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """Search conversation threads by a single semantic concept."""
     res = search_semantic_batch(
@@ -175,6 +183,7 @@ def search_semantic(
         top_k=top_k,
         chat_filter=chat_filter,
         participant_filter=participant_filter,
+        min_score=min_score,
     )
     return res.get(query, [])
 
@@ -186,10 +195,12 @@ def search_semantic_facts(
     chat_filter: Optional[str] = None,
     sphere_filter: Optional[str] = None,
     subject_filter: Optional[str] = None,
+    min_score: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """Search discovered facts semantically using vector similarity or keyword fallback."""
     config = load_config()
     provider = config.get("provider", "openrouter").lower()
+    effective_min_score = min_score if min_score is not None else float(config.get("min_semantic_score", DEFAULT_MIN_SCORE))
 
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
@@ -263,6 +274,8 @@ def search_semantic_facts(
     for r in cur.fetchall():
         emb = deserialize_vector(r[8])
         sim = dot_product(query_vec, emb)
+        if effective_min_score is not None and sim < effective_min_score:
+            continue
         scored.append({
             "fact_id": r[0],
             "chat_id": r[1],

@@ -55,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--chain", "-c", action="append", type=int, help="Display direct causal quote chain for a message_id (can be repeated)")
     parser.add_argument("--around", "-ar", "-ctx", action="append", type=int, help="Display chronological context surrounding a message across thread boundaries (can be repeated)")
     parser.add_argument("--semantic", "-sem", action="append", help="Search threads by psychological concept/meaning (can be repeated)")
+    parser.add_argument("--min-score", "--threshold", dest="min_score", type=float, default=None, help="Minimum semantic similarity score threshold (default: 0.55)")
     parser.add_argument("--limit", "-n", type=int, default=10, help="Maximum number of results to display per query (default: 10)")
 
     # Agent productivity features

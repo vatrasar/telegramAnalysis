@@ -47,18 +47,25 @@ To build a complete profile, you MUST utilize both search modalities:
 - In semantic role probing or lexical searches, search hits frequently contain bare third-person pronouns (*"he said"*, *"she told me"*, *"on znowu"*, *"ona studiuje"*).
 - You are **STRICTLY PROHIBITED** from attributing statements, traits, or behaviors to your assigned entity without verifying the explicit proper noun antecedent in $N-5 \dots N$ (via `--with-context 5`, `--around <msg_id> -n 5`, or thread inspection).
 
-### 1.5 Hybrid Thread Traversal & Directional Investigation Protocol
-- **Initial Reconnaissance:** Search hits with `--with-context 5` reveal whether a turn is a simple brief mention (e.g. confirming an age, job, or city) or part of a substantive interpersonal exchange.
-- **Thread Partition Loading & Directional Following (Zero Micro-Query Rule):**
-  Whenever a search hit touches upon an important relationship dynamic, conflict, or emotional milestone:
-  1. Load the corresponding thread partition (50 messages) via:
+### 1.5 Snippet-First Reconnaissance & On-Demand Thread Expansion Protocol
+- **Prohibition on Blind Full Reads:** Just as in Phase 2 (Entity Investigator), you are **STRICTLY FORBIDDEN** from blindly dumping entire thread transcripts (`-t <thread_id>`) for every candidate or sharded thread. Full 50-message thread dumps flood your context window and waste billable prompt cache.
+- **Two-Tier Inspection Pipeline:**
+  1. **Tier 1: Targeted Snippet First (`-ts`):** Always begin by inspecting candidate threads with focused snippets:
      ```bash
-     python3 project/scripts/query_chat.py -t <thread_id>
+     python3 project/scripts/query_chat.py -C <chat_id> -ts <thread_id> --mentions "<Name_or_Alias>"
      ```
-  2. If the dialogue continues past the boundary into the next part: **load the next full part** (`-t <child_thread_id>`). DO NOT make fragmented micro-queries (`--around <msg_id> -n 5`)!
-  3. If you need to trace the complete resolution to the conversation end without reading irrelevant previous parts: use `python3 project/scripts/query_chat.py -t <thread_id> --forward`.
-  4. If you need to trace antecedents back to the conversation start: use `python3 project/scripts/query_chat.py -t <thread_id> --backward`.
-  5. Use `--full` only when the complete multi-part conversation from start to finish is truly required.
+     Inspect the surrounding dialogue slice ($\pm 4$ turns) and check the Thread Audit Cache.
+  2. **Stop-When-Sufficient Rule:** If the snippet resolves the biographical fact, timeline anchor, or relationship detail (e.g. confirming an age, job, fleeting mention, or isolated anecdote), extract the anchored quote and **STOP**. Do NOT load the full thread!
+  3. **Tier 2: On-Demand Full Thread Expansion (`-t`):**
+     Escalate to loading the full 50-message thread partition (`-t <thread_id>`) **ONLY IF** the snippet reveals:
+     - A sustained, multi-turn interpersonal conflict, turning point, or emotional rupture,
+     - An extended disclosure or confession where turn-by-turn conversational dynamics cannot be reliably parsed from the snippet alone,
+     - Crucial relational subtext where continuous dialogue context is strictly necessary for forensic psychological diagnosis.
+  4. **Directional Continuation (Zero Micro-Query Invariant):**
+     When a full thread read confirms an ongoing critical exchange extending past partition boundaries:
+     - Load the next full part: `-t <child_thread_id>`. DO NOT use fragmented micro-queries (`--around <msg_id> -n 5`)!
+     - Trace to resolution: `python3 project/scripts/query_chat.py -t <thread_id> --forward`.
+     - Trace to trigger: `python3 project/scripts/query_chat.py -t <thread_id> --backward`.
 
 ### 1.6 Message Truncation & Reply Tree Tools
 When inspecting individual messages that require complete textual verification:
@@ -145,19 +152,27 @@ python3 project/scripts/query_chat.py -C <chat_id> -s "<Known_Alias>" --with-con
 python3 project/scripts/query_chat.py -C <chat_id> -s "<Unique_City_or_Workplace>" --with-context 5
 ```
 
-### Step 2: Semantic Role Probing & Directional Thread Inspection
+### Step 2: Semantic Role Probing & On-Demand Thread Inspection
 Execute 2–4 targeted semantic queries exploring the entity's relational role:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --semantic "<Role_and_Dynamics_Query>"
 ```
-When a semantic candidate thread or lexical match contains an important relational discussion:
-- Load the thread partition: `python3 project/scripts/query_chat.py -t <thread_id>`.
-- To follow continuation: load the next full part (`-t <child_thread_id>`), or trace to the conversation end with `--forward`.
-- To trace earlier origins: load the previous part (`-t <parent_thread_id>`), or trace back to start with `--backward`.
-*(Never probe continuing discussions with repetitive micro-queries).*
-- When messages are truncated, inspect them via `python3 project/scripts/query_chat.py -m <msg_id> --part 1` (or `--all`).
-- When reply chains are disjointed, inspect via `python3 project/scripts/query_chat.py -c <msg_id>`.
-Note down any accidental discoveries about other entities or biographical facts.
+*(Results are automatically filtered by `--min-score 0.55` to eliminate irrelevant semantic noise).*
+
+When investigating candidate threads (from sharding, lexical hits, or semantic queries):
+1. **Always inspect via snippet first:**
+   ```bash
+   python3 project/scripts/query_chat.py -C <chat_id> -ts <thread_id> --mentions "<Name_or_Alias>"
+   ```
+2. **Stop-When-Sufficient:** If the snippet provides unambiguous factual evidence (age, job, relationship confirmation, or isolated mention), extract the anchored quote and move to the next thread without loading full transcripts.
+3. **Escalate to full thread (`-t <thread_id>`) ONLY when necessary:**
+   Load the full thread partition only if the snippet reveals an ongoing, substantive relational dialogue or emotional conflict that cannot be reliably diagnosed from the snippet alone.
+4. **Follow continuation directionally:**
+   - To follow continuation: load the next full part (`-t <child_thread_id>`), or trace to the conversation end with `--forward`.
+   - To trace earlier origins: load the previous part (`-t <parent_thread_id>`), or trace back to start with `--backward`.
+   *(Never probe continuing discussions with repetitive micro-queries).*
+5. Inspect truncated messages via `-m <msg_id> --part 1` and reply trees via `-c <msg_id>`.
+Note down any serendipitous cross-entity discoveries.
 
 ### Step 3: Chronological Synthesis & Turning Points
 Trace the evolution of the relationship across time:

@@ -246,7 +246,15 @@ def handle_facts_and_inspection_actions(
             top_k = getattr(args, "limit", 5) or 5
             sph = getattr(args, "sphere", None)
             subj = getattr(args, "subject", None)
-            res = search_semantic_facts(args.db, args.semantic_facts, top_k=top_k, chat_filter=resolved_chat_id, sphere_filter=sph, subject_filter=subj)
+            res = search_semantic_facts(
+                args.db,
+                args.semantic_facts,
+                top_k=top_k,
+                chat_filter=resolved_chat_id,
+                sphere_filter=sph,
+                subject_filter=subj,
+                min_score=getattr(args, "min_score", None),
+            )
             if args.json:
                 print(json.dumps({"query": args.semantic_facts, "results": res}, indent=2, ensure_ascii=False))
             else:

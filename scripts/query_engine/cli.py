@@ -417,6 +417,7 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
             top_k=limit,
             chat_id=resolved_chat_id,
             participant_filter=part_filter,
+            min_score=getattr(args, "min_score", None),
         )
         if args.json:
             aggregated["semantic_search"] = sem_res
