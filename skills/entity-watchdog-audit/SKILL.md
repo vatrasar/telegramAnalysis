@@ -17,7 +17,7 @@ In longitudinal chat archives, participants frequently discuss dozens of third-p
 
 To maximize throughput while eliminating duplicate registrations and character conflation:
 1. **Main Agent (Coordinator):** Fully delegates the entity audit milestone to the dedicated **Entity Registry Supervisor** (`entity-supervisor`).
-2. **Entity Supervisor (`entity-supervisor`):** Acts as the **Single Source of Truth and Sole Write Authority**. It groups extracted candidates into logical character clusters, dispatches parallel investigator subagents, enforces immediate anti-conflation audits, and executes the System-1 sweep scan.
+2. **Entity Supervisor (`entity-supervisor`):** Acts as the **Single Source of Truth and Sole Write Authority**. It groups extracted candidates into logical character clusters, dispatches parallel investigator subagents, enforces immediate anti-conflation audits, and clears the watchdog gate. **The Supervisor NEVER reads raw thread transcripts directly (`-t`) — thread reconnaissance belongs strictly to `entity-investigator`.**
 3. **Investigator Subagents (`entity-investigator`):** Up to 4 parallel read-only analysts. They inspect threads assigned to character clusters, verify real identity, and return structured findings. **Workers do not write to SQLite.**
 4. **Immediate Anti-Conflation Guard:** The Supervisor immediately audits colliding entities (sharing names, roles, or nationalities) to prevent attribute bleeding before deep profiling.
 
@@ -40,11 +40,11 @@ To maximize throughput while eliminating duplicate registrations and character c
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --candidates
    ```
-2. **If Candidate Count is High (> 40 mentions):**
-   The Supervisor shards candidates and dispatches lightweight `candidate-triage` screener subagents:
+2. **If Candidate Count is High (> 35 mentions):**
+   The Supervisor shards candidates dynamically targeting ~25–35 candidates per subagent ($\max(2, \lceil \text{total\_candidates} / 30 \rceil)$) and dispatches lightweight `candidate-triage` screener subagents:
    - `python3 project/scripts/query_chat.py -C <chat_id> --candidates --candidates-shard <X/Y> --json`
    - Screeners separate genuine third parties from transactional noise, reporting back candidates to keep and any recurring noise words to register permanently (`--add-noise-word "<words>"`).
-3. **If Candidate Count is Compact ($\le$ 40 mentions):**
+3. **If Candidate Count is Compact ($\le$ 35 mentions):**
    The Supervisor inspects candidates directly via `--candidates --json`.
 4. **Generate Hybrid Clusters & Conflation Alerts:**
    The Supervisor runs: `python3 project/scripts/query_chat.py -C <chat_id> --suggest-clusters --json`
@@ -123,21 +123,21 @@ Once the complete entity registry is established and the Watchdog Gate is resolv
 python3 project/scripts/query_chat.py -C <chat_id> --candidates
 python3 project/scripts/query_chat.py -C <chat_id> --candidates --json
 
-# Run immediate anti-conflation and collision audit:
+# Query dynamic candidate entity shard for screener subagents:
+python3 project/scripts/query_chat.py -C <chat_id> --candidates --candidates-shard <X/Y> --json
+
+# Register discovered recurring noise words (Supervisor ONLY):
+python3 project/scripts/query_chat.py -C <chat_id> --add-noise-word "<word1>, <word2>"
+
+# Suggest deterministic co-occurrence character clusters & conflation risks:
+python3 project/scripts/query_chat.py -C <chat_id> --suggest-clusters --json
+
+# Rapid snippet reconnaissance across candidate threads (Workers ONLY):
+python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> --mentions "<Name>"
+
+# Run immediate anti-conflation and collision audit across registered entities:
 python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit
 python3 project/scripts/query_chat.py -C <chat_id> --conflation-audit --json
-
-# Run System-1 watchdog scan in full non-blocking sweep mode:
-python3 project/scripts/query_chat.py -C <chat_id> --watchdog-scan --sweep
-
-# Sequential scan stopping on first detection (interactive mode):
-python3 project/scripts/query_chat.py -C <chat_id> --watchdog-scan
-
-# Single thread verification check:
-python3 project/scripts/query_chat.py -C <chat_id> --watchdog-check <thread_id>
-
-# Check current watchdog audit progress:
-python3 project/scripts/query_chat.py -C <chat_id> --watchdog-status
 
 # Verify hard-stop gate status (exit 0 on complete, 1 on fail):
 python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
@@ -150,9 +150,6 @@ python3 project/scripts/query_chat.py -C <chat_id> --mark-inspected <thread_id> 
 
 # Batch record discovered facts into evidence repository (Supervisor ONLY):
 python3 project/scripts/query_chat.py -C <chat_id> --record-facts-batch '<json_array>' --fact-thread <thread_id> --discovered-by "entity-investigator"
-
-# Skip false positive or episodic bystander thread (Supervisor ONLY):
-python3 project/scripts/query_chat.py -C <chat_id> --skip-thread <thread_id> --reason "episodic_bystander"
 ```
 
 ---
@@ -160,5 +157,6 @@ python3 project/scripts/query_chat.py -C <chat_id> --skip-thread <thread_id> --r
 ## 4. Hard-Stop Blocking Gate & Downstream Prerequisites
 
 The Entity Watchdog is a **strict programmatic prerequisite**:
-1. `thread_checklist.py --init -C <chat_id>` and `checklist.py --init -C <chat_id>` verify the watchdog gate. They immediately exit with code 1 if any third-party thread remains pending or has unregistered entities detected.
-2. `assemble_report.py --check-gates` verifies that all third-party threads are 100% resolved before allowing report generation.
+1. `thread_checklist.py --init -C <chat_id>` and `checklist.py --init -C <chat_id>` verify the watchdog gate (`--check-watchdog-gate`). They require verified third-party entities to be registered in `chat_entities` before allowing downstream checklist initialization.
+2. `assemble_report.py --check-gates` verifies that all investigative gates (watchdog, spheres, threads) pass before report assembly.
+3. The Supervisor NEVER executes raw thread message dumps (`-t`) or legacy thread-by-thread scans (`--watchdog-scan`). Full character discovery is driven through candidate triage, dynamic screener sharding, and parallel snippet investigators.

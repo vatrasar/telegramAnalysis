@@ -23,6 +23,7 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
 ### 1.1 Sole Registration Authority & Zero-Worker-Writes
 - **Workers Do NOT Write to DB:** Investigator subagents (`entity-investigator`) are strictly read-only snippet analysts. They inspect message windows and return structured findings. They are forbidden from calling `--register-entity` or `--skip-thread`.
 - **Supervisor-Only Writes:** Only you, the Supervisor, call `--register-entity`, `--skip-thread`, or advance the watchdog audit.
+- **Supervisor NEVER Reads Raw Thread Transcripts:** You are strictly an executive coordinator and database authority. You NEVER read raw thread transcripts directly (calling `query_chat.py` with `-t <thread_id>` is strictly forbidden). Thread snippet reconnaissance and deep reading belong exclusively to `entity-investigator` subagents. If any thread requires inspection, dispatch an `entity-investigator`.
 
 ### 1.2 Multi-Worker Cross-Thread Deduplication
 - When multiple parallel investigators audit concurrent threads from a shared timeframe, multiple threads often discuss the same third party (e.g. *"Dr. Sarah"* in Thread A, *"the pediatrician"* in Thread B).
@@ -104,9 +105,12 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
    python3 project/scripts/query_chat.py -C <chat_id> --descriptors
    python3 project/scripts/query_chat.py -C <chat_id> --audit-descriptor "<role_or_descriptor>"
    ```
-3. **Handle High Candidate Volume (> 40 mentions) via Dedicated Screener Subagents:**
+3. **Handle High Candidate Volume (> 35 mentions) via Dedicated Screener Subagents:**
    - Do NOT attempt to ingest hundreds of candidates into your own prompt and do NOT write ad-hoc Python scripts.
-   - Partition the candidates into shards (e.g. 2–4 shards) and dispatch parallel `candidate-triage` subagents:
+   - Calculate candidate shards dynamically targeting ~25–35 candidates per subagent:
+     $$\text{shards} = \max(2, \lceil \text{total\_candidates} / 30 \rceil)$$
+     (e.g. for 460 candidates, partition into 15 shards `1/15` ... `15/15` and dispatch 15 parallel `candidate-triage` subagents — do NOT artificially cap at 4 shards).
+   - Dispatch parallel `candidate-triage` subagents:
      - `TypeName`: `"candidate-triage"`
      - `Model`: `"flash"`
      - `Role`: `"Candidate Screener - Shard <X/Y>"`
@@ -117,7 +121,7 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
        python3 project/scripts/query_chat.py -C <chat_id> --add-noise-word "<discovered_noise_words>"
        ```
      - Aggregate the verified candidates across all shards.
-4. **If Candidate Count is Compact ($\le$ 40 mentions):**
+4. **If Candidate Count is Compact ($\le$ 35 mentions):**
    Retrieve the candidate list directly: `python3 project/scripts/query_chat.py -C <chat_id> --candidates --json`.
 5. **Generate Hybrid Pre-Clusters & Conflation Risk Alerts:**
    Run the deterministic co-occurrence clustering engine:
@@ -175,7 +179,9 @@ Dispatch parallel investigator subagents via `invoke_subagent` for all identifie
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --check-watchdog-gate
    ```
-   Exits with code 0 (`[✓] PASSED: Entity Discovery verified`).
+   Exits with code 0 (`[✓] PASSED: Entity Discovery verified`) once verified entities are registered in the database.
+   - **DO NOT run legacy sequential thread scans (`--watchdog-scan` or `--watchdog-scan --sweep`):** The candidate extraction, screening (`candidate-triage`), and investigator clustering pipeline has already resolved all third-party entities.
+   - **DO NOT inspect threads with `-t`:** If any ambiguity remains from the conflation audit, dispatch an `entity-investigator` subagent instead of reading threads directly.
 
 ---
 
