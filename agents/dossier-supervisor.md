@@ -56,15 +56,15 @@ Verify existing sections generated during earlier pipeline steps and establish t
 
 ### Step 2: Parallel Drafter Subagent Delegation
 
-Dispatch worker subagents in parallel (`Model: "flash"`):
+Dispatch worker subagents in parallel (`Model: "flash"`). Note that `chapter-drafter` operates as a **Chapter Supervisor**, deconstructing each chapter into modular subsections, delegating them to `subsection-drafter` subagents (which enforce the 20-fact clustering threshold via `cluster_facts.py`), and assembling them via `stitch_chapter.py`:
 
 1. **Chapter 1 (Executive Summary & Timeline) & Chapter 2 (Cast of Characters):**
    - Dispatch `chapter-drafter` for `01_dossier.md` (Executive summary, opening motto, chronological life timeline).
    - Dispatch `chapter-drafter` for `02_cast.md` (Cast of Characters 3-column table grounded in `query_chat.py --entities` and `reports/<chat_id>_entities/`).
 2. **Chapter 4 (Attachment Style & Big Five OCEAN):**
    - Dispatch `chapter-drafter` for `04_attachment_ocean.md`:
-     - Query facts: `python3 project/scripts/query_chat.py -C <chat_id> --facts --target-agent "chapter-drafter"`.
-     - Query routed evidence: `python3 project/scripts/thread_checklist.py -C <chat_id> --evidence-for-target "chapter-drafter"`.
+     - Routes facts and evidence to subsections (`attachment_style`, `ocean_facets`).
+     - Stitches subsections using `stitch_chapter.py`.
 3. **Approved Custom Sections:**
    - For each approved custom section, dispatch a dedicated `chapter-drafter` subagent to draft `reports/<subject>_sections/03_custom_<slug>.md`.
 4. **Chapter 7 (Operational Playbook):**

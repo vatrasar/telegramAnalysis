@@ -123,9 +123,19 @@ reports/<subject>_sections/
 └── 06_matrix.md            # Concluding Summary Matrix
 ```
 
-### Step 2: Parallel Drafter Subagent Delegation
+### Step 2: Parallel Chapter Drafting & Subsection Stitching
 The `dossier-supervisor` dispatches specialized worker subagents in parallel (`Model: "flash"`):
-- `chapter-drafter`: Drafts core analytical chapters (`01_dossier.md`, `02_cast.md`, `04_attachment_ocean.md`) and approved custom sections (`03_custom_*.md`) using selective evidence queries (`--evidence-for-target "chapter-drafter"`).
+- `chapter-drafter`: Operates as a **Chapter Supervisor** for core chapters (`01_dossier.md`, `02_cast.md`, `04_attachment_ocean.md`) and custom sections (`03_custom_*.md`).
+  - Deconstructs chapters into modular subsections staged under `reports/<subject>_sections/<chapter_name>_subsections/`.
+  - Dispatches `subsection-drafter` for each subpoint.
+  - Enforces the **20-fact threshold** via `cluster_facts.py` (partitioning facts into semantic clusters when facts > 20).
+  - Integrates and audits subsections using `stitch_chapter.py`:
+    ```bash
+    python3 project/scripts/stitch_chapter.py \
+      -d reports/<subject>_sections/<chapter_name>_subsections/ \
+      -o reports/<subject>_sections/<chapter_filename>.md \
+      --chapter-title "<Title>"
+    ```
 - `operational-playbook-architect`: Synthesizes Chapter 7 (`05_playbook.md`) using selective trigger case studies (`--evidence-for-target "operational-playbook-architect"`).
 
 ### Step 3: Synthesis, QA & Gate-Checked Assembly
