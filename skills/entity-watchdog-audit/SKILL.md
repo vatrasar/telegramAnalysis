@@ -117,10 +117,9 @@ Exits with code 0 (`[✓] PASSED: Entity Discovery verified`) when 0 pending pro
 ### PHASE B: Deep Salient Entity Profiling & Relational Dossiers
 
 Once the complete entity registry is established and the Watchdog Gate is resolved:
-1. **Subject-Centric Salience Screening:** Retain all figures of enduring psychological, attachment, familial, or clinical significance to the **Subject** (the profiled individual).
-   - **Strict Interlocutor Boundary:** Profile the Interlocutor solely for the direct conversational dyad (`Interlocutor_Dyad.md`). Never spawn profilers for the Interlocutor's personal circle (parents, friends, dates, coworkers).
-   - **Consolidation of Micro-Suitors:** Group episodic arranged suitors / 1-2 thread app matches into a single composite profile (`Matrimonial_Suitors_Consolidated.md`) instead of dispatching individual subagents for each.
-   - **No Artificial Cap on Genuine Figures:** Dispatch all qualified subject-attachment figures concurrently in parallel.
+1. **Subject-Centric Salience Screening:** Retain all figures of psychological, attachment, familial, romantic (including suitors), or clinical significance to the **Subject** (the profiled individual).
+   - **Strict Interlocutor Boundary in Phase B:** Profile the Interlocutor solely for the direct conversational dyad (`Interlocutor_Dyad.md`). Never spawn deep profilers for the Interlocutor's personal circle (parents, friends, dates, coworkers).
+   - **No Artificial Cap on Subject Figures:** Dispatch all qualifying subject figures concurrently in parallel (1 subagent per entity). Discard only purely transient contacts and interlocutor-sphere figures.
 2. **Negative Boundary Injection:** Provide deep profilers with explicit boundaries.
 3. **Dynamic Parallel Profiling, Volume Ceiling & Snippet-First Protocol:**
    - Dispatch `entity-deep-profiler` subagents in parallel (scaling directly to all salient entities).

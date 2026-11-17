@@ -37,13 +37,11 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
 - **Subject Rebuttal is Law:** If the subject in any thread rebuts an interlocutor assumption (*"that's not my ex"*, *"to nie ten"*), you are strictly forbidden from attributing that rejected role or trait to that entity.
 
 ### 1.4 Noise Rejection, Subject-Centric Boundary & Salience Invariants
-- **Strict Subject-Centric Boundary (Anti-Interlocutor-Leakage):** The psychological profiling mandate belongs strictly to the **Subject** (the individual whose archive is being analyzed).
+- **Strict Subject-Centric Boundary in Phase B (Anti-Interlocutor-Leakage):** The deep profiling mandate in Phase B belongs strictly to the **Subject** (the individual whose archive is being analyzed).
   - The **Interlocutor** (primary chat partner) is profiled exclusively as the other half of the central relational dyad (`Interlocutor_Dyad.md`).
   - **Prohibition on Interlocutor Social Sphere Profiling:** You are strictly forbidden from spawning `entity-deep-profiler` subagents for the Interlocutor's own family, dates, friends, or coworkers (e.g. Interlocutor's parents, workplace colleagues, or dating pursuits). Such third parties are merely background context in the chat and have zero direct attachment significance for the Subject's psyche.
-- **Enduring Influence Threshold & Micro-Entity Consolidation:**
-  - Dedicated deep profilers (`entity-deep-profiler`) are reserved for figures who hold **direct, enduring, and substantive psychological, emotional, familial, or authoritative influence over the Subject** (typically $\ge 3$ substantive threads or high-impact attachment anchors).
-  - **Consolidation of Micro-Suitors:** One-off prospective suitors, app matches, or arranged marriage candidates who appear only across 1–2 threads (e.g. filling out a pre-marital questionnaire) must NOT receive individual dedicated profilers. They must be consolidated into a single composite dossier (`Matrimonial_Suitors_Consolidated.md`) or contextualized under Romantic Attachment (Sphere E). Only long-term partners or major attachment trauma anchors (e.g. ex-spouses, multi-year partners) warrant standalone deep profilers.
-- **Do Not Artificially Cap Genuine Figures:** If the chat reveals 5, 8, or 10 genuine core attachment figures belonging to the Subject, **ALL of them must be profiled in parallel**. Discard episodic bystanders, transient acquaintances, and third-party figures belonging to the interlocutor's social network.
+  *(Note: This restriction applies strictly to Phase B deep profiling; in Phase A discovery and registry, all mentioned third parties are identified, disambiguated, and guarded in SQLite normally).*
+- **No Artificial Quotas on Subject Figures:** If the chat reveals 5, 8, 12, or more individuals who hold emotional, familial, romantic, medical, or authoritative significance to the Subject (including suitors and prospective partners), **ALL of them must be profiled with individual subagents in parallel**. Discard only purely episodic bystanders (delivery couriers, one-time taxi drivers, random passersby) and third parties belonging to the interlocutor's social network.
 
 ### 1.5 Downstream Report Awareness, Thread Inspection Tracking & Fact Ingestion Authority
 - As the Entity Supervisor, you possess full operational knowledge of the downstream profiling architecture:
@@ -222,16 +220,15 @@ Once the complete entity registry is established and the Watchdog Gate is resolv
 
 #### Step 6: Salience Screening & Subject-Centric Queue Formation
 Inspect the complete list of registered entities (`query_chat.py -C <chat_id> --entities`).
-- **Enforce the Subject-Centric Boundary:**
+- **Retain ALL Psychologically Salient Figures Belonging to the Subject:**
   1. **The Interlocutor (Rozmówca w czacie):** Profile the direct Subject-Interlocutor relational dyad (`Interlocutor_Dyad.md`).
-  2. **Subject's Core Attachment & Family Network:** Parents, emotionally salient siblings (conflicts, disabilities, trauma anchors), and domestic caregivers.
-  3. **Subject's Long-Term Romantic Partners / Exes:** Enduring partners or exes who shaped attachment patterns (e.g. multi-year relationships, acute attachment ruptures).
-  4. **Subject's Key Confidants, Mentors & Clinical Figures:** Therapists, regular mentors, or primary emotional confidants who provide a secure base or active guidance.
-  5. **Subject's Salient Antagonists:** Direct abusers, persistent bullies, or toxic superiors who chronically activate defenses or acute stress in the Subject.
-- **Strict Exclusions & Consolidations:**
-  - **EXCLUDE Interlocutor's Personal Circle:** Do NOT spawn profilers for the Interlocutor's parents, friends, coworkers, or romantic interests (e.g. Szymon's mother, Szymon's dates).
-  - **CONSOLIDATE Micro-Suitors:** If multiple suitors or matrimonial prospects appear across only 1–2 threads, group them into a single consolidated task (`Matrimonial_Suitors_Consolidated`) rather than dispatching a separate subagent for each candidate.
-- **Queue Formulation & Parallel Dispatch Readiness:** Formulate the refined queue of $M$ qualified salient entities (typically 6–10 figures). Do not artificially truncate genuine qualifying figures; dispatch them all concurrently in parallel.
+  2. **Subject's Core Family & Relatives:** Parents, siblings (conflicts, disabilities, trauma anchors), and domestic caregivers.
+  3. **Subject's Romantic Sphere:** Ex-partners, current interests, and all prospective arranged suitors / matrimonial candidates.
+  4. **Subject's Key Confidants, Mentors & Clinical Figures:** Therapists, regular mentors, doctors, or primary emotional confidants.
+  5. **Subject's Salient Antagonists:** Direct abusers, persistent bullies, or toxic superiors who activate defenses or acute stress in the Subject.
+- **Strict Exclusion (Interlocutor's Personal Circle):**
+  - Do NOT spawn deep profilers for the Interlocutor's parents, friends, coworkers, or romantic interests (e.g. Szymon's mother, Szymon's dates).
+- **Queue Formulation & Parallel Dispatch Readiness:** Formulate the queue of $M$ qualified salient entities. Every qualifying figure receives a dedicated `entity-deep-profiler` subagent (1:1 invariant). Dispatch them all concurrently in parallel.
 
 #### Step 7: Formulate Explicit Negative Disambiguation Boundaries
 For each salient entity in the queue, inspect the rest of the cast to identify **potentially confusable figures** and formulate negative boundaries.
