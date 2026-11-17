@@ -32,6 +32,6 @@ Every thematic chapter or substantive analytical finding MUST follow the 4-part 
 
 ---
 
-## 3. Dossier Assembly Skill Gate
+## 3. Dossier Assembly Skill Gate & Supervisory Delegation
 
-For the full 8-component report blueprint, Cast of Characters schema, Operational Playbook templates, Summary Matrix, and automated compilation via `assemble_report.py`, activate the `dossier-report-assembly` skill.
+For the full 8-component report blueprint, Cast of Characters schema, Operational Playbook templates, Summary Matrix, and automated compilation via `assemble_report.py`, activate the `dossier-report-assembly` skill and delegate execution to the dedicated **Dossier Assembly Supervisor** (`dossier-supervisor`).

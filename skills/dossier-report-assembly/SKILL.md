@@ -106,30 +106,45 @@ A structured markdown synthesis table:
 
 ---
 
-## 4. Modular Section Drafting & Assembly Workflow
+## 4. Modular Section Drafting & Supervisory Assembly Workflow
 
-To prevent context exhaustion and file corruption during deep profiling:
+To prevent context exhaustion and ensure strict quality control during deep profiling, the entire phase is orchestrated by the **Dossier Assembly Supervisor** (`dossier-supervisor`):
 
-### Step 1: Draft Modular Section Files
-Create drafts inside a dedicated directory in the workspace root:
+### Step 1: Pre-Flight Gatekeeper & Section Roadmap
+Verify that all 3 blocking investigative gates pass with exit code 0:
+```bash
+python3 project/scripts/query_chat.py --check-watchdog-gate -C <chat_id>
+python3 project/scripts/thread_checklist.py --check -C <chat_id>
+python3 project/scripts/checklist.py --check -C <chat_id>
+```
+Audit pre-existing modular sections generated during earlier pipeline steps (e.g. Life Spheres `05_*` from Step B.3) and establish the section roadmap in `reports/<subject>_sections/`:
 ```
 reports/<subject>_sections/
 ├── 01_dossier.md           # Executive summary & biographical timeline
 ├── 02_cast.md              # Cast of characters relational constellation table
 ├── 03_thematic_spheres.md  # Core life spheres (social, work, worldview, family, leisure)
+├── 03_custom_<slug>.md     # Any approved custom sections proposed by curator
 ├── 04_attachment_ocean.md  # Attachment style diagnosis & Big Five ratings
 ├── 05_playbook.md          # Operational User Manual (blind spots, triggers, protocols)
 └── 06_matrix.md            # Concluding Summary Matrix
 ```
 
-### Step 2: Assemble Unified Report
-Execute the automated assembly script:
+### Step 2: Parallel Drafter Subagent Delegation
+The `dossier-supervisor` dispatches specialized worker subagents in parallel (`Model: "flash"`):
+- `chapter-drafter`: Drafts core analytical chapters (`01_dossier.md`, `02_cast.md`, `04_attachment_ocean.md`) and any approved custom sections (`03_custom_*.md`) using selective evidence queries (`--evidence-for-target "chapter-drafter"`).
+- `operational-playbook-architect`: Synthesizes Chapter 7 (`05_playbook.md`) using selective trigger case studies (`--evidence-for-target "operational-playbook-architect"`).
+
+### Step 3: Synthesis, QA & Gate-Checked Assembly
+1. The supervisor synthesizes the Concluding Summary Matrix (`06_matrix.md`) and audits all drafts for code fence closure, anchored citations, and absence of Mermaid/ASCII trees.
+2. Execute the automated assembly script:
 ```bash
 python3 project/scripts/assemble_report.py \
   --sections-dir reports/<subject>_sections/ \
-  -o reports/<subject>_personality_analysis.md
+  -o reports/<subject>_personality_analysis.md \
+  --check-gates
 ```
-- The script automatically verifies that code fences are closed.
+- The script automatically verifies all 3 investigative gates.
+- Verifies code fence closure.
 - Automatically generates the Table of Contents.
 - Validates structural completeness.
 

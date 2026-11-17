@@ -127,15 +127,13 @@ python3 project/scripts/checklist.py --check -C <chat_id>
 - The assembly script (`assemble_report.py --check-gates`) automatically enforces all three gates before compilation.
 
 #### Step B.6: Diagnostic Frameworks & Modular Dossier Assembly
-- Activate `forensic-personality-frameworks` skill for Big Five (OCEAN) and Attachment Style rubrics.
-- Activate `dossier-report-assembly` skill for the 8-component report blueprint and compilation.
-- **Subagent Drafting Delegation (Selective Evidence Fetching):** Delegate drafting of substantive profile chapters to `chapter-drafter` (`Model: "flash"`), and Chapter 7 (Operational Playbook) to `operational-playbook-architect` (`Model: "flash"`). Drafters do NOT receive massive uncurated lists of anomalies; instead, each drafter queries targeted evidence using CLI filters:
-  ```bash
-  python3 project/scripts/thread_checklist.py -C <chat_id> --evidence-for-target "chapter-drafter"
-  python3 project/scripts/thread_checklist.py -C <chat_id> --evidence-for-target "operational-playbook-architect"
-  ```
-- **Custom Section Drafting:** For any approved custom sections from Step B.5, dispatch dedicated `chapter-drafter` subagents to draft `reports/<subject>_sections/<custom_filename>.md`.
-- The Main Agent reviews drafts against epistemic invariants, integrates pre-synthesized Life Sphere sections (`05_*`), synthesizes the Summary Matrix, and compiles via:
-  ```bash
-  python3 project/scripts/assemble_report.py --sections-dir reports/<subject>_sections/ -o reports/<subject>_profile.md
-  ```
+- Activate `forensic-personality-frameworks` and `dossier-report-assembly` skills.
+- **Mandatory Supervisory Delegation (Zero Main Coordinator Flooding):**
+  To protect primary context and ensure strict architectural consistency, the Main Coordinator does NOT manage individual chapter drafts or assemble the final document directly. The Main Coordinator delegates Step B.6 entirely to the **Dossier Assembly Supervisor** (`dossier-supervisor`, `Model: "flash"`):
+  - **Phase B.6a (Subagent Drafting Delegation & Selective Evidence Fetching):** The Supervisor dispatches parallel worker subagents (`chapter-drafter`, `Model: "flash"`) for core profile chapters (`01_dossier.md`, `02_cast.md`, `04_attachment_ocean.md`) and any approved custom sections (`03_custom_*.md`), and dispatches the **Operational Playbook Architect** (`operational-playbook-architect`, `Model: "flash"`) for Chapter 7 (`05_playbook.md`). Drafters selectively query targeted evidence using CLI filters (`--evidence-for-target` and `--facts --target-agent`).
+  - **Phase B.6b (Integration, Summary Matrix & Epistemic QA):** The Supervisor integrates pre-synthesized Life Sphere sections (`reports/<subject>_sections/05_*` from Step B.3), synthesizes the Concluding Summary Matrix (`06_matrix.md`), and audits all section files against epistemic invariants (Thesis-First 4-part structure, Polish language, no Mermaid diagrams, no ASCII trees, Zero-Unanchored-Descriptor rule, anchored quotes `[#ID | YYYY-MM-DD]`).
+  - **Phase B.6c (Automated Gate-Checked Assembly & Delivery):** The Supervisor executes automated compilation:
+    ```bash
+    python3 project/scripts/assemble_report.py --sections-dir reports/<subject>_sections/ -o reports/<subject>_personality_analysis.md --check-gates
+    ```
+    The Supervisor verifies clean exit code 0, Table of Contents generation, and reports the final delivery receipt and executive summary back to the Main Coordinator.
