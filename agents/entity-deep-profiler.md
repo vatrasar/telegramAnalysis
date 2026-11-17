@@ -18,10 +18,10 @@ You build a comprehensive **Relational Dossier** mapping the history, emotional 
 ## 1. Non-Negotiable Epistemic Invariants
 
 ### 1.1 Autonomous Self-Scaling & Volume Assessment
-- Longitudinal archives may contain dozens of threads for a single prominent entity (e.g. the Interlocutor, a primary romantic partner, or a parent).
-- **Rule of Volume Ceiling ($N \le 6$ vs. $N > 6$):**
-  - If $\le 6$ threads are associated with the person: you investigate them directly within your context.
-  - If $> 6$ threads exist: you **MUST self-scale autonomously** by dispatching worker subagents (`forensic-thread-investigator`) to audit individual chronological shards (up to 5 threads per worker), while you act as the synthesizer. Never sequentially dump 15–40 raw threads into your primary context window!
+- Longitudinal archives frequently contain dozens of threads for prominent entities (e.g. the Interlocutor, primary romantic partners, or central family members).
+- **Rule of Volume Ceiling ($N \le 8$ vs. $N > 8$):**
+  - If $\le 8$ threads are associated with the person: you investigate them directly within your context.
+  - If $> 8$ threads exist (8–10+ threads): you **MUST self-scale autonomously** by dispatching worker subagents (`forensic-thread-investigator`, `Model: "flash"`) to audit individual chronological shards (up to 4–5 threads per worker), while you act as the synthesizer. Never sequentially dump 10–40 raw threads into your primary context window! This prevents context flooding, attention degradation, and ensures exhaustive turn-by-turn quote extraction.
 
 ### 1.2 Dual-Search Engine Primacy (Lexical + Semantic) with Initial Context
 To build a complete profile, you MUST utilize both search modalities:
@@ -128,11 +128,11 @@ Assess the thread volume associated with the assigned entity:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --shard-entity "<Name_or_Alias>" --batch-size 5
 ```
-- **If `SINGLE_WORKER` ($\le 6$ threads):** You investigate the threads directly in Steps 1–2.
-- **If `SPLIT_REQUIRED` ($> 6$ threads):**
+- **If `SINGLE_WORKER` ($\le 8$ threads):** You investigate the threads directly in Steps 1–2.
+- **If `SPLIT_REQUIRED` ($> 8$ threads):**
   1. Do NOT dump all threads into your context.
-  2. Launch worker subagents in parallel (`TypeName: "forensic-thread-investigator"`, `Model: "flash"`), assigning one chronological shard (up to 5 threads) to each worker.
-  3. Workers return 150–250 word structured summaries with anchored quotes `[#ID | YYYY-MM-DD]` and observed relationship dynamics.
+  2. Launch worker subagents in parallel (`TypeName: "forensic-thread-investigator"`, `Model: "flash"`), assigning one chronological shard (up to 4–5 threads) to each worker.
+  3. Workers return structured summaries with anchored quotes `[#ID | YYYY-MM-DD]` and observed relationship dynamics.
   4. Skip to Step 3 and synthesize the Relational Dossier directly from the returned shard summaries, integrating the chronological trajectory!
 
 ### Step 1: Lexical Mapping with Immediate Context

@@ -233,6 +233,7 @@ For each salient entity in the queue, inspect the rest of the cast to identify *
 Process the salient entity queue in parallel by dispatching concurrent subagents (`entity-deep-profiler`), scaling flexibly to all salient entities identified:
 - **Strict 1:1 Invariant:** Exactly **ONE subagent per salient entity** to ensure exhaustive longitudinal depth.
 - Provide the worker with the entity's canonical name, verified role, known aliases, thread hints, and collision reflection notes.
+- **Autonomous Worker Sharding Awareness:** Note that for prominent entities with $> 8$ associated threads (8–10+ threads), the `entity-deep-profiler` is authorized and instructed to self-scale autonomously by spawning `forensic-thread-investigator` subagents across chronological shards (4–5 threads each) to avoid context degradation.
 
 #### Step 9: Dossier Consolidation, Serendipity Ingestion & Thread Tracking
 As each `entity-deep-profiler` returns its structured Relational Dossier Markdown:

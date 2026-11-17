@@ -117,9 +117,13 @@ Exits with code 0 (`[✓] PASSED: Entity Discovery verified`) when 0 pending pro
 ### PHASE B: Deep Salient Entity Profiling & Relational Dossiers
 
 Once the complete entity registry is established and the Watchdog Gate is resolved:
-1. **Noise Rejection:** Retain all psychologically salient figures (family, suitors, partners, close friends, superiors, therapists); discard purely transient contacts.
+1. **Noise Rejection:** Retain all psychologically salient figures (family, suitors, partners, close friends, superiors, therapists, interlocutor); discard purely transient contacts.
 2. **Negative Boundary Injection:** Provide deep profilers with explicit boundaries.
-3. **Dynamic Parallel Profiling:** Dispatch `entity-deep-profiler` subagents in parallel (scaling directly to all salient entities) to perform dual lexical (`-s`) and semantic (`--semantic`) searches.
+3. **Dynamic Parallel Profiling & Volume Ceiling:**
+   - Dispatch `entity-deep-profiler` subagents in parallel (scaling directly to all salient entities).
+   - **Autonomous Sharding Rule ($N \le 8$ vs. $N > 8$):**
+     - When an assigned entity has $\le 8$ associated threads, the profiler investigates them directly within its context.
+     - When an entity has **$> 8$ threads (8–10+ threads)** (e.g. primary romantic partners, core family members, or the Interlocutor), the profiler **MUST self-scale autonomously** by spawning worker subagents (`TypeName: "forensic-thread-investigator"`, `Model: "flash"`). Each worker audits a chronological shard of 4–5 threads, allowing the profiler to synthesize the dossier from shard summaries without primary context flooding or attention degradation.
 4. **Dossier Consolidation:** Persist dossiers into `reports/<chat_id>_entities/<Entity>.md`.
 
 ---
