@@ -60,8 +60,10 @@ def get_thread_snippets(
 
     if mentions:
         for m in mentions:
-            if m.strip():
-                candidates.append({"mention": m.strip(), "role": "explicit_query"})
+            for token in str(m).split(","):
+                cleaned = token.strip().strip("'\"").strip()
+                if cleaned:
+                    candidates.append({"mention": cleaned, "role": "explicit_query"})
 
     cur.execute("""
     SELECT id, date, sender, text, timestamp
@@ -230,7 +232,11 @@ def print_thread_snippets(data: Dict[str, Any]) -> None:
 
     snippets = data.get("snippets", [])
     if not snippets:
-        print("   (No snippets found)")
+        searched = [c.get("mention") for c in data.get("candidates", []) if c.get("mention")]
+        if searched:
+            print(f"   (No snippets found matching mentions: {searched})")
+        else:
+            print("   (No snippets found)")
         print("=" * 80 + "\n")
         return
 

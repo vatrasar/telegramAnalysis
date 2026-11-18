@@ -132,7 +132,7 @@ Dispatch parallel investigator subagents via `invoke_subagent` for all identifie
 - `Role`: `"Entity Investigator - Cluster <Cluster_Name>"`
 - `Prompt`: Provide the target character cluster (2–3 candidates), associated candidate names/roles, relevant thread IDs, thread summaries, and known entities $S$.
   - Instruct the worker to use the **rapid snippet reconnaissance** protocol:
-    `python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --mentions "<Candidate_Name>"`
+    `python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --mentions "<alias1>, <alias2>"` (supports comma-separated keywords or repeated `--mentions`).
   - Emphasize the **Stop-When-Identified** rule: once identity, role, and quote anchors are established and no contradictions exist across snippets, do NOT load full message transcripts.
   - Instruct workers to **stage all candidate findings into SQLite** via:
     `python3 project/scripts/query_chat.py -C <chat_id> --stage-entity "<Name>" --role "<Role>" --desc "<Context & Anchors>" --source-thread <tid>`
@@ -227,7 +227,7 @@ For each salient entity in the queue, inspect the rest of the cast to identify *
 #### Step 8: Dynamic Parallel Profiling Dispatch (1 Subagent = 1 Entity)
 Process the salient entity queue in parallel by dispatching concurrent subagents (`entity-deep-profiler`), scaling flexibly to all salient entities identified:
 - **Strict 1:1 Invariant:** Exactly **ONE subagent per salient entity** to ensure exhaustive longitudinal depth.
-- Provide the worker with the entity's canonical name, verified role, known aliases, thread hints, and collision reflection notes.
+- Provide the worker with the entity's canonical name, verified role, known aliases, thread hints, and collision reflection notes. Explicitly format keyword hints for snippet inspection: `--mentions "<alias1>, <alias2>, <alias3>"`.
 - **Autonomous Worker Sharding Awareness:** Note that for prominent entities with $> 8$ associated threads (8–10+ threads), the `entity-deep-profiler` is authorized and instructed to self-scale autonomously by spawning `forensic-thread-investigator` subagents across chronological shards (4–5 threads each) to avoid context degradation.
 
 #### Step 9: Dossier Consolidation, Serendipity Ingestion & Thread Tracking

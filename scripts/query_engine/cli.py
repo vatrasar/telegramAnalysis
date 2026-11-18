@@ -156,7 +156,13 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
     search_thread_queries = _extract_list(args.search_threads, "search_threads", batch_config)
     thread_ids = [str(x) for x in _extract_list(args.thread, "thread", batch_config)]
     thread_snippets = [str(x) for x in _extract_list(args.thread_snippets, "thread_snippets", batch_config)]
-    explicit_mentions = [str(x) for x in _extract_list(args.mentions, "mentions", batch_config)]
+    raw_mentions = _extract_list(args.mentions, "mentions", batch_config)
+    explicit_mentions: List[str] = []
+    for x in raw_mentions:
+        for token in str(x).split(","):
+            cleaned = token.strip().strip("'\"").strip()
+            if cleaned:
+                explicit_mentions.append(cleaned)
     msg_ids = [int(x) for x in _extract_list(args.msg, "msg", batch_config)]
     from_msgs = [int(x) for x in _extract_list(args.from_msg, "from_msg", batch_config)]
     chains = [int(x) for x in _extract_list(args.chain, "chain", batch_config)]

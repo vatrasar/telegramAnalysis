@@ -55,8 +55,9 @@ The Supervisor invokes parallel `entity-investigator` subagents (`Model: "flash"
 - Each worker receives one specific character cluster (2–3 candidates) and associated thread IDs.
 - **Rapid Snippet Reconnaissance Protocol:** Workers execute a single initial call:
   ```bash
-  python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --mentions "<Candidate_Name>"
+  python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --mentions "<alias1>, <alias2>"
   ```
+  *(Supports comma-separated keyword lists or repeated `--mentions` flags).*
   - Inspect Thread Audit Cache: If any thread was already inspected, cached findings and unresolved pronouns (`he/she`) are automatically displayed.
   - **Stop-When-Identified Rule:** Once identity, role, and quote anchors are established and no contradictions exist across snippets, workers **STOP** immediately without loading full transcripts.
   - **Split Entity (Anti-Homonim) Guard:** If snippets reveal contradictory roles or locations (e.g. *Kaleb coworker* vs. *Kaleb Tinder*), workers treat them as distinct individuals ($K=2$) and read only that specific thread (`-t <id> --force`).

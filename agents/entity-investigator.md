@@ -80,7 +80,8 @@ must **NEVER** be parsed as an appositive attributing the descriptor to the name
   - **Family Roots (Sphere D):** Direct statements about parents, upbringing, childhood memories.
   - **Romantic / Relational Patterns (Sphere E):** Direct breakup context, dating history, attachment disclosure.
   - **Social Matrix (Sphere A), Leisure (Sphere F), Biography, Psychodynamics.**
-  Do not discard them! Record each finding under `discovered_facts` with the anchored verbatim quote (`[#<msg_id> | YYYY-MM-DD] "<verbatim quote>"`), a 1-sentence summary, and the suggested category.
+  Do not discard them! Return each finding under `discovered_facts` in your JSON report with anchored verbatim quote(s) (`[#<msg_id> | YYYY-MM-DD] "<verbatim quote>"`), a 1-sentence summary, and the suggested category.
+- **Phase 2 Supervisory Governance Invariant:** In Phase 2, workers DO NOT persist facts or entities directly into production tables (`discovered_facts`, `chat_entities`) to prevent database poisoning. Entities are staged via `--stage-entity` (`staging_entities`), and facts are passed to the `entity-supervisor` in your Step 6 JSON receipt, where the supervisor performs anti-conflation and batch commits them.
 - **Zero Obligation:** If no such facts appear in the messages you are reading to resolve the entity, simply return `discovered_facts: []`.
 
 ### 1.10 Participant Boundary, Collective-to-Individual Invariant & Extended Tools
@@ -111,8 +112,9 @@ When assigned target candidate cluster (typically **2–3 related characters or 
 ### Step 1: Rapid Snippet Reconnaissance (Single Tool Call)
 Begin by inspecting focused context snippets across all assigned threads in a **single tool call**:
 ```bash
-python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --mentions "<Candidate_Name>"
+python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --mentions "<NameA>, <NameB>"
 ```
+*(Supports comma-separated keyword lists or repeated `--mentions "<Name>"` flags).*
 - **Inspect Thread Audit Cache:** If any assigned thread was already inspected by a previous worker, the command automatically displays the cached audit findings and unresolved pronouns (`he/she`). Use these findings directly without re-reading!
 - **Review Windowed Turns ($\pm 4$ turns):** Evaluate candidate mentions in their immediate conversational context.
 

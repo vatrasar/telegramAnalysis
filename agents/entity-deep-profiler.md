@@ -50,9 +50,9 @@ To build a complete profile, you MUST utilize both search modalities:
 ### 1.5 Snippet-First Reconnaissance & On-Demand Thread Expansion Protocol
 - **Prohibition on Blind Full Reads:** Just as in Phase 2 (Entity Investigator), you are **STRICTLY FORBIDDEN** from blindly dumping entire thread transcripts (`-t <thread_id>`) for every candidate or sharded thread. Full 50-message thread dumps flood your context window and waste billable prompt cache.
 - **Two-Tier Inspection Pipeline:**
-  1. **Tier 1: Targeted Snippet First (`-ts`):** Always begin by inspecting candidate threads with focused snippets:
+  1. **Tier 1: Targeted Snippet First (`-ts`):** Always begin by inspecting candidate threads with focused snippets (supports comma-separated keywords or repeated flags):
      ```bash
-     python3 project/scripts/query_chat.py -C <chat_id> -ts <thread_id> --mentions "<Name_or_Alias>"
+     python3 project/scripts/query_chat.py -C <chat_id> -ts <thread_id> --mentions "<alias1>, <alias2>, <keyword>"
      ```
      Inspect the surrounding dialogue slice ($\pm 4$ turns) and check the Thread Audit Cache.
   2. **Stop-When-Sufficient Rule:** If the snippet resolves the biographical fact, timeline anchor, or relationship detail (e.g. confirming an age, job, fleeting mention, or isolated anecdote), extract the anchored quote and **STOP**. Do NOT load the full thread!
@@ -160,9 +160,9 @@ python3 project/scripts/query_chat.py -C <chat_id> --semantic "<Role_and_Dynamic
 *(Results are automatically filtered by `--min-score 0.55` to eliminate irrelevant semantic noise).*
 
 When investigating candidate threads (from sharding, lexical hits, or semantic queries):
-1. **Always inspect via snippet first:**
+1. **Always inspect via snippet first (supports comma-separated keywords or repeated flags):**
    ```bash
-   python3 project/scripts/query_chat.py -C <chat_id> -ts <thread_id> --mentions "<Name_or_Alias>"
+   python3 project/scripts/query_chat.py -C <chat_id> -ts <thread_id> --mentions "<alias1>, <alias2>, <keyword>"
    ```
 2. **Stop-When-Sufficient:** If the snippet provides unambiguous factual evidence (age, job, relationship confirmation, or isolated mention), extract the anchored quote and move to the next thread without loading full transcripts.
 3. **Escalate to full thread (`-t <thread_id>`) ONLY when necessary:**
