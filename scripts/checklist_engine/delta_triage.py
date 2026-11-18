@@ -124,8 +124,8 @@ def _call_delta_system1_api(
     }, 0.0
 
 
-def _evaluate_heuristic_indicator(row_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Fast indicator evaluation based on Stage 1 System-1 radar attributes and semantic summary triggers."""
+def _evaluate_heuristic_indicator(row_dict: Dict[str, Any], baseline_text: str = "") -> Dict[str, Any]:
+    """Fast indicator evaluation based on Stage 1 System-1 radar attributes, semantic triggers, and baseline discounting."""
     import re
     salience = float(row_dict.get("salience_score") or 2.0)
     is_atypical = int(row_dict.get("is_atypical") or 0)
@@ -137,40 +137,52 @@ def _evaluate_heuristic_indicator(row_dict: Dict[str, Any]) -> Dict[str, Any]:
     radar = str(row_dict.get("radar_sources") or "")
     cat = str(row_dict.get("primary_category") or "")
     summary = str(row_dict.get("summary_short") or "").lower()
+    base_lower = baseline_text.lower()
+
+    # Check for known baseline echo discounting (e.g. tumor surgery recovery already in baseline)
+    is_known_health_echo = False
+    if ("tumor" in summary or "fibroadenoma" in summary or "wound" in summary or "painkiller" in summary) and \
+       ("tumor" in base_lower or "fibroadenoma" in base_lower) and not (is_breakdown or is_bizarre or is_relational):
+        is_known_health_echo = True
 
     novelty_points = 0.0
     if is_breakdown:
         novelty_points += 2.5
-    if is_crisis:
+    if is_crisis and not is_known_health_echo:
         novelty_points += 2.0
     if is_bizarre:
         novelty_points += 2.0
-    if emotional_peak in ["profound_sadness", "intense_rage"]:
+    if emotional_peak in ["profound_sadness", "intense_rage"] and not is_known_health_echo:
         novelty_points += 1.8
-    elif emotional_peak != "none":
+    elif emotional_peak != "none" and not is_known_health_echo:
         novelty_points += 1.0
     if is_atypical:
         novelty_points += 1.5
     if is_relational:
         novelty_points += 1.2
-    if "radar_1_anomalies" in radar:
+    if "radar_1_anomalies" in radar and not is_known_health_echo:
         novelty_points += 1.0
-    if "radar_2_peak" in radar:
+    if "radar_2_peak" in radar and not is_known_health_echo:
         novelty_points += 1.0
 
     # Semantic triggers in summary indicating novel life events or turning points
     novelty_kws = [
-        "ex", "caleb", "cj", "suitor", "suicide", "father", "breakup", "crying", "cry",
-        "burnout", "breakdown", "matrimonial", "hospital", "tumor", "epilepsy", "marriage",
-        "block", "reject", "cheating", "relapse", "alcohol", "panic", "confess", "overdose"
+        "ex", "caleb", "cj", "suitor", "suicide", "breakup", "crying", "cry",
+        "burnout", "breakdown", "matrimonial", "cheating", "relapse", "alcohol",
+        "panic", "confess", "overdose", "arranged", "ultimatum"
     ]
     matched_kws = [kw for kw in novelty_kws if re.search(r"\b" + kw + r"\b", summary)]
     if matched_kws:
-        novelty_points += min(2.5, 0.8 * len(matched_kws))
+        novelty_points += min(2.5, 0.9 * len(matched_kws))
+
+    # Also detect unmapped paternal family dynamics
+    if "father" in summary and any(k in summary for k in ["visit", "strict", "pressure", "marry", "marriage", "cream"]):
+        novelty_points += 1.5
+        matched_kws.append("paternal_boundary")
 
     calculated_score = min(5.0, 1.0 + novelty_points)
 
-    if calculated_score >= 3.0 or salience >= 3.8:
+    if not is_known_health_echo and (calculated_score >= 3.0 or salience >= 3.8):
         kw_note = f" (matched: {', '.join(matched_kws[:3])})" if matched_kws else ""
         return {
             "decision": "novel",
@@ -190,12 +202,13 @@ def _evaluate_heuristic_indicator(row_dict: Dict[str, Any]) -> Dict[str, Any]:
         "emotional_vulnerability": "corroborating_dyadic_rapport",
     }
     assigned_theme = theme_map.get(cat, "corroborating_routine_baseline")
+    echo_note = " (Corroborating known baseline health event)" if is_known_health_echo else ""
 
     return {
         "decision": "redundant",
         "novelty_score": round(calculated_score, 1),
         "corroborating_theme": assigned_theme,
-        "justification": f"Corroborates established baseline patterns (score {calculated_score:.1f})"
+        "justification": f"Corroborates established baseline patterns (score {calculated_score:.1f}){echo_note}"
     }
 
 
@@ -305,7 +318,7 @@ def auto_triage_delta(
                 total_cost += cost
     else:
         for it in threads_to_eval:
-            results[it["thread_id"]] = _evaluate_heuristic_indicator(it)
+            results[it["thread_id"]] = _evaluate_heuristic_indicator(it, baseline_summary)
 
     elapsed = time.time() - start_time
     redundant_count = novel_count = 0
@@ -365,6 +378,7 @@ def benchmark_delta_triage(conn: sqlite3.Connection, chat_id: str) -> Dict[str, 
     """, (chat_id,))
     ground_truth = {r[0]: r[1] for r in cur.fetchall()}
 
+    baseline_summary = _get_baseline_summary(conn, chat_id)
     tp = fp = tn = fn = 0
     cur.execute("SELECT thread_id FROM thread_audit_checklist WHERE chat_id = ?;", (chat_id,))
     all_tids = [r[0] for r in cur.fetchall()]
@@ -394,7 +408,7 @@ def benchmark_delta_triage(conn: sqlite3.Connection, chat_id: str) -> Dict[str, 
             "is_acute_vulnerability_or_breakdown": r[8], "is_bizarre_or_boundary_violation": r[9],
             "summary_short": r[10]
         }
-        pred_dict = _evaluate_heuristic_indicator(item_dict)
+        pred_dict = _evaluate_heuristic_indicator(item_dict, baseline_summary)
         pred = pred_dict["decision"]
 
         if pred == "novel" and orig == "novel":
