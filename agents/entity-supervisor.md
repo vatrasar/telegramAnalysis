@@ -208,30 +208,37 @@ Dispatch parallel investigator subagents via `invoke_subagent` for all identifie
 
 Once the complete entity registry is established and the Watchdog Gate is resolved, proceed immediately to deep profiling of all salient characters.
 
-#### Step 6: Salience Screening & Subject-Centric Queue Formation
+#### Step 6: Salience Screening & Queue Formation
 Inspect the complete list of registered entities (`query_chat.py -C <chat_id> --entities`).
-- **Retain ALL Psychologically Salient Figures Belonging to the Subject:**
-  1. **The Interlocutor (Rozmówca w czacie):** Profile the direct Subject-Interlocutor relational dyad (`Interlocutor_Dyad.md`).
-  2. **Subject's Core Family & Relatives:** Parents, siblings (conflicts, disabilities, trauma anchors), and domestic caregivers.
-  3. **Subject's Romantic Sphere:** Ex-partners, current interests, and all prospective arranged suitors / matrimonial candidates.
-  4. **Subject's Key Confidants, Mentors & Clinical Figures:** Therapists, regular mentors, doctors, or primary emotional confidants.
-  5. **Subject's Salient Antagonists:** Direct abusers, persistent bullies, or toxic superiors who activate defenses or acute stress in the Subject.
+- **Separate Interlocutor Dyad from Third Parties:**
+  1. **The Interlocutor (Rozmówca w czacie):** Dispatch the dedicated **`interlocutor-dyad-profiler`** subagent (`Model: "flash"`). It utilizes `--interlocutor-grounding` and `--dyad-episodes` to synthesize the reality-grounded `reports/<chat_id>_entities/Interlocutor_Dyad.md`.
+  2. **Third-Party Salient Figures Belonging to the Subject:**
+     - Core Family & Relatives: Parents, siblings, domestic caregivers.
+     - Romantic Sphere: Ex-partners, current interests, all prospective arranged suitors / matrimonial candidates.
+     - Key Confidants, Mentors & Clinical Figures: Therapists, mentors, doctors, close friends.
+     - Salient Antagonists: Direct abusers, toxic superiors, or bullies.
 - **Strict Exclusion of Exclusive Interlocutor Sphere (Mutual Connections Allowed):**
-  - Do NOT spawn deep profilers for third parties who belong *solely* to the Interlocutor's personal circle (e.g. Interlocutor's parents, Interlocutor's private dates, or external workplace superiors).
-  - **Mutual Connections Qualify:** If a person is connected to **BOTH** the Subject and the Interlocutor (e.g. mutual friends, shared professional colleagues, mutual community peers), they are fully eligible and must be queued for profiling.
-- **Queue Formulation & Parallel Dispatch Readiness:** Formulate the queue of $M$ qualified salient entities. Every qualifying figure receives a dedicated `entity-deep-profiler` subagent (1:1 invariant). Dispatch them all concurrently in parallel.
+  - Do NOT spawn deep profilers for third parties who belong *solely* to the Interlocutor's personal circle.
+  - Mutual connections engaging with both qualify and are queued.
 
-#### Step 7: Formulate Explicit Negative Disambiguation Boundaries
-For each salient entity in the queue, inspect the rest of the cast to identify **potentially confusable figures** and formulate negative boundaries.
+#### Step 7: Pre-Mapping & Collision Reflection
+For each salient third-party entity in the queue:
+- Run pre-mapping to extract verified language patterns and depth-ranked threads:
+  ```bash
+  python3 project/scripts/query_chat.py -C <chat_id> --entity-profile-map "<Canonical_Name>"
+  ```
+- Formulate negative disambiguation boundaries against confusable figures.
 
 #### Step 8: Dynamic Parallel Profiling Dispatch (1 Subagent = 1 Entity)
-Process the salient entity queue in parallel by dispatching concurrent subagents (`entity-deep-profiler`), scaling flexibly to all salient entities identified:
-- **Strict 1:1 Invariant:** Exactly **ONE subagent per salient entity** to ensure exhaustive longitudinal depth.
-- Provide the worker with the entity's canonical name, verified role, known aliases, thread hints, and collision reflection notes. Explicitly format keyword hints for snippet inspection: `--mentions "<alias1>, <alias2>, <alias3>"`.
-- **Autonomous Worker Sharding Awareness:** Note that for prominent entities with $> 8$ associated threads (8–10+ threads), the `entity-deep-profiler` is authorized and instructed to self-scale autonomously by spawning `forensic-thread-investigator` subagents across chronological shards (4–5 threads each) to avoid context degradation.
+Process the salient entity queue in parallel by dispatching concurrent subagents (`entity-deep-profiler`):
+- **Dedicated Subagents:**
+  - For the Interlocutor Dyad: exactly ONE `interlocutor-dyad-profiler`.
+  - For each salient third party: exactly ONE `entity-deep-profiler` (`Model: "flash"`).
+- Provide each worker with canonical name, verified role, known aliases/patterns from `--entity-profile-map`, and pre-mapped thread list.
+- **Autonomous Helper Sharding:** For prominent entities with $> 6$ associated threads, the `entity-deep-profiler` is instructed to self-scale autonomously by spawning specialized **`entity-shard-auditor`** subagents across chronological shards (3–4 threads each), synthesizing their structured `send_message` reports.
 
 #### Step 9: Dossier Consolidation, Serendipity Ingestion & Thread Tracking
-As each `entity-deep-profiler` returns its structured Relational Dossier Markdown:
+As each profiler returns its structured Relational Dossier Markdown:
 - Write modular files into `reports/<chat_id>_entities/<Entity_Name>.md`.
 - Persist serendipitous discoveries into `reports/<chat_id>_entities/00_biographical_bycatch.md`.
 

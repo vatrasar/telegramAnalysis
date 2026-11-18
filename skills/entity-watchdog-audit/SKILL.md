@@ -122,12 +122,13 @@ Once the complete entity registry is established and the Watchdog Gate is resolv
    - **Strict Interlocutor Boundary in Phase B:** Profile the Interlocutor solely for the direct conversational dyad (`Interlocutor_Dyad.md`). Never spawn deep profilers for figures belonging *solely* to the Interlocutor's personal circle (parents, coworkers, local dates). However, **mutual acquaintances** connected to both the Subject and the Interlocutor (e.g. shared friends, mutual colleagues) ARE valid and qualified for profiling.
    - **No Artificial Cap on Subject Figures:** Dispatch all qualifying subject figures concurrently in parallel (1 subagent per entity). Discard only purely transient contacts and interlocutor-sphere figures.
 2. **Negative Boundary Injection:** Provide deep profilers with explicit boundaries.
-3. **Dynamic Parallel Profiling, Volume Ceiling & Snippet-First Protocol:**
-   - Dispatch `entity-deep-profiler` subagents in parallel (scaling directly to all salient entities).
-   - **Autonomous Sharding Rule ($N \le 8$ vs. $N > 8$):**
-     - When an assigned entity has $\le 8$ associated threads, the profiler investigates them directly within its context.
-     - When an entity has **$> 8$ threads (8–10+ threads)** (e.g. primary romantic partners, core family members, or the Interlocutor), the profiler **MUST self-scale autonomously** by spawning worker subagents (`TypeName: "forensic-thread-investigator"`, `Model: "flash"`). Each worker audits a chronological shard of 4–5 threads, allowing the profiler to synthesize the dossier from shard summaries without primary context flooding or attention degradation.
-   - **Snippet-First Reconnaissance Invariant:** Just as in Phase A, profilers must NEVER blindly dump full transcripts (`-t`). They MUST inspect threads via targeted snippets first (`-ts <thread_id> --mentions "<Name>"`), escalating to full thread reads (`-t`) only when substantive interpersonal dialogue or emotional ruptures require complete turn-by-turn verification.
+3. **Dynamic Parallel Profiling, Pre-Mapping & Dual-Module Protocol:**
+   - **Central Dyad:** Dispatch `interlocutor-dyad-profiler` to establish the 6-vector biographical grounding factsheet (`--interlocutor-grounding`) and audit key relational episodes (`--dyad-episodes`), synthesizing `Interlocutor_Dyad.md`.
+   - **Third-Party Salient Figures:** Dispatch `entity-deep-profiler` subagents in parallel.
+     - **System-1 Pre-Mapping:** Before querying, run `query_chat.py -C <chat_id> --entity-profile-map "<Name>"` to retrieve verified language patterns, pre-extracted Module A biographical facts, and depth-ranked threads.
+     - **Dual-Module Dossier Mandate:** Every dossier establishes both **Module A** (Biographical Factsheet: occupation, location, key traits/health markers) and **Module B** (Relational Impact: power balance, conflict axis, subject ego defenses, and self-esteem impact).
+     - **Autonomous Helper Sharding via `entity-shard-auditor` ($N > 6$ threads):**
+       When an entity has $> 6$ threads, the profiler self-scales by dispatching `entity-shard-auditor` subagents across pre-mapped shard packages (3–4 threads each). Profiler waits for `send_message` returns and synthesizes findings into `reports/<chat_id>_entities/<Entity>.md`. Hacking `.jsonl` transcript logs or running `tail` is strictly prohibited.
    - **Noise-Gated Semantic Searches:** Semantic concept queries (`--semantic`) automatically apply a minimum similarity threshold (`--min-score 0.55`) to eliminate irrelevant vector noise.
 4. **Dossier Consolidation:** Persist dossiers into `reports/<chat_id>_entities/<Entity>.md`.
 
@@ -139,6 +140,13 @@ Once the complete entity registry is established and the Watchdog Gate is resolv
 # Display extracted candidate entities from thread triage:
 python3 project/scripts/query_chat.py -C <chat_id> --candidates
 python3 project/scripts/query_chat.py -C <chat_id> --candidates --json
+
+# Interlocutor Biographical Grounding & Dyadic Episode Matrix (System-1):
+python3 project/scripts/query_chat.py -C <chat_id> --interlocutor-grounding
+python3 project/scripts/query_chat.py -C <chat_id> --dyad-episodes
+
+# Third-Party Entity Pre-Mapping & Shard Packaging (System-1):
+python3 project/scripts/query_chat.py -C <chat_id> --entity-profile-map "<Canonical_Name>"
 
 # Query dynamic candidate entity shard for screener subagents:
 python3 project/scripts/query_chat.py -C <chat_id> --candidates --candidates-shard <X/Y> --json

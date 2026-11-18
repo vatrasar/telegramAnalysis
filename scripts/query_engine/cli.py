@@ -13,6 +13,7 @@ from .cli_actions import (
     handle_checklist_actions,
     handle_sharding_actions,
 )
+from .dyad_actions import handle_dyad_and_profile_actions
 from .facts_actions import handle_facts_and_inspection_actions
 from .catalog import get_chats_catalog, resolve_chat, print_chats_catalog
 from .stats_overview import (
@@ -124,6 +125,9 @@ def run_query_cli(argv: Optional[List[str]] = None) -> None:
         return
 
     if handle_sharding_actions(args, batch_config, resolved_chat_id):
+        return
+
+    if handle_dyad_and_profile_actions(args, batch_config, resolved_chat_id):
         return
 
     # Merge CLI flags with batch config

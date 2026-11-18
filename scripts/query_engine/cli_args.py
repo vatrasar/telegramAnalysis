@@ -161,4 +161,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--shard-sphere", type=str, metavar="SPHERE", help="Assess volume and generate thread shards for a life sphere (A-F)")
     parser.add_argument("--batch-size", type=int, default=5, help="Thread batch size per shard for --shard-entity / --shard-sphere (default: 5)")
 
+    # Interlocutor Dyad & Entity Pre-Mapping flags
+    parser.add_argument("--interlocutor-grounding", action="store_true", help="Extract verified 6-vector biographical grounding facts and chronology for the primary chat partner via System-1")
+    parser.add_argument("--dyad-episodes", action="store_true", help="Extract and classify pivotal interaction episodes of the central relational dyad via System-1")
+    parser.add_argument("--entity-profile-map", type=str, metavar="NAME", help="Pre-map threads and extract Module A (Bio) & Module B (Relational) facts for target entity via System-1")
+
     return parser
