@@ -7,8 +7,11 @@ Prevents cognitive overload and attention degradation in System-1 models.
 """
 
 import re
+import json
 import sqlite3
-from typing import Dict, Any, List, Optional
+import urllib.request
+import urllib.error
+from typing import Dict, Any, List, Optional, Tuple
 
 DOMAIN_SPECS = {
     "family": {
@@ -183,11 +186,14 @@ def map_thread_to_domain(
 
 def evaluate_domain_novelty(
     row_dict: Dict[str, Any],
-    packet: Dict[str, Any]
+    packet: Dict[str, Any],
+    all_domain_packets: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """
     Evaluate whether a dialogue thread presents novel facts in the specified domain
     versus corroborating the domain packet's established baseline.
+    When all_domain_packets is provided, echo discounting inspects all domain packets
+    to prevent false positives from facts split across multiple packets.
     """
     summary = str(row_dict.get("summary_short") or "").lower()
     salience = float(row_dict.get("salience_score") or 2.0)
@@ -197,7 +203,10 @@ def evaluate_domain_novelty(
     is_rel = int(row_dict.get("is_relational_conflict") or 0)
     peak = str(row_dict.get("emotional_peak") or "none")
     radar = str(row_dict.get("radar_sources") or "")
-    base_lower = packet["baseline_text"].lower()
+    if all_domain_packets:
+        base_lower = " \n ".join(p.get("baseline_text", "").lower() for p in all_domain_packets)
+    else:
+        base_lower = packet["baseline_text"].lower()
     domain = packet["domain"]
 
     # 1. Echo discounting: check if core events mentioned are already explicitly recorded in this packet
@@ -287,3 +296,59 @@ def evaluate_domain_novelty(
         "corroborating_theme": packet["target_category"],
         "justification": f"Corroborates established baseline in {packet['name']} (score {calculated_score:.1f})"
     }
+
+
+def verify_quote_in_packets(
+    quote: str,
+    other_packets: List[Dict[str, Any]],
+    api_key: str,
+    model: str
+) -> Tuple[bool, float]:
+    """Verify whether a candidate unrecorded quote is already documented in other fact packets."""
+    clean_quote = (quote or "").strip()
+    if len(clean_quote) < 8:
+        return False, 0.0
+
+    total_cost = 0.0
+    for pkt in other_packets:
+        base_text = pkt.get("baseline_text", "")
+        if not base_text:
+            continue
+        state_payload = (
+            f"ESTABLISHED BASELINE FACTS:\n{base_text}\n\n"
+            f"QUOTE TO VERIFY:\n\"{clean_quote}\""
+        )
+        url = "https://openrouter.ai/api/alpha/decisions"
+        headers = {
+            "Authorization": f"Bearer {api_key.strip()}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/vatrasar/telegramAnalysis",
+            "X-Title": "System-1 Cross-Packet Verifier"
+        }
+        payload = {
+            "model": model,
+            "state": state_payload,
+            "questions": {
+                "is_documented": {
+                    "type": "noul",
+                    "instructions": (
+                        "Is the event, biographical milestone, relationship detail, or factual disclosure "
+                        "in QUOTE TO VERIFY already documented, corroborated, or accounted for in ESTABLISHED BASELINE FACTS?"
+                    )
+                }
+            }
+        }
+        req_data = json.dumps(payload).encode("utf-8")
+        try:
+            req = urllib.request.Request(url, data=req_data, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                prob = float(data.get("answers", {}).get("is_documented", {}).get("noul", 0.0))
+                total_cost += float(data.get("usage", {}).get("cost", 0.0))
+                if prob >= 0.5:
+                    return True, total_cost
+        except Exception:
+            pass
+
+    return False, total_cost
+

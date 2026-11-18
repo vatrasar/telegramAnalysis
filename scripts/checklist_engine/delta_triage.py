@@ -22,6 +22,7 @@ from checklist_engine.fact_packets import (
     build_fact_packets,
     map_thread_to_domain,
     evaluate_domain_novelty,
+    verify_quote_in_packets,
 )
 
 ALLOWED_THEMES = [
@@ -90,6 +91,10 @@ def _call_delta_decisions_api(
                     "redundant": "Corroborates established baseline facts without novel turning points",
                     "novel": "Introduces novel, unrecorded facts or psychological turning points"
                 }
+            },
+            "unrecorded_quote": {
+                "type": "locate",
+                "instructions": "Locate the exact verbatim sentence from the dialogue representing the novel, unrecorded fact, crisis, or turning point not present in the baseline."
             }
         }
     }
@@ -105,6 +110,9 @@ def _call_delta_decisions_api(
                 decision_choice = str(answers.get("decision", {}).get("choice", "redundant")).lower()
                 cost = float(data.get("usage", {}).get("cost", 0.0))
 
+                quote_obj = answers.get("unrecorded_quote", {})
+                quote_text = quote_obj.get("span") or quote_obj.get("text") or quote_obj.get("verbatim") or ""
+
                 final_decision = "novel" if (decision_choice == "novel" or is_novel_prob >= 0.5) else "redundant"
                 novelty_score = max(1.0, min(5.0, 1.0 + is_novel_prob * 4.0))
 
@@ -112,7 +120,8 @@ def _call_delta_decisions_api(
                     "decision": final_decision,
                     "novelty_score": round(novelty_score, 1),
                     "corroborating_theme": "novel_investigate" if final_decision == "novel" else "corroborating_routine_baseline",
-                    "justification": f"PPLX Decider (p_novel: {is_novel_prob:.3f}, choice: {decision_choice})"
+                    "justification": f"PPLX Decider (p_novel: {is_novel_prob:.3f}, choice: {decision_choice})",
+                    "unrecorded_quote": str(quote_text).strip()
                 }, cost
         except urllib.error.HTTPError as e:
             err_msg = e.read().decode("utf-8", errors="ignore")
@@ -173,7 +182,7 @@ def _evaluate_heuristic_indicator(
 
     final_res = None
     for pkt in pkts:
-        res = evaluate_domain_novelty(row_dict, pkt)
+        res = evaluate_domain_novelty(row_dict, pkt, all_domain_packets=pkts)
         if res.get("decision") == "redundant":
             return res
         final_res = res
@@ -221,30 +230,25 @@ def auto_triage_delta(
     cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
     has_triage_table = cur.fetchone()[0] > 0
 
-    if has_triage_table:
-        cols_query = """
-        SELECT tac.thread_id, tac.radar_sources, tac.salience_score, tac.primary_category,
-               tac.start_date, tac.message_count, tac.total_words,
-               coalesce(tt.summary_short, 'No summary'), coalesce(tt.is_atypical, 0),
-               coalesce(tt.emotional_peak, 'none'), coalesce(tt.is_relational_conflict, 0),
-               coalesce(tt.is_medical_or_grief_crisis, 0), coalesce(tt.is_acute_vulnerability_or_breakdown, 0),
-               coalesce(tt.is_bizarre_or_boundary_violation, 0), coalesce(t.dialogue_text, '')
-        FROM thread_audit_checklist tac
-        JOIN threads t ON tac.thread_id = t.thread_id
-        LEFT JOIN thread_triage tt ON tac.thread_id = tt.thread_id
-        WHERE tac.chat_id = ? """ + ("" if force else "AND tac.status = 'pending'") + """
-        ORDER BY tac.salience_score DESC;
-        """
-    else:
-        cols_query = """
-        SELECT tac.thread_id, tac.radar_sources, tac.salience_score, tac.primary_category,
-               tac.start_date, tac.message_count, tac.total_words,
-               'No summary', 0, 'none', 0, 0, 0, 0, coalesce(t.dialogue_text, '')
-        FROM thread_audit_checklist tac
-        JOIN threads t ON tac.thread_id = t.thread_id
-        WHERE tac.chat_id = ? """ + ("" if force else "AND tac.status = 'pending'") + """
-        ORDER BY tac.salience_score DESC;
-        """
+    tt_join = "LEFT JOIN thread_triage tt ON tac.thread_id = tt.thread_id" if has_triage_table else ""
+    tt_cols = (
+        "coalesce(tt.summary_short, 'No summary'), coalesce(tt.is_atypical, 0), "
+        "coalesce(tt.emotional_peak, 'none'), coalesce(tt.is_relational_conflict, 0), "
+        "coalesce(tt.is_medical_or_grief_crisis, 0), coalesce(tt.is_acute_vulnerability_or_breakdown, 0), "
+        "coalesce(tt.is_bizarre_or_boundary_violation, 0)"
+    ) if has_triage_table else "'No summary', 0, 'none', 0, 0, 0, 0"
+
+    status_filter = "" if force else "AND tac.status = 'pending'"
+    cols_query = f"""
+    SELECT tac.thread_id, tac.radar_sources, tac.salience_score, tac.primary_category,
+           tac.start_date, tac.message_count, tac.total_words,
+           {tt_cols}, coalesce(t.dialogue_text, '')
+    FROM thread_audit_checklist tac
+    JOIN threads t ON tac.thread_id = t.thread_id
+    {tt_join}
+    WHERE tac.chat_id = ? {status_filter}
+    ORDER BY tac.salience_score DESC;
+    """
 
     cur.execute(cols_query, (chat_id,))
     rows = cur.fetchall()
@@ -293,17 +297,41 @@ def auto_triage_delta(
                 return tid, parsed, cost
 
             total_item_cost = 0.0
-            final_parsed = None
+            packet_results = []
             for pkt in pkts:
                 parsed, cost = _call_delta_decisions_api(
                     dtext, pkt["baseline_text"], api_key, model=chosen_model, domain_instructions=pkt.get("instructions")
                 )
                 total_item_cost += cost
+                packet_results.append((pkt, parsed))
+                # Single-packet complete resolution: thread fully corroborated by this packet
                 if parsed.get("decision") == "redundant":
-                    final_parsed = parsed
-                    break
-                final_parsed = parsed
-            return tid, final_parsed or parsed, total_item_cost
+                    return tid, parsed, total_item_cost
+
+            # Multi-packet cross-corroboration audit when all individual packets flag novelty
+            if len(pkts) > 1 and packet_results:
+                all_accounted = True
+                for pkt, parsed in packet_results:
+                    quote = (parsed.get("unrecorded_quote") or "").strip()
+                    if not quote:
+                        continue
+                    other_pkts = [p for p in pkts if p["packet_id"] != pkt["packet_id"]]
+                    is_covered, v_cost = verify_quote_in_packets(quote, other_pkts, api_key, chosen_model)
+                    total_item_cost += v_cost
+                    if not is_covered:
+                        all_accounted = False
+                        break
+
+                if all_accounted:
+                    return tid, {
+                        "decision": "redundant",
+                        "novelty_score": 1.5,
+                        "corroborating_theme": pkts[0].get("target_category", "corroborating_routine_baseline"),
+                        "justification": f"Cross-packet corroboration: facts accounted across {len(pkts)} packets ({', '.join(p['packet_id'] for p in pkts)})"
+                    }, total_item_cost
+
+            final_parsed = max((r for _, r in packet_results), key=lambda x: x.get("novelty_score", 1.0))
+            return tid, final_parsed, total_item_cost
 
         with ThreadPoolExecutor(max_workers=max(1, concurrency)) as executor:
             futures = [executor.submit(_worker, it) for it in threads_to_eval]
