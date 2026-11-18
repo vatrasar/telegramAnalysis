@@ -131,9 +131,10 @@ Dispatch parallel investigator subagents via `invoke_subagent` for all identifie
 - `Model`: `"flash"`
 - `Role`: `"Entity Investigator - Cluster <Cluster_Name>"`
 - `Prompt`: Provide the target character cluster (2–3 candidates), associated candidate names/roles, relevant thread IDs, thread summaries, and known entities $S$.
+  - **Strict Assigned-Threads Boundary & Ban on Global/Semantic Probing:** Instruct the worker that its operational universe is **strictly limited to the assigned thread IDs**. Explicitly forbid global `--semantic` or unconstrained `-s` queries across unrelated threads.
   - Instruct the worker to use the **rapid snippet reconnaissance** protocol:
     `python3 project/scripts/query_chat.py -C <chat_id> -ts <tid1> -ts <tid2> ... --mentions "<alias1>, <alias2>"` (supports comma-separated keywords or repeated `--mentions`).
-  - Emphasize the **Stop-When-Identified** rule: once identity, role, and quote anchors are established and no contradictions exist across snippets, do NOT load full message transcripts.
+  - Emphasize the **Stop-When-Identified & Rapid Closure** rule: once identity, role, and quote anchors are established and no contradictions exist across snippets, do NOT load full message transcripts. Workers should complete within 2–3 turns.
   - Instruct workers to **stage all candidate findings into SQLite** via:
     `python3 project/scripts/query_chat.py -C <chat_id> --stage-entity "<Name>" --role "<Role>" --desc "<Context & Anchors>" --source-thread <tid>`
     *(or `--stage-entities-batch '<json_array>' --source-thread <tid>`)* so no proposal is lost in chat buffers.

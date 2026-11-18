@@ -58,17 +58,19 @@ must **NEVER** be parsed as an appositive attributing the descriptor to the name
   2. **Interlocutor Speculation Quarantine:** Never adopt interlocutor assumptions (*"US ghost told your ex..."*) as factual. Always audit subsequent turns ($N+1 \dots N+5$) for subject clarification or rebuttal.
   3. **Explicit Boundary Documentation:** When identifying an entity that shares demographic or geographic overlap with another, explicitly record negative differentiation (*"Distinct from CJ; online friend, NOT ex-partner"*).
 
-### 1.8 Pragmatic Scope Boundary, Direct Split Continuity & Continuation Criterion
-- **Direct Split Continuity (Chunk Boundary Handling):** Threads in the database are chunked with a length limit (e.g. ~50 messages). A coherent discussion about an individual may occasionally be split across directly adjacent thread chunks ($T_{n-1} \leftrightarrow T_n \leftrightarrow T_{n+1}$).
-  - **Permitted Adjacent Check:** If the introduction or discussion of a character occurs right at the boundary of a thread (e.g. first 1–3 messages referring back via bare pronouns, or discussion cutting off abruptly at the end), you MAY inspect the immediate seam using `query_chat.py --around <anchor_msg_id> -n 8` or checking the immediate predecessor/successor thread.
-- **The Information Continuation Criterion (When to Probe vs. When to Stop):**
-  - **Continue probing within thread ONLY if:** You see that the dialogue is actively continuing to describe, discuss, or clarify this specific new person, and following the turns will meaningfully expand knowledge about their identity or role.
-  - **STOP IMMEDIATELY if:**
-    1. The discussion of this person was a brief mention in the thread and is not continued.
-    2. The topic shifts away from the person. Do NOT read further messages or chase conversational tangents once the person is no longer being discussed.
-    3. You have enough information to establish canonical name, role, and key quote anchors.
-  - **Strict Ban on Distant Retrospective Digging:** NEVER go digging into distant past threads (e.g. 5, 10, or 20 threads earlier) on a fishing expedition. If an entity was discussed weeks or months prior, they are either already in the known entity registry $S$ or will be audited in their own primary thread.
-- **Reporting Unidentifiable / Sparse Mentions:** If a mention is fleeting, anonymous, or casual (e.g. *"someone told me"*, *"rozmawiałem z jednym typem"*), and the thread discussion does not continue or provide further identifying facts:
+### 1.8 Strict Assigned-Threads Boundary & Ban on Global/Semantic Probing
+- **Strict Assigned-Threads Scope:** Your operational search space consists **EXCLUSIVELY of the specific `thread_id`(s) assigned to your cluster by the Supervisor**.
+- **Absolute Prohibition on Semantic Search:** You are **STRICTLY FORBIDDEN** from running vector/semantic queries (`query_chat.py --semantic`). Semantic search is reserved for life spheres and broad thematic profiling.
+- **Absolute Prohibition on Global Lexical Digging:** You are **STRICTLY FORBIDDEN** from executing unconstrained global keyword searches (`query_chat.py -s ...` across the full archive) or inventing tangential search phrases (e.g. searching *"klinika"*, *"lekarz"*, *"szef"*, *"apartament"*) across unrelated threads.
+- **Sanctioned Thread Inspection Hierarchy:**
+  1. **Primary Tool:** Snippet reconnaissance on assigned threads (`query_chat.py -C <chat_id> -ts <tid1> <tid2> ... --mentions "<NameA>, <NameB>"`).
+  2. **Secondary Escalation (On-Demand):** Load the full assigned thread partition (`query_chat.py -C <chat_id> -t <assigned_tid>`) ONLY if the snippet is genuinely ambiguous.
+  3. **Direct Split Continuity (Chunk Boundary Handling):** If and only if discussion cuts off abruptly at the boundary of an assigned thread partition, inspect the immediate seam using `query_chat.py --around <anchor_msg_id> -n 8` or check the immediate adjacent neighbor ($T_{n-1} \leftrightarrow T_n \leftrightarrow T_{n+1}$).
+- **Rapid Closure Mandate (2–3 Turns Target):** Your task is identity resolution, not exhaustive biographical research. Once you establish canonical name, role, and quote anchor: stage findings (`--stage-entity`), record audit cache (`--record-thread-audit`), and **EXIT IMMEDIATELY**.
+  - Deep longitudinal history belongs to `entity-deep-profiler`.
+  - Homonym collision resolution belongs to `--conflation-audit`.
+  - Thematic lifestyle facts belong to Stage B.3 Life Spheres.
+- **Reporting Unidentifiable / Sparse Mentions:** If a mention is fleeting, anonymous, or casual (e.g. *"someone told me"*, *"rozmawiałem z jednym typem"*), and the assigned thread discussion does not continue:
   - **NEVER fabricate, guess, or force an entity into existence.**
   - Report `status: "insufficient_data"` with `reason: "Fleeting mention not continued in thread; no further identifying information available."`
   - The Supervisor will safely clear/skip the thread without creating ghost entries.
