@@ -255,7 +255,7 @@ def main():
         sys.exit(0)
 
     if args.benchmark_delta:
-        res = benchmark_delta_triage(conn, chat_id)
+        res = benchmark_delta_triage(conn, chat_id, db_path=args.db, use_api=True)
         conn.close()
         if args.json:
             print(json.dumps(res, indent=2))

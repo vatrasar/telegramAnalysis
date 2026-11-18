@@ -35,91 +35,86 @@ ALLOWED_THEMES = [
     "novel_investigate"
 ]
 
-SYSTEM_DELTA_TRIAGE_PROMPT = """You are an ultra-fast System-1 thread delta triage classifier.
-Evaluate dialogue thread summaries against established psychological baseline to classify each thread:
-- 'redundant': Corroborates established baseline dynamics (routine family patterns, repetitive dating banter, known academic stress, normal greetings).
-- 'novel': Unmapped life events, acute crises, severe emotional breakdowns, contradictory behaviors, new diagnostic indicators, or unrecognized key figures.
 
-Respond strictly with JSON:
-{
-  "decision": "redundant" | "novel",
-  "novelty_score": number (1.0 to 5.0, where >= 3.0 indicates novel investigative priority),
-  "corroborating_theme": "corroborating_routine_baseline" | "corroborating_family_conflict" | "corroborating_courtship_filtering" | "corroborating_academic_anxiety" | "corroborating_health_somatic" | "corroborating_dyadic_rapport" | "corroborating_faith_and_values" | "novel_investigate",
-  "justification": "1-sentence concise psychological takeaway justifying the classification"
-}"""
-
-
-def _get_baseline_summary(conn: sqlite3.Connection, chat_id: str, max_facts: int = 15) -> str:
-    """Fetch compact baseline summary from discovered_facts and life_spheres_checklist."""
-    cur = conn.cursor()
-    facts: List[str] = []
-
-    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='discovered_facts';")
-    if cur.fetchone()[0] > 0:
-        cur.execute("SELECT category, fact_summary FROM discovered_facts WHERE chat_id = ? ORDER BY fact_id ASC LIMIT ?;", (chat_id, max_facts))
-        for cat, summary in cur.fetchall():
-            facts.append(f"- [{cat}] {summary}")
-
-    if len(facts) < 5:
-        cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='life_spheres_checklist';")
-        if cur.fetchone()[0] > 0:
-            cur.execute("SELECT sphere_id, cluster_name, findings FROM life_spheres_checklist WHERE chat_id = ? AND status = 'completed' AND findings IS NOT NULL LIMIT 8;", (chat_id,))
-            for sid, cluster, findings in cur.fetchall():
-                clean_find = findings.strip().replace("\n", " ")[:120]
-                facts.append(f"- [{cluster} / {sid}] {clean_find}")
-
-    if not facts:
-        return "Baseline established: standard longitudinal dyadic conversation with documented familial and relational boundaries."
-
-    return "\n".join(facts)
-
-
-def _call_delta_system1_api(
-    thread_payload: str,
+def _call_delta_decisions_api(
+    full_dialogue: str,
     baseline_text: str,
     api_key: str,
-    model: str,
+    model: str = "perplexity/pplx-decider-v1.2",
     domain_instructions: Optional[str] = None,
     max_retries: int = 3
 ) -> Tuple[Dict[str, Any], float]:
-    """Call OpenRouter API for System-1 thread delta evaluation."""
-    url = "https://openrouter.ai/api/v1/chat/completions"
+    """Call OpenRouter Decisions API (POST /api/alpha/decisions) for native System-1 Decider triage."""
+    url = "https://openrouter.ai/api/alpha/decisions"
     headers = {
         "Authorization": f"Bearer {api_key.strip()}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://github.com/vatrasar/telegramAnalysis",
-        "X-Title": "System-1 Thread Delta Triage"
+        "X-Title": "System-1 Thread Delta Decider"
     }
 
-    system_prompt = SYSTEM_DELTA_TRIAGE_PROMPT
-    if domain_instructions:
-        system_prompt += f"\n\nDOMAIN FOCUS & INSTRUCTIONS:\n{domain_instructions}"
+    resolved_model = "perplexity/pplx-decider-v1.2"
+    trimmed_dialogue = (full_dialogue or "").strip()[:25000]
+    state_payload = (
+        f"ESTABLISHED DOMAIN BASELINE FACTS:\n{baseline_text}\n\n"
+        f"CANDIDATE DIALOGUE TRANSCRIPT:\n{trimmed_dialogue}"
+    )
 
-    user_content = f"ESTABLISHED DOMAIN BASELINE:\n{baseline_text}\n\nPENDING THREAD CANDIDATE:\n{thread_payload}"
-    body = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_content}
-        ],
-        "response_format": {"type": "json_object"},
-        "temperature": 0.0
+    instructions = domain_instructions or (
+        "Evaluate strictly whether this dialogue introduces ANY NOVEL, UNRECORDED "
+        "psychological facts, life milestones, crises, or relational disclosures NOT present in the baseline."
+    )
+
+    payload = {
+        "model": resolved_model,
+        "state": state_payload,
+        "questions": {
+            "is_novel": {
+                "type": "noul",
+                "instructions": instructions
+            },
+            "salience_score": {
+                "type": "score",
+                "instructions": "Rate psychological diagnostic depth and novelty depth.",
+                "criteria": [
+                    "Redundant routine baseline",
+                    "Minor corroboration",
+                    "Moderate nuance",
+                    "High novel milestone",
+                    "Critical unmapped crisis"
+                ]
+            },
+            "decision": {
+                "type": "choice",
+                "instructions": "Final triage classification",
+                "criteria": {
+                    "redundant": "Corroborates established baseline facts without novel turning points",
+                    "novel": "Introduces novel, unrecorded facts or psychological turning points"
+                }
+            }
+        }
     }
-    req_data = json.dumps(body).encode("utf-8")
+    req_data = json.dumps(payload).encode("utf-8")
 
     for attempt in range(max_retries):
         try:
             req = urllib.request.Request(url, data=req_data, headers=headers, method="POST")
             with urllib.request.urlopen(req, timeout=20) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
-                content = data["choices"][0]["message"]["content"].strip()
-                if content.startswith("```"):
-                    content = content.split("```")[1]
-                    if content.startswith("json"):
-                        content = content[4:].strip()
-                parsed = json.loads(content)
+                answers = data.get("answers", {})
+                is_novel_prob = float(answers.get("is_novel", {}).get("noul", 0.0))
+                decision_choice = str(answers.get("decision", {}).get("choice", "redundant")).lower()
                 cost = float(data.get("usage", {}).get("cost", 0.0))
-                return parsed, cost
+
+                final_decision = "novel" if (decision_choice == "novel" or is_novel_prob >= 0.5) else "redundant"
+                novelty_score = max(1.0, min(5.0, 1.0 + is_novel_prob * 4.0))
+
+                return {
+                    "decision": final_decision,
+                    "novelty_score": round(novelty_score, 1),
+                    "corroborating_theme": "novel_investigate" if final_decision == "novel" else "corroborating_routine_baseline",
+                    "justification": f"PPLX Decider (p_novel: {is_novel_prob:.3f}, choice: {decision_choice})"
+                }, cost
         except Exception:
             if attempt < max_retries - 1:
                 time.sleep(1.0 + attempt * 0.5)
@@ -130,7 +125,7 @@ def _call_delta_system1_api(
         "decision": "redundant",
         "novelty_score": 1.0,
         "corroborating_theme": "corroborating_routine_baseline",
-        "justification": "Evaluation fallback"
+        "justification": "Decider fallback"
     }, 0.0
 
 
@@ -219,11 +214,7 @@ def auto_triage_delta(
         config, api_key = {}, ""
 
     has_live_api = bool(api_key and api_key != "YOUR_OPENROUTER_API_KEY_HERE" and not use_indicators_only)
-    chosen_model = model or config.get("triage_model") or "google/gemini-2.5-flash"
-    if "pplx-decider" in chosen_model:
-        chosen_model = "google/gemini-2.5-flash"
-
-    baseline_summary = _get_baseline_summary(conn, chat_id)
+    chosen_model = "perplexity/pplx-decider-v1.2"
 
     cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
     has_triage_table = cur.fetchone()[0] > 0
@@ -235,7 +226,7 @@ def auto_triage_delta(
                coalesce(tt.summary_short, 'No summary'), coalesce(tt.is_atypical, 0),
                coalesce(tt.emotional_peak, 'none'), coalesce(tt.is_relational_conflict, 0),
                coalesce(tt.is_medical_or_grief_crisis, 0), coalesce(tt.is_acute_vulnerability_or_breakdown, 0),
-               coalesce(tt.is_bizarre_or_boundary_violation, 0), substr(t.dialogue_text, 1, 300)
+               coalesce(tt.is_bizarre_or_boundary_violation, 0), coalesce(t.dialogue_text, '')
         FROM thread_audit_checklist tac
         JOIN threads t ON tac.thread_id = t.thread_id
         LEFT JOIN thread_triage tt ON tac.thread_id = tt.thread_id
@@ -246,7 +237,7 @@ def auto_triage_delta(
         cols_query = """
         SELECT tac.thread_id, tac.radar_sources, tac.salience_score, tac.primary_category,
                tac.start_date, tac.message_count, tac.total_words,
-               'No summary', 0, 'none', 0, 0, 0, 0, substr(t.dialogue_text, 1, 300)
+               'No summary', 0, 'none', 0, 0, 0, 0, coalesce(t.dialogue_text, '')
         FROM thread_audit_checklist tac
         JOIN threads t ON tac.thread_id = t.thread_id
         WHERE tac.chat_id = ? """ + ("" if force else "AND tac.status = 'pending'") + """
@@ -269,17 +260,18 @@ def auto_triage_delta(
 
     threads_to_eval = []
     for r in rows:
-        tid, radar, sal, cat, dt, msgs, words, summary, atypical, peak, rel, crisis, bdown, bizarre, snippet = r
+        tid, radar, sal, cat, dt, msgs, words, summary, atypical, peak, rel, crisis, bdown, bizarre, dtext = r
         payload = (
             f"THREAD_ID: {tid}\nCATEGORY: {cat}\nRADAR: {radar}\n"
             f"DATE: {dt} | MESSAGES: {msgs} | WORDS: {words}\n"
-            f"SUMMARY: {summary}\nSNIPPET: {snippet.strip().replace(chr(10), ' ') if snippet else ''}"
+            f"SUMMARY: {summary}\nDIALOGUE: {dtext[:500].strip().replace(chr(10), ' ')}"
         )
         threads_to_eval.append({
             "thread_id": tid, "radar_sources": radar, "salience_score": sal,
             "primary_category": cat, "summary_short": summary, "is_atypical": atypical,
             "emotional_peak": peak, "is_relational_conflict": rel, "is_medical_or_grief_crisis": crisis,
             "is_acute_vulnerability_or_breakdown": bdown, "is_bizarre_or_boundary_violation": bizarre,
+            "dialogue_text": dtext,
             "payload": payload
         })
 
@@ -291,17 +283,18 @@ def auto_triage_delta(
     if has_live_api:
         def _worker(item: Dict[str, Any]) -> Tuple[str, Dict[str, Any], float]:
             tid = item["thread_id"]
+            dtext = item.get("dialogue_text", "")
             dom = map_thread_to_domain(item["primary_category"], item["summary_short"], item["radar_sources"])
             pkts = domain_packets.get(dom) or (packets if packets else [])
             if not pkts:
-                parsed, cost = _call_delta_system1_api(item["payload"], "", api_key, chosen_model)
+                parsed, cost = _call_delta_decisions_api(dtext, "", api_key, model=chosen_model)
                 return tid, parsed, cost
 
             total_item_cost = 0.0
             final_parsed = None
             for pkt in pkts:
-                parsed, cost = _call_delta_system1_api(
-                    item["payload"], pkt["baseline_text"], api_key, chosen_model, domain_instructions=pkt.get("instructions")
+                parsed, cost = _call_delta_decisions_api(
+                    dtext, pkt["baseline_text"], api_key, model=chosen_model, domain_instructions=pkt.get("instructions")
                 )
                 total_item_cost += cost
                 if parsed.get("decision") == "redundant":
@@ -361,13 +354,22 @@ def auto_triage_delta(
         "elapsed_seconds": round(elapsed, 2),
         "total_cost_usd": round(total_cost, 5),
         "model_used": chosen_model if has_live_api else "system1_indicators_fast",
+        "results_map": results,
         "dry_run": dry_run
     }
 
 
-def benchmark_delta_triage(conn: sqlite3.Connection, chat_id: str) -> Dict[str, Any]:
+def benchmark_delta_triage(
+    conn: sqlite3.Connection,
+    chat_id: str,
+    db_path: Optional[str] = None,
+    use_api: bool = True
+) -> Dict[str, Any]:
     """Compare System 1 classification against historical baseline stored in chat.db."""
-    res = auto_triage_delta(conn, chat_id, force=True, dry_run=True, use_indicators_only=True)
+    res = auto_triage_delta(
+        conn, chat_id, db_path=db_path, force=True, dry_run=True,
+        use_indicators_only=(not use_api)
+    )
 
     cur = conn.cursor()
     cur.execute("""
@@ -378,42 +380,14 @@ def benchmark_delta_triage(conn: sqlite3.Connection, chat_id: str) -> Dict[str, 
     """, (chat_id,))
     ground_truth = {r[0]: r[1] for r in cur.fetchall()}
 
-    packets = build_fact_packets(conn, chat_id, max_per_chunk=50)
-    domain_packets: Dict[str, List[Dict[str, Any]]] = {}
-    for p in packets:
-        domain_packets.setdefault(p["domain"], []).append(p)
-
     tp = fp = tn = fn = 0
-    cur.execute("SELECT thread_id FROM thread_audit_checklist WHERE chat_id = ?;", (chat_id,))
-    all_tids = [r[0] for r in cur.fetchall()]
+    results_map = res.get("results_map", {})
 
-    for it in all_tids:
-        orig = ground_truth.get(it)
-        if not orig:
+    for tid, orig in ground_truth.items():
+        pred_dict = results_map.get(tid)
+        if not pred_dict:
             continue
-        row_cur = conn.cursor()
-        row_cur.execute("""
-        SELECT tac.thread_id, tac.radar_sources, tac.salience_score, tac.primary_category,
-               tt.is_atypical, tt.emotional_peak, tt.is_relational_conflict,
-               tt.is_medical_or_grief_crisis, tt.is_acute_vulnerability_or_breakdown,
-               tt.is_bizarre_or_boundary_violation, coalesce(tt.summary_short, '')
-        FROM thread_audit_checklist tac
-        LEFT JOIN thread_triage tt ON tac.thread_id = tt.thread_id
-        WHERE tac.chat_id = ? AND tac.thread_id = ?;
-        """, (chat_id, it))
-        r = row_cur.fetchone()
-        if not r:
-            continue
-
-        item_dict = {
-            "thread_id": r[0], "radar_sources": r[1], "salience_score": r[2],
-            "primary_category": r[3], "is_atypical": r[4], "emotional_peak": r[5],
-            "is_relational_conflict": r[6], "is_medical_or_grief_crisis": r[7],
-            "is_acute_vulnerability_or_breakdown": r[8], "is_bizarre_or_boundary_violation": r[9],
-            "summary_short": r[10]
-        }
-        pred_dict = _evaluate_heuristic_indicator(item_dict, domain_packets)
-        pred = pred_dict["decision"]
+        pred = pred_dict.get("decision", "redundant")
 
         if pred == "novel" and orig == "novel":
             tp += 1
@@ -430,6 +404,8 @@ def benchmark_delta_triage(conn: sqlite3.Connection, chat_id: str) -> Dict[str, 
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
+    packets = build_fact_packets(conn, chat_id, max_per_chunk=50)
+
     return {
         "total_benchmarked": total,
         "accuracy_pct": round(accuracy * 100, 1),
@@ -438,8 +414,7 @@ def benchmark_delta_triage(conn: sqlite3.Connection, chat_id: str) -> Dict[str, 
         "f1_score": round(f1, 3),
         "confusion_matrix": {"TP_novel": tp, "FP_novel": fp, "TN_redundant": tn, "FN_redundant": fn},
         "packets_summary": {
-            "total_packets": len(packets),
-            "domains": {dom: len(pkts) for dom, pkts in domain_packets.items()}
+            "total_packets": len(packets)
         },
         "token_comparison": {
             "original_subagents_tokens": 3762578,
@@ -452,5 +427,7 @@ def benchmark_delta_triage(conn: sqlite3.Connection, chat_id: str) -> Dict[str, 
             "original_wall_clock": "18m 53s (1133s)",
             "system1_wall_clock": f"{res['elapsed_seconds']}s",
             "speedup_factor": f"{round(1133.0 / max(0.1, res['elapsed_seconds']), 1)}x"
-        }
+        },
+        "cost_usd": res.get("total_cost_usd", 0.0),
+        "model_used": res.get("model_used")
     }
