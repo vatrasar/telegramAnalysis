@@ -40,7 +40,7 @@ def _call_delta_decisions_api(
     full_dialogue: str,
     baseline_text: str,
     api_key: str,
-    model: str = "perplexity/pplx-decider-v1.2",
+    model: str = "~perplexity/pplx-decider-latest",
     domain_instructions: Optional[str] = None,
     max_retries: int = 3
 ) -> Tuple[Dict[str, Any], float]:
@@ -53,7 +53,6 @@ def _call_delta_decisions_api(
         "X-Title": "System-1 Thread Delta Decider"
     }
 
-    resolved_model = "perplexity/pplx-decider-v1.2"
     trimmed_dialogue = (full_dialogue or "").strip()[:25000]
     state_payload = (
         f"ESTABLISHED DOMAIN BASELINE FACTS:\n{baseline_text}\n\n"
@@ -66,7 +65,7 @@ def _call_delta_decisions_api(
     )
 
     payload = {
-        "model": resolved_model,
+        "model": model,
         "state": state_payload,
         "questions": {
             "is_novel": {
@@ -214,7 +213,7 @@ def auto_triage_delta(
         config, api_key = {}, ""
 
     has_live_api = bool(api_key and api_key != "YOUR_OPENROUTER_API_KEY_HERE" and not use_indicators_only)
-    chosen_model = "perplexity/pplx-decider-v1.2"
+    chosen_model = model or config.get("triage_model") or config.get("model") or "~perplexity/pplx-decider-latest"
 
     cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
     has_triage_table = cur.fetchone()[0] > 0
