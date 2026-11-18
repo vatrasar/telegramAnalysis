@@ -142,7 +142,13 @@ def extract_subagent_conversations(
 ) -> List[Dict[str, Any]]:
     """Extract all invoke_subagent tool calls and resolve their returned conversationId."""
     invocations = []
-    uuid_regex = re.compile(r'"conversationId":\s*"([a-f0-9\-]{36})"')
+    uuid_patterns = [
+        re.compile(r'["\']conversationId["\']\s*:\s*["\']([a-f0-9\-]{36})["\']', re.IGNORECASE),
+        re.compile(r'conversationId["\':\s=]+([a-f0-9\-]{36})', re.IGNORECASE),
+        re.compile(r'["\']subagentId["\']\s*:\s*["\']([a-f0-9\-]{36})["\']', re.IGNORECASE),
+        re.compile(r'["\']recipient["\']\s*:\s*["\']([a-f0-9\-]{36})["\']', re.IGNORECASE),
+        re.compile(r'\b([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\b', re.IGNORECASE)
+    ]
 
     for i, step in enumerate(steps):
         for tc in step.get("tool_calls", []):
@@ -168,9 +174,12 @@ def extract_subagent_conversations(
             sub_id = None
             for nxt in steps[i + 1:min(i + 8, len(steps))]:
                 content = str(nxt.get("content", ""))
-                m = uuid_regex.search(content)
-                if m:
-                    sub_id = m.group(1)
+                for pat in uuid_patterns:
+                    m = pat.search(content)
+                    if m:
+                        sub_id = m.group(1)
+                        break
+                if sub_id:
                     break
 
             invocations.append({

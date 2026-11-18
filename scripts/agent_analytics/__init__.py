@@ -12,6 +12,7 @@ from .transcript_parser import (
 from .token_profiler import (
     compute_node_metrics,
     aggregate_tree_profile,
+    compute_velocity_profile,
     calculate_cost,
     calculate_duration_seconds,
     format_duration
@@ -21,6 +22,7 @@ from .formatter import (
     render_ascii_tree,
     render_summary_card,
     render_timeline,
+    render_velocity_timeline,
     generate_markdown_report,
     format_tokens
 )

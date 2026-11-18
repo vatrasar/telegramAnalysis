@@ -19,6 +19,7 @@ from agent_analytics import (
     render_ascii_tree,
     render_summary_card,
     render_timeline,
+    render_velocity_timeline,
     generate_markdown_report,
     run_comparative_benchmark,
     render_benchmark_table,
@@ -53,6 +54,7 @@ Examples:
     parser.add_argument("--search-role", type=str, help="Search past conversations by subagent role / type")
     parser.add_argument("--tree", "-t", action="store_true", help="Display full agent/subagent hierarchy tree")
     parser.add_argument("--threads", "--redundancy", action="store_true", help="Display thread re-read & cross-agent redundancy audit")
+    parser.add_argument("--velocity", "-v", action="store_true", help="Display minute-by-minute token velocity & concurrency timeline")
     parser.add_argument("--timeline", action="store_true", help="Display turn-by-turn timeline table")
     parser.add_argument("--limit-turns", type=int, default=30, help="Number of turns to show in timeline (default: 30)")
     parser.add_argument("--md", action="store_true", help="Output in Markdown format")
@@ -169,6 +171,9 @@ def main():
         print("\n🌳 AGENT & SUBAGENT HIERARCHY TREE:")
         print(render_ascii_tree(tree))
         print("=" * 84 + "\n")
+
+    if args.velocity:
+        print("\n" + render_velocity_timeline(tree, limit=args.limit_turns))
 
     if args.timeline:
         print(render_timeline(tree, limit=args.limit_turns))

@@ -206,5 +206,113 @@ def aggregate_tree_profile(
         "subagents_by_role": subagents_by_role
     }
 
+    # Velocity and surge detection
+    velocity = compute_velocity_profile(tree)
+    aggregated["velocity"] = velocity
+
     tree["aggregate_metrics"] = aggregated
     return aggregated
+
+
+def compute_velocity_profile(
+    tree: Dict[str, Any],
+    surge_threshold: int = 2_000_000
+) -> Dict[str, Any]:
+    """Calculate minute-by-minute token velocity and detect concurrency/cache surges."""
+    all_steps: List[Tuple[str, Dict[str, Any]]] = []
+
+    def _collect_steps(node: Dict[str, Any]):
+        cid = node.get("conversation_id", "root")[:8]
+        for s in node.get("steps", []):
+            all_steps.append((cid, s))
+        for ch in node.get("children", []):
+            _collect_steps(ch)
+
+    _collect_steps(tree)
+
+    if not all_steps:
+        return {
+            "peak_minute": None,
+            "peak_tokens_per_min": 0,
+            "peak_active_agents": 0,
+            "avg_tokens_per_min": 0,
+            "surge_detected": False,
+            "surge_factor": 1.0,
+            "minute_buckets": []
+        }
+
+    # Group into minute buckets
+    buckets: Dict[str, Dict[str, Any]] = {}
+    for cid, s in all_steps:
+        created = s.get("created_at")
+        if not created or len(created) < 16:
+            continue
+        min_key = created[:16].replace("T", " ")
+        if min_key not in buckets:
+            buckets[min_key] = {
+                "minute": min_key,
+                "agents": set(),
+                "input_tokens": 0,
+                "cache_read_tokens": 0,
+                "output_tokens": 0,
+                "total_processed": 0,
+                "billable_tokens": 0
+            }
+        b = buckets[min_key]
+        b["agents"].add(cid)
+        inp = s.get("input_tokens", 0) or 0
+        cache = s.get("cache_read_tokens", 0) or 0
+        out = s.get("output_tokens", 0) or 0
+        b["input_tokens"] += inp
+        b["cache_read_tokens"] += cache
+        b["output_tokens"] += out
+        b["total_processed"] += (inp + cache + out)
+        b["billable_tokens"] += (inp + out)
+
+    sorted_minutes = sorted(buckets.keys())
+    timeline: List[Dict[str, Any]] = []
+    for m in sorted_minutes:
+        b = buckets[m]
+        timeline.append({
+            "minute": m,
+            "active_agents": len(b["agents"]),
+            "input_tokens": b["input_tokens"],
+            "cache_read_tokens": b["cache_read_tokens"],
+            "output_tokens": b["output_tokens"],
+            "total_processed": b["total_processed"],
+            "billable_tokens": b["billable_tokens"]
+        })
+
+    if not timeline:
+        return {
+            "peak_minute": None,
+            "peak_tokens_per_min": 0,
+            "peak_active_agents": 0,
+            "avg_tokens_per_min": 0,
+            "surge_detected": False,
+            "surge_factor": 1.0,
+            "minute_buckets": []
+        }
+
+    peak_item = max(timeline, key=lambda x: x["total_processed"])
+    total_proc_all = sum(x["total_processed"] for x in timeline)
+    avg_rate = total_proc_all / max(1, len(timeline))
+
+    # Baseline: average of early non-zero minutes
+    baseline_candidates = [x["total_processed"] for x in timeline[:3] if x["total_processed"] > 0]
+    baseline = (sum(baseline_candidates) / len(baseline_candidates)) if baseline_candidates else avg_rate
+    baseline = max(10_000, baseline)
+
+    peak_rate = peak_item["total_processed"]
+    surge_factor = peak_rate / baseline
+    is_surge = peak_rate >= surge_threshold or (surge_factor >= 4.0 and peak_rate >= 500_000)
+
+    return {
+        "peak_minute": peak_item["minute"],
+        "peak_tokens_per_min": peak_rate,
+        "peak_active_agents": peak_item["active_agents"],
+        "avg_tokens_per_min": int(avg_rate),
+        "surge_detected": is_surge,
+        "surge_factor": round(surge_factor, 1),
+        "minute_buckets": timeline
+    }

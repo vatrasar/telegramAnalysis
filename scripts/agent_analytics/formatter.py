@@ -74,6 +74,18 @@ def render_summary_card(tree: Dict[str, Any]) -> str:
         "-" * 84,
     ]
 
+    # Velocity and surge metrics
+    vel = agg.get("velocity", {})
+    if vel and vel.get("peak_minute"):
+        lines.append("CONCURRENCY & VELOCITY METRICS:")
+        lines.append(f"  • Avg Token Velocity:    {format_tokens(vel.get('avg_tokens_per_min', 0)):>12}/min (across active minutes)")
+        lines.append(f"  • Peak Velocity Rate:    {format_tokens(vel.get('peak_tokens_per_min', 0)):>12}/min (at {vel.get('peak_minute')} | {vel.get('peak_active_agents')} active agents)")
+        if vel.get("surge_detected"):
+            lines.append(f"  • 🔥 SURGE MULTIPLIER:   {vel.get('surge_factor', 1.0):>11.1f}× baseline  [⚠️ HIGH TOKEN SURGE DETECTED]")
+        else:
+            lines.append(f"  • Surge Multiplier:      {vel.get('surge_factor', 1.0):>11.1f}× baseline  (Normal)")
+        lines.append("-" * 84)
+
     # Tool calls table
     tools = agg.get("all_tool_counts", {})
     if tools:
@@ -86,13 +98,18 @@ def render_summary_card(tree: Dict[str, Any]) -> str:
     sub_roles = agg.get("subagents_by_role", {})
     if sub_roles:
         lines.append("SUBAGENTS BY ROLE BREAKDOWN:")
-        lines.append(f"  {'Role / Type':<40} {'Count':<7} {'In Tok':<10} {'Out Tok':<10} {'Cost ($)':<10}")
-        lines.append("  " + "-" * 78)
-        for role, sdata in sorted(sub_roles.items(), key=lambda x: x[1]["input_tokens"], reverse=True):
-            r_trunc = role[:38]
+        lines.append(f"  {'Role / Type':<32} {'Count':<6} {'In Tok':<9} {'Cache Tok':<10} {'Total Proc':<11} {'Out Tok':<9} {'Cost ($)':<9}")
+        lines.append("  " + "-" * 90)
+        for role, sdata in sorted(sub_roles.items(), key=lambda x: x[1].get("cache_tokens", 0) + x[1].get("input_tokens", 0), reverse=True):
+            r_trunc = role[:30]
+            inp = sdata.get('input_tokens', 0)
+            cache = sdata.get('cache_tokens', 0)
+            out = sdata.get('output_tokens', 0)
+            total = inp + cache + out
             lines.append(
-                f"  {r_trunc:<40} {sdata['count']:<7} {format_tokens(sdata['input_tokens']):<10} "
-                f"{format_tokens(sdata['output_tokens']):<10} ${sdata['cost_usd']:<9.4f}"
+                f"  {r_trunc:<32} {sdata['count']:<6} {format_tokens(inp):<9} "
+                f"{format_tokens(cache):<10} {format_tokens(total):<11} "
+                f"{format_tokens(out):<9} ${sdata['cost_usd']:<8.4f}"
             )
         lines.append("-" * 84)
 
@@ -168,14 +185,62 @@ def generate_markdown_report(tree: Dict[str, Any]) -> str:
         md.extend([
             "## Subagent Invocations by Role",
             "",
-            "| Subagent Role | Invocations | Input Tokens | Output Tokens | Cost ($) | Duration |",
-            "| :--- | :--- | :--- | :--- | :--- | :--- |"
+            "| Subagent Role | Invocations | Input Tokens | Cache Read | Total Processed | Output Tokens | Cost ($) | Duration |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
         ])
-        for role, sdata in sorted(sub_roles.items(), key=lambda x: x[1]["input_tokens"], reverse=True):
+        for role, sdata in sorted(sub_roles.items(), key=lambda x: x[1].get("cache_tokens", 0) + x[1].get("input_tokens", 0), reverse=True):
+            inp = sdata.get('input_tokens', 0)
+            cache = sdata.get('cache_tokens', 0)
+            out = sdata.get('output_tokens', 0)
+            tot = inp + cache + out
             md.append(
-                f"| `{role}` | {sdata['count']} | {sdata['input_tokens']:,} | "
-                f"{sdata['output_tokens']:,} | ${sdata['cost_usd']:.4f} | {int(sdata['duration_seconds'])}s |"
+                f"| `{role}` | {sdata['count']} | {inp:,} | {cache:,} | **{tot:,}** | "
+                f"{out:,} | ${sdata['cost_usd']:.4f} | {int(sdata['duration_seconds'])}s |"
             )
         md.append("")
 
     return "\n".join(md)
+
+
+def render_velocity_timeline(tree: Dict[str, Any], limit: int = 40) -> str:
+    """Render minute-by-minute token velocity and concurrency timeline."""
+    agg = tree.get("aggregate_metrics", {})
+    vel = agg.get("velocity", {})
+    buckets = vel.get("minute_buckets", [])
+    if not buckets:
+        return "No velocity timeline data recorded."
+
+    lines = [
+        "=" * 92,
+        "⏱️  MINUTE-BY-MINUTE TOKEN VELOCITY & CONCURRENCY TIMELINE",
+        "=" * 92,
+        f"{'Minute':<17} {'Agents':<8} {'Input Tok':<11} {'Cache Read':<12} {'Output Tok':<11} {'TOTAL PROCESSED':<16} {'Rate Flag'}",
+        "-" * 92
+    ]
+
+    baseline = max(10_000, vel.get("avg_tokens_per_min", 0))
+
+    for b in buckets[-limit:]:
+        tot = b["total_processed"]
+        ratio = tot / baseline if baseline > 0 else 1.0
+        flag = ""
+        if tot >= 10_000_000 or ratio >= 20.0:
+            flag = "[🔥 SEVERE SURGE]"
+        elif tot >= 2_000_000 or ratio >= 5.0:
+            flag = "[⚠️ HIGH VELOCITY]"
+        elif tot >= 500_000:
+            flag = "[ELEVATED]"
+        else:
+            flag = "[NORMAL]"
+
+        lines.append(
+            f"{b['minute']:<17} {b['active_agents']:<8} "
+            f"{format_tokens(b['input_tokens']):<11} "
+            f"{format_tokens(b['cache_read_tokens']):<12} "
+            f"{format_tokens(b['output_tokens']):<11} "
+            f"{format_tokens(tot):<16} "
+            f"{flag}"
+        )
+
+    lines.append("=" * 92)
+    return "\n".join(lines)
