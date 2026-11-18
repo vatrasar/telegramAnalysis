@@ -243,9 +243,15 @@ def handle_entity_actions(args: Any, batch_config: Dict[str, Any], resolved_chat
                     for ip in res.get("resolved_isolated_pairs", []):
                         print(f"      • '{ip['entity_1']}' vs '{ip['entity_2']}': {ip['reason']}")
                 if res.get("flagged_merges"):
-                    print(f"    ⚠️ Flagged for Manual Review / Merging: {len(res['flagged_merges'])}")
+                    print(f"    🔍 Flagged for Subagent Investigation ({len(res['flagged_merges'])} genuine ambiguity cases):")
                     for fm in res.get("flagged_merges", []):
-                        print(f"      • '{fm.get('source')}' -> '{fm.get('target')}': {fm.get('reason')}")
+                        src = fm.get('source')
+                        tgt = fm.get('target')
+                        print(f"      • Ambiguity: '{src}' vs '{tgt}'")
+                        print(f"        Hypothesis: {fm.get('reason')}")
+                        print(f"        Mandate: Dispatch entity-investigator to audit source threads.")
+                        print(f"                 - If DIFFERENT people: python3 project/scripts/query_chat.py -C {resolved_chat_id} --record-distinct-pair \"{src}\" \"{tgt}\" --reason '<anchors & evidence>'")
+                        print(f"                 - If SAME person:      python3 project/scripts/query_chat.py -C {resolved_chat_id} --merge-entity \"{src}\" --into-entity \"{tgt}\" --reason '<evidence>'")
                 print(f"    Total Pairs Recorded: {res.get('total_pairs_recorded')}")
         return True
 
