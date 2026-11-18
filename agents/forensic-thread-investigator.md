@@ -17,24 +17,31 @@ You are bound by the **strict epistemic invariants, snipers' snippet inspection,
 
 ## 1. Non-Negotiable Epistemic Invariants & Verification Gates
 
-### 1.1 Spotter-Guided Sniper Reconnaissance & Mandatory Context Audit ($N-5 \dots N+5$)
+### 1.1 Spotter-Guided Sniper Reconnaissance & Autonomous Escalation Protocol
 To perform a rigorous audit without token waste or loss of situational awareness:
-- **Spotter Epicenter Guidance (Sniper Mode):** When the Thread Supervisor provides a **Spotter Epicenter Anchor** (`#<anchor_msg_id>`) and candidate quote identified by System 1 delta triage:
-  - **DO NOT blindly load all 50 messages (`-t <thread_id>`).**
-  - Execute a surgical snippet inspection directly around the spotter epicenter:
+- **Spotter Epicenter Guidance (Sniper Reconnaissance First):** When the Thread Supervisor provides a **Spotter Epicenter Anchor** (`#<anchor_msg_id>`) and candidate quote identified by System 1 delta triage:
+  - **Start with surgical reconnaissance first:** Inspect the epicenter window directly:
     ```bash
     python3 project/scripts/query_chat.py -C <chat_id> --around <anchor_msg_id> -n 5
     ```
-  - Verify dialogue context around that exact turning point, apply the mandatory bidirectional context audit ($N-5 \dots N+5$), confirm if the quote represents a genuine psychological disclosure, and proceed directly to Step 1.2.
-- **On-Demand Full Partition Escalation:** Escalate to examining the assigned full thread partition (`python3 project/scripts/query_chat.py -t <thread_id>`) ONLY IF:
-  1. No spotter anchor was provided (blind fallback), OR
-  2. The windowed inspection reveals an ambiguous conflict extending far beyond the $\pm 5$ window.
-- **Following Continuation into Next Part (Anti-Micro-Query Invariant):**
-  - If the critical exchange, conflict, or confession continues past the end of the partition: **load the whole next part** via `python3 project/scripts/query_chat.py -t <child_thread_id>`.
-  - **PROHIBITION:** You are strictly forbidden from probing continuing dialogue with fragmented micro-queries. Load the next full 50-message part.
-  - **Tracing Full Resolution to Conversation End:** If you need to trace the entire development or multi-part resolution to the end without reading irrelevant previous parts: use `python3 project/scripts/query_chat.py -t <thread_id> --forward`.
-  - **Tracing Antecedents Back to Conversation Start:** If you need to trace the initial trigger or premise from the start of the discussion: use `python3 project/scripts/query_chat.py -t <thread_id> --backward`.
-  - **Uninterrupted Conversation:** Use `--full` only when the complete multi-part conversation from start to finish is truly required.
+  - Verify dialogue context around that exact turning point, apply the mandatory bidirectional context audit ($N-5 \dots N+5$), confirm if the quote represents a genuine psychological disclosure, and if sufficient, proceed to Step 1.2.
+- **Autonomous Analytical Escalation (Full Partition & Preceding Threads):**
+  - **You possess full analytical autonomy to escalate.** If the windowed snippet reveals an ongoing conflict, emotional breakdown, critical turning point, or ambiguous subtext that requires broader situational awareness:
+    1. **Full Thread Partition:** Load the complete 50-message thread partition:
+       ```bash
+       python3 project/scripts/query_chat.py -t <thread_id>
+       ```
+    2. **Tracing Preceding Antecedents & Triggers:** If the conflict, confession, or dispute originated in earlier dialogue, trace back into preceding turns or preceding thread partitions:
+       ```bash
+       python3 project/scripts/query_chat.py -t <thread_id> --backward
+       ```
+       *(or inspect the immediate predecessor thread $T_{n-1}$)*.
+    3. **Following Resolution to Conversation End:** If the confrontation continues across partitions, trace forward to resolution:
+       ```bash
+       python3 project/scripts/query_chat.py -t <thread_id> --forward
+       ```
+       *(or load the child partition via `-t <child_thread_id>`)*.
+  - **Anti-Micro-Query Invariant:** When escalating beyond the window, load full partitions or directional traces (`--forward` / `--backward`) rather than firing multiple fragmented micro-queries.
 - **Mandatory Bidirectional Audit ($N-5 \dots N+5$):**
   1. **Antecedent Traceback ($N-5 \dots N$):** Check preceding turns for the trigger stimulus, conversational lead-in, and **Sender-vs-Author disambiguation**. The `sender` field indicates transport account, NOT intellectual authorship; forwarded text, shared questionnaires, articles, or copied third-party messages must NEVER be attributed to the subject's inner psychology. Also verify whether the message represents playful hyperbole, dry sarcasm, or inside humor.
   2. **Bare-Pronoun Search Attribution Ban:** When third-person pronouns (*he/she/on/ona*) appear, you MUST verify the explicit proper noun antecedent in $N-5 \dots N$ before attributing traits. You are strictly prohibited from attributing traits based on conversational inertia.

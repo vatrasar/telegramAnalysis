@@ -63,7 +63,7 @@ For each thread classified as `novel`:
 1. Check if the thread has a **Spotter Target Epicenter** (`key_quotes` or anchor `#ID` from `thread_checklist.py --status` or `--next`).
 2. Dispatch a dedicated `forensic-thread-investigator` subagent (`Model: "flash"`):
    - Pass `thread_id` and the **Spotter Epicenter Anchor** (`#<anchor_id>` and quote text) if present.
-   - Instruct the worker to use **Surgical Sniper Reconnaissance**: inspect the spotter epicenter directly via `query_chat.py --around <anchor_id> -n 5` and perform the $N-5 \dots N+5$ context audit, instead of reading all 50 messages blindly.
+   - Instruct the worker to start with **Surgical Sniper Reconnaissance**: inspect the spotter epicenter directly via `query_chat.py --around <anchor_id> -n 5` and perform the $N-5 \dots N+5$ context audit. If deeper context is needed, the worker has full analytical autonomy to escalate to loading the full thread partition (`-t <thread_id>`) or tracing preceding threads (`--backward`).
 3. Worker verifies dialogue context, extracts 2–3 anchored quotes `[#ID | YYYY-MM-DD]`, executes adversarial post-check (`--anomaly-check`), and updates the checklist:
    ```bash
    python3 project/scripts/thread_checklist.py -C <chat_id> --update <thread_id> \

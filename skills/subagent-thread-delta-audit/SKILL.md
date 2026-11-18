@@ -85,10 +85,10 @@ Invoke the custom Antigravity subagent using `invoke_subagent`:
   Perform an exhaustive forensic audit on thread <thread_id> for chat <chat_id>.
 
   EXECUTION INSTRUCTIONS:
-  1. Spotter-Guided Sniper Reconnaissance:
-     If a Spotter Epicenter Anchor (#<anchor_id>) was identified by System 1 delta triage, inspect the epicenter directly:
+  1. Spotter-Guided Sniper Reconnaissance & Autonomous Escalation:
+     If a Spotter Epicenter Anchor (#<anchor_id>) was identified by System 1 delta triage, begin by inspecting the epicenter directly:
      python3 project/scripts/query_chat.py -C <chat_id> --around <anchor_id> -n 5
-     (Only load full partition with `query_chat.py -t <thread_id> --force` if spotter anchor is absent or genuinely ambiguous).
+     If the snippet reveals an ongoing conflict, turning point, or subtext requiring broader context, escalate autonomously to the full thread partition (`query_chat.py -t <thread_id>`) or trace antecedents into preceding threads (`query_chat.py -t <thread_id> --backward`).
   2. Verify Scaledown summary claims against verbatim text. Do NOT trust unverified summary claims.
   3. Extract 2-4 key anchored quotes in [#ID | YYYY-MM-DD] format.
   4. Adversarial Post-Check:
