@@ -30,6 +30,7 @@ from .conflation_audit import (
     resolve_entity_cluster,
     resolve_distinct_pairs_batch,
 )
+from .conflation_decider import auto_triage_conflations
 from .staging_actions import handle_staging_cli_actions
 from .watchdog_api import (
     run_watchdog_check,
@@ -212,6 +213,40 @@ def handle_entity_actions(args: Any, batch_config: Dict[str, Any], resolved_chat
                 print(f"[!] Error: {res['error']}")
             else:
                 print(f"[✓] Batch resolved: recorded {res['total_pairs_recorded']} distinct entity pairs in SQLite.")
+        return True
+
+    if getattr(args, "auto_triage_conflation", False):
+        if not resolved_chat_id:
+            print("[!] Error: Please specify target chat via -C <chat_id> for --auto-triage-conflation.")
+            sys.exit(1)
+        res = auto_triage_conflations(
+            args.db,
+            resolved_chat_id,
+            model=getattr(args, "conflation_model", None),
+            dry_run=getattr(args, "dry_run", False)
+        )
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            if "error" in res:
+                print(f"[!] Error: {res['error']}")
+            else:
+                print(f"[✓] System-1 Conflation Triage completed for chat '{resolved_chat_id}':")
+                print(f"    Model:             {res.get('model')}")
+                print(f"    Elapsed:           {res.get('elapsed_seconds')}s")
+                print(f"    Resolved Clusters: {res.get('resolved_clusters_count')}")
+                for cl in res.get("resolved_clusters", []):
+                    print(f"      • Cluster '{cl['title']}': {cl['member_count']} members -> {cl['pairs_resolved']} pairs recorded")
+                    print(f"        Reason: {cl['reason']}")
+                if res.get("resolved_isolated_pairs"):
+                    print(f"    Resolved Isolated Pairs: {res.get('resolved_isolated_pairs_count')}")
+                    for ip in res.get("resolved_isolated_pairs", []):
+                        print(f"      • '{ip['entity_1']}' vs '{ip['entity_2']}': {ip['reason']}")
+                if res.get("flagged_merges"):
+                    print(f"    ⚠️ Flagged for Manual Review / Merging: {len(res['flagged_merges'])}")
+                    for fm in res.get("flagged_merges", []):
+                        print(f"      • '{fm.get('source')}' -> '{fm.get('target')}': {fm.get('reason')}")
+                print(f"    Total Pairs Recorded: {res.get('total_pairs_recorded')}")
         return True
 
     if args.conflation_audit or batch_config.get("conflation_audit", False):

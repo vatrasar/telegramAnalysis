@@ -94,6 +94,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--record-distinct-pair", nargs=2, metavar=("ENTITY_A", "ENTITY_B"), help="Record an audited distinct entity pair with negative boundaries (supervisor)")
     parser.add_argument("--resolve-cluster", type=str, metavar="CLUSTER_KEY", help="Resolve all pairwise collisions in a named thematic cluster (supervisor)")
     parser.add_argument("--resolve-distinct-batch", type=str, metavar="FILE_OR_JSON", help="Batch record audited distinct entity pairs from JSON file/string")
+    parser.add_argument("--auto-triage-conflation", action="store_true", help="Automatically audit and resolve conflation risks via System 1 (supervisor)")
+    parser.add_argument("--conflation-model", type=str, help="Override model for System-1 conflation triage")
     parser.add_argument("--watchdog-check", type=str, help="Run adversarial System-1 watchdog on a thread_id against registered entities")
     parser.add_argument("--known", action="append", help="Explicit list of known entities for --watchdog-check (can be repeated)")
     parser.add_argument("--anomaly-check", type=str, help="Run adversarial System-1 check on a thread_id to detect whether secondary/unaddressed anomalies remain")
