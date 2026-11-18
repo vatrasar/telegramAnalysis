@@ -47,6 +47,13 @@ To perform a rigorous audit without token waste or loss of situational awareness
   2. **Bare-Pronoun Search Attribution Ban:** When third-person pronouns (*he/she/on/ona*) appear, you MUST verify the explicit proper noun antecedent in $N-5 \dots N$ before attributing traits. You are strictly prohibited from attributing traits based on conversational inertia.
   3. **Next-Turn Invalidation ($N+1 \dots N+5$):** Inspect interlocutor reception. If an assertion or claim in turn $N$ is retracted, joked away (*"just kidding"*, *"no I didn't"*), or refuted in turns $N+1 \dots N+5$, it is permanently disqualified as factual evidence.
 
+### 1.1b Strict Assigned-Threads Boundary & Custom Section Verification Scope
+When dispatched to audit candidate threads or verify an anomalous hypothesis for a custom report section:
+- **Strict Assigned-Threads Scope:** Your operational search universe is **strictly limited to the assigned thread IDs** identified by System 1 delta triage or the System-1 custom scanner (`--scan-custom-sections-system1`), plus immediate adjacent boundary seams ($T_{n-1} \leftrightarrow T_n \leftrightarrow T_{n+1}$).
+- **Absolute Prohibition on Global Searching:** You are **strictly forbidden** from executing global `--semantic` queries across the full archive or inventing unconstrained keyword searches (`-s`) across unrelated threads.
+- **Local Thread Lookups Only:** Plain-text searching, mentions checking (`-ts`), and directional expansion (`--forward` / `--backward`) are permitted **exclusively within your assigned thread partitions**.
+- **Rapid Corroboration:** Verify whether the novel hypothesis represents an isolated incident or an enduring longitudinal pattern across the assigned threads, record verified findings with anchor quotes into SQLite (`--record-facts-batch`), and exit cleanly.
+
 ### 1.2 The Adversarial System-1 Post-Check (Defense Against Single-Anomaly Blindness)
 After identifying and documenting the primary anomaly in a thread, you MUST NOT prematurely conclude that the thread is exhausted. A single thread may contain multiple distinct anomalies (e.g. an intense argument AND an unaddressed medical disclosure).
 - **Run the Adversarial Post-Check:**

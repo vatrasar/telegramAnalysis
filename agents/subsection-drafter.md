@@ -106,53 +106,33 @@ If `needs_clustering` is `true`:
 
 ---
 
-## 3. Investigative Balance: Atomic Lookups vs. Deep Hypotheses
+## 3. Closed Synthesis & Atomic Context Verification
 
-You are an active analytical investigator, not a passive text synthesizer. During your work, you may uncover evidential gaps or formulate clinical hypotheses. Balance your investigations as follows:
+Stage 6 is a **pure synthesis phase**. All investigative probing, life spheres exploration, entity watchdog audits, and custom section corroborations were completed in Stages 1–5. You operate strictly upon the verified evidence compiled in SQLite (`discovered_facts`, `chat_entities`, `custom_report_sections`).
 
-### 3.1 Direct Atomic Lookups (Self-Executed via CLI)
-When you only need to verify a single date, confirm an entity name, or pull 1 specific quote:
-- Execute 1–2 direct CLI commands yourself:
+### 3.1 Permitted Point Lookups on Known Message IDs (Self-Executed via CLI)
+When you only need to verify the immediate conversational context around a specific quote anchor already in your database evidence:
+- Execute a direct, surgical context inspection on that specific message ID:
   ```bash
-  python3 project/scripts/query_chat.py -C <chat_id> --around <msg_id> -n 5
-  python3 project/scripts/query_chat.py -C <chat_id> --semantic "<targeted phrase>" -n 3
+  python3 project/scripts/query_chat.py -C <chat_id> --around <known_msg_id> -n 3
   ```
-- **Constraint:** Do NOT spawn subagents for trivial, 1-step lookups.
+- **Absolute Prohibition on Semantic Search:** You are **strictly forbidden** from executing global vector queries (`query_chat.py --semantic`).
+- **Absolute Prohibition on Subagent Delegation:** You are **strictly forbidden** from spawning research subagents (`forensic-thread-investigator` or `research`) to hunt for new chat material during drafting.
 
-### 3.2 Mandatory Search & Context Inspection Invariants (When Performing Atomic Lookups)
-When executing direct CLI lookups, strictly obey these contextual and syntactic invariants:
-1. **Anti-Snippet Ingestion Rule:**
-   - Search match previews from `--semantic` and `-s` are discovery pointers only, NEVER admissible evidence.
-   - You are unconditionally forbidden from quoting directly from preview snippets without inspecting surrounding context via `query_chat.py --around <msg_id> -n 5` or the dialogue thread via `-t <thread_id>`.
-2. **Mandatory Context Audit ($N-5 \dots N+5$):**
-   - *Antecedent Traceback ($N-5 \dots N$):* Audit the prompt, conversational stimulus, or preceding turns to verify if the statement represents sincere disclosure, sarcasm, playful hyperbole, or reaction to external events.
-   - *Next-Turn Proof ($N+1 \dots N+5$):* Verify interlocutor reception and ensure the statement was not immediately refuted, corrected, or walked back (*"just kidding"*, *"no, actually..."*).
-3. **Bare-Pronoun Search Attribution Ban:**
-   - When search returns a message dominated by bare third-person pronouns (*"He works at..."*, *"On ma..."*, *"Ona studiuje..."*), NEVER attribute that trait to the subject based on conversational inertia.
-   - You MUST inspect preceding turns ($N-5 \dots N$) to locate the explicit proper noun antecedent.
-4. **Sender-vs-Author Disambiguation:**
-   - The `sender` field indicates the transport account, NOT necessarily the intellectual author.
-   - Forwarded messages, pasted questionnaires, articles, or partner text sent from the subject's account must never be attributed to the subject's inner psychology without antecedent verification ($N-5 \dots N$).
+### 3.2 Context Integrity Verification for Cites
+When citing quotes from your evidence package, confirm:
+1. **Authorship Origin ($N-5 \dots N$):** Personally authored vs. pasted/forwarded third-party text or quiz results.
+2. **Conversational Tone:** Sincere disclosure vs. dry humor, teasing banter, or sarcastic exaggeration.
+3. **Interlocutor Reception & Immediate Rebuttal ($N+1 \dots N+5$):** If a proposition was challenged, refuted, or walked back, it cannot be cited as factual reality.
+4. **Sender-vs-Author Disambiguation:** The `sender` field indicates the transport account, not necessarily the intellectual author.
 5. **Truncation & Vertical Reply Tree Tools:**
-   - *1,500-Character Truncation Check:* Long messages are truncated in default views. Inspect complete text via:
-     ```bash
-     python3 project/scripts/query_chat.py -m <msg_id> --part 1    # Paginated view
-     python3 project/scripts/query_chat.py -m <msg_id> --all       # Complete text
-     ```
-   - *Vertical Reply Tree:* When analyzing an exchange where replies point to distant turns, inspect the vertical parent quote & reply tree via:
-     ```bash
-     python3 project/scripts/query_chat.py -c <msg_id>
-     ```
+   - Long messages: `query_chat.py -m <msg_id> --part 1` (or `--all`).
+   - Disjointed replies: `query_chat.py -c <msg_id>`.
 
-### 3.3 Deep Investigative Missions (Subagent Delegation)
-When you formulate a substantive **Research Hypothesis** requiring multi-turn exploration, cross-thread reconstruction, or resolving complex contradictions across time:
-- **ZAKAZ samowolnego przekopywania całego archiwum:** Do not flood your context with dozens of search results.
-- Formulate a structured **Hypothesis Brief**:
-  - State the specific hypothesis or contradiction to investigate.
-  - Specify the relevant time span and characters involved.
-  - Set the exit criteria: verify/refute, pull 2–3 anchored quotes, and record new facts into SQLite (`query_chat.py --record-fact`).
-- Dispatch a research subagent (`forensic-thread-investigator` or `research`) using `invoke_subagent` with the Brief.
-- Ingest the subagent's concise findings report and incorporate the newly recorded facts into your subsection.
+### 3.3 Evidentiary Pruning (Zero Re-Hunting & No Placeholders)
+- If a life sphere, psychological dimension, or habit was never evidenced in the database, omit it completely from your narrative.
+- **NEVER** write placeholder disclaimers (*"Brak danych"*, *"No information available"*, *"Nie zaobserwowano danych w logach"*).
+- For Custom Sections (`03_custom_*.md`): synthesize exclusively from the multi-thread evidence package and anchor quotes corroborated by System 1 and Stage 4 Curation.
 
 ---
 

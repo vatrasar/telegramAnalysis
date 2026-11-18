@@ -53,6 +53,9 @@ from checklist_engine.custom_sections import (
     get_custom_sections,
     print_custom_sections,
 )
+from checklist_engine.custom_scanner import (
+    scan_custom_sections_system1,
+)
 from checklist_engine.threads_gate import check_gate as check_threads_gate
 from checklist_engine.threads_view import (
     print_thread_status,
@@ -103,6 +106,7 @@ __all__ = [
     "propose_custom_section",
     "get_custom_sections",
     "print_custom_sections",
+    "scan_custom_sections_system1",
     "check_threads_gate",
     "print_thread_status",
     "print_next_thread",

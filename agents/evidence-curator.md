@@ -65,19 +65,29 @@ For each high-value evidence item, classify into one of three destinations:
   ```
   *(Note: Stances on socioeconomic order, taxes, and pensions route to `worldview`; financial psychology routes to `career`; everyday habits route to `lifestyle`; dating norms route to `romantic`).*
 
-### Decision C: Propose Novel Custom Section (`--propose-custom-section`)
+### Decision C: Propose Novel Custom Section & System-1 Corroboration
 - **Criteria:** Identifies a significant, high-impact theme that cannot be adequately covered within standard life spheres or playbook templates (e.g., secret gambling addiction, unmapped acute medical crisis, profound creative project, sudden religious conversion, covert parallel relationship).
-- **Execution:**
+- **Step 1: Propose Custom Section:**
   ```bash
   python3 project/scripts/thread_checklist.py -C <chat_id> --propose-custom-section \
     --section-title "<Compelling Analytical Title>" \
     --section-filename "03_custom_<slug>.md" \
     --section-rationale "<Why this dynamic warrants dedicated analytical space>" \
     --section-type "chapter" \
-    --section-threads "<thread_id1,thread_id2>" \
-    --section-quotes "<anchored quotes>" \
+    --section-threads "<initial_thread_id>" \
     --target-agent "chapter-drafter"
   ```
+- **Step 2: Automated System-1 Multi-Theme Corroboration Scan:**
+  Immediately execute the System-1 multi-theme scan across candidate threads to discover all corroborating evidence across the longitudinal archive using `locate`:
+  ```bash
+  python3 project/scripts/thread_checklist.py -C <chat_id> --scan-custom-sections-system1
+  ```
+  This automatically links all corroborating threads and extracts verbatim anchor quotes directly into `custom_report_sections` and `discovered_facts`.
+- **Step 3: Scoped Subagent Dispatch (Strict Assigned-Threads Boundary):**
+  If the custom thesis requires verifying longitudinal trajectory or resolving ambiguity across the matched threads, dispatch a `forensic-thread-investigator` subagent:
+  - **Strict Assigned-Threads Boundary:** The worker is **strictly confined to the matched threads** returned by System 1 (plus adjacent boundary seams $T_{n-1} \leftrightarrow T_n \leftrightarrow T_{n+1}$).
+  - **Absolute Ban on Global Searching:** Workers are strictly forbidden from executing global `--semantic` queries or unconstrained keyword digging across unrelated threads.
+  - The subagent inspects the assigned threads, verifies the longitudinal trajectory (genesis $\to$ escalation $\to$ resolution), records facts, and exits cleanly.
 
 ---
 
@@ -94,11 +104,14 @@ When invoked for `chat_id`:
    - If $\le 5$, evaluate directly.
 3. **Execute Routing & Custom Proposals:**
    - For each item, run `--route-evidence`.
-   - If an anomalous theme warrants a custom chapter, run `--propose-custom-section`.
-4. **Verify Registered Custom Sections:**
+   - If anomalous themes warrant custom chapters, run `--propose-custom-section`.
+4. **Run System-1 Corroboration Scan & Verify Custom Sections:**
+   If any custom section was proposed:
    ```bash
+   python3 project/scripts/thread_checklist.py -C <chat_id> --scan-custom-sections-system1
    python3 project/scripts/thread_checklist.py -C <chat_id> --list-custom-sections
    ```
+   If trajectory verification is needed, dispatch scoped subagents confined strictly to the matched threads.
 5. **Report to Supervisor:**
    Return a concise structured summary:
    - Total items evaluated,

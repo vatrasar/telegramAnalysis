@@ -128,17 +128,28 @@ python3 project/scripts/thread_checklist.py -C <chat_id> --route-evidence <threa
   --significance "<Significance note>"
 ```
 
-### Step 4.3: Dynamic Custom Section Proposal
+### Step 4.3: Dynamic Custom Section Proposal & System-1 Corroboration
 If anomalous evidence reveals high-salience themes that exceed standard chapter schemas (e.g. secret gambling addiction, unmapped crisis, radical break), the curator proposes a dedicated custom section:
-```bash
-python3 project/scripts/thread_checklist.py -C <chat_id> --propose-custom-section \
-  --section-title "<Title>" \
-  --section-filename "03_custom_<slug>.md" \
-  --section-rationale "<Rationale>" \
-  --section-threads "<threads>" \
-  --section-quotes "<quotes>" \
-  --target-agent "chapter-drafter"
-```
+1. **Propose Custom Section:**
+   ```bash
+   python3 project/scripts/thread_checklist.py -C <chat_id> --propose-custom-section \
+     --section-title "<Title>" \
+     --section-filename "03_custom_<slug>.md" \
+     --section-rationale "<Rationale>" \
+     --section-threads "<initial_threads>" \
+     --target-agent "chapter-drafter"
+   ```
+2. **Execute Automated System-1 Multi-Theme Corroboration Scan:**
+   Run the System-1 multi-theme scan across candidate threads to discover all corroborating evidence across the longitudinal archive using `locate`:
+   ```bash
+   python3 project/scripts/thread_checklist.py -C <chat_id> --scan-custom-sections-system1
+   ```
+   This automatically evaluates candidate threads against all proposed custom section themes, links matching threads, and extracts anchor quotes.
+3. **Dispatch Scoped Subagent (Strict Assigned-Threads Boundary):**
+   If trajectory verification is needed across the matched threads, dispatch a `forensic-thread-investigator` subagent:
+   - **Strict Assigned-Threads Boundary:** The worker is strictly confined to the matched threads (`--section-threads`) plus immediate adjacent boundary seams ($T_{n-1} \leftrightarrow T_n \leftrightarrow T_{n+1}$).
+   - **Absolute Ban on Global Searching:** Global `--semantic` queries and unconstrained `-s` across unrelated threads are strictly prohibited.
+   - The subagent verifies longitudinal trajectory (genesis $\to$ escalation $\to$ resolution), records facts, and exits cleanly before Stage 6 drafting begins.
 
 ---
 

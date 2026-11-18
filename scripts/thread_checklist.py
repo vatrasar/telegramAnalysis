@@ -48,6 +48,9 @@ from checklist_engine.custom_sections import (
     get_custom_sections,
     print_custom_sections,
 )
+from checklist_engine.custom_scanner import (
+    scan_custom_sections_system1,
+)
 from checklist_engine.threads_gate import check_gate
 from checklist_engine.threads_view import (
     print_thread_status,
@@ -125,6 +128,8 @@ def main():
     parser.add_argument("--section-threads", type=str, default="", help="Associated thread IDs for custom section")
     parser.add_argument("--section-quotes", type=str, default="", help="Key anchor quotes supporting custom section")
     parser.add_argument("--list-custom-sections", action="store_true", help="List all proposed custom report sections")
+    parser.add_argument("--scan-custom-sections-system1", "--corroborate-custom-sections", action="store_true", help="Execute System-1 multi-theme scan across threads to locate all corroborating evidence for proposed custom sections via locate")
+    parser.add_argument("--all-threads", action="store_true", help="Scan all threads in chat rather than just anomaly/delta threads for custom sections")
     parser.add_argument("--tag", type=str, help="Filter --export-evidence by thematic tag (e.g. #family, #ex, #career, #defense)")
     parser.add_argument("--category", type=str, help="Filter --export-evidence by primary category")
     parser.add_argument("--part", type=int, default=1, help="Part/slice number to display for long evidence lists (default: 1)")
@@ -357,6 +362,43 @@ def main():
     if args.list_custom_sections:
         print_custom_sections(conn, chat_id)
         conn.close()
+        sys.exit(0)
+
+    if args.scan_custom_sections_system1:
+        res = scan_custom_sections_system1(
+            conn, chat_id,
+            db_path=args.db,
+            model=args.model,
+            concurrency=args.concurrency,
+            salience_threshold=args.threshold,
+            all_threads=args.all_threads,
+            limit=args.limit,
+            dry_run=args.dry_run
+        )
+        conn.close()
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            if res.get("status") in ("no_sections", "no_threads"):
+                print(f"[!] {res.get('message')}")
+            else:
+                print(f"[✓] System-1 Custom Section Corroboration completed for chat '{chat_id}':")
+                print(f"    Scanned:     {res['scanned_threads_count']} candidate threads (Engine: {res['model_used']})")
+                print(f"    Sections:    {res['proposed_sections_count']} proposed custom sections evaluated")
+                print(f"    Latency:     {res['elapsed_seconds']}s | Cost: ${res['total_cost_usd']:.5f}")
+                print(f"\n--- MATCHED CORROBORATING THREADS & QUOTES ---")
+                for s_id, s_data in res.get("matches_by_section", {}).items():
+                    print(f"  • Section #{s_id:02d}: \"{s_data['title']}\"")
+                    print(f"    Target File:  reports/<subject>_sections/{s_data['filename']}")
+                    tids = s_data['matched_threads']
+                    print(f"    Matched:      {len(tids)} threads: {', '.join(tids) if tids else 'None'}")
+                    quotes = s_data['extracted_quotes']
+                    print(f"    Locate Spans: {len(quotes)} verbatim quotes extracted")
+                    for q in quotes[:3]:
+                        print(f"      - {q['formatted_quote']}")
+                    if len(quotes) > 3:
+                        print(f"      ... and {len(quotes) - 3} more quote anchors")
+                print(f"\n[NEXT ACTION]: Dispatch targeted investigator subagents STRICTLY to these matched threads (+ adjacent seams) to verify longitudinal trajectory.")
         sys.exit(0)
 
     if args.export_evidence:
