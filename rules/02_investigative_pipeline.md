@@ -56,12 +56,12 @@ When a chat is updated with new messages or threads:
 
 #### Step B.1: Macro-Reconnaissance, System-1 Triage & Batch Enrichment
 1. **Quantitative Baselines:** Run `query_chat.py -C <chat_id> --stats --gaps`, `--timeline`, `--burning-days`.
-2. **Salience Radars:** Sweep `--anomalies-only`, `--emotional-peaks`, `--advice-seeking`, `--triaged-threads`.
+2. **Salience Radars & Multi-Label Sphere Pre-Mapping:** System-1 triage (`triage_threads.py`) evaluates threads via discrete binary propositions (`noul`), tagging multi-label life spheres (`covered_spheres: A-F`) and extracting verbatim evidence anchors (`locate`).
 3. **Batch Enrichment:** Main Coordinator executes enrichment on flagged threads:
    ```bash
    python3 project/scripts/triage_threads.py -C <chat_id> --enrich
    ```
-   Extracts candidate entities for third-party threads and generates dense summaries for all anomaly threads.
+   Extracts candidate entities for third-party threads, generates dense summaries for all anomaly threads, and pre-populates `covered_spheres` in `thread_triage`.
 
 #### Step B.2: Entity Disambiguation & Relational Dossiers (Delegated to `entity-supervisor`)
 - **Mandatory Supervisory Delegation:** To protect primary context, the Main Coordinator does NOT process individual candidate mentions or register entities directly.
@@ -74,6 +74,7 @@ When a chat is updated with new messages or threads:
 - **Mandatory Supervisory Delegation:** The Main Coordinator delegates Step B.3 entirely to the **Life Spheres Supervisor** (`sphere-supervisor`, `Model: "flash"`).
 - Activate `life-spheres-investigation` skill.
 - The Supervisor initializes `checklist.py -C <chat_id> --init`, partitions the 6 life spheres (A–F) across parallel `life-sphere-investigator` subagents, tracks progress, routes serendipitous discoveries, and ensures each investigator directly drafts its modular chapter section (`reports/<chat_id>_sections/05_<sphere_letter>_<canonical_name>.md`).
+- **Guided Navigation Invariant:** Investigators do NOT conduct blind global searches. They retrieve pre-mapped threads identified during Step B.1 System-1 triage (`query_chat.py --shard-sphere <letter>`), auditing targeted triaged threads first before using semantic search for pinpoint gap-filling.
 - Completing the 50 spheres establishes the empirical psychological baseline.
 
 #### Step B.4: Subagent Thread Delta Audit & Evidence Curation (Delegated to `thread-supervisor`)

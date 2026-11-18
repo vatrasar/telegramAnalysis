@@ -18,8 +18,8 @@ Longitudinal chat archives contain rich behavioral evidence across 6 life sphere
 1. **Two-Tier Delegation Structure:**
    - **Sphere Supervisor (`sphere-supervisor`):** Autonomously coordinates Step B.3, verifies the Watchdog Gate, initializes `checklist.py`, allocates the 6 life spheres (A–F) across dedicated parallel subagents (`life-sphere-investigator`, `Model: "flash"`), routes cross-sphere serendipity, and enforces gate clearance.
    - **Sphere Investigators (`life-sphere-investigator`):** Execute targeted semantic/lexical probes, update `checklist.py`, and immediately synthesize modular chapter sections (`05_*`).
-2. **Informed Autonomy on Audit Cache:**
-   - Pre-extracted facts (`--facts-for-sphere`) and audited threads (`--inspected-threads`) are checked first. If cached findings answer the criteria, raw transcript reads are skipped; investigators retain informed autonomy to inspect (`-ts` or `-t --force`) for quote verification or unread turns.
+2. **System-1 Pre-Mapping & Informed Autonomy:**
+   - Pre-mapped threads from Step B.1 System-1 triage (`--shard-sphere <letter>`), pre-extracted facts (`--facts-for-sphere`), and audited threads (`--inspected-threads`) are checked first. System-1 multi-label categorization (`covered_spheres`) and verbatim quotes (`locate`) direct investigators straight to relevant dialogues, avoiding blind full-archive search; investigators retain informed autonomy to inspect (`-ts` or `-t --force`) for quote verification or unread turns.
 3. **Direct Chapter Section Synthesis (Anti-Evidence Graveyard):**
    - As soon as a sphere's criteria are audited in `checklist.py`, the investigator immediately drafts the corresponding modular report section:
      `reports/<chat_id>_sections/05_<sphere_letter>_<sphere_name>.md`

@@ -70,9 +70,10 @@ Assign: Sphere <Letter> criteria for chat <chat_id>.
 Instructions:
 1. Retrieve pre-extracted facts: `python3 project/scripts/query_chat.py -C <chat_id> --facts-for-sphere <Letter>`.
 2. Check audited threads: `python3 project/scripts/query_chat.py -C <chat_id> --inspected-threads --sphere <Letter>`.
-3. Check volume: `python3 project/scripts/query_chat.py -C <chat_id> --shard-sphere <Letter> --batch-size 5`.
+3. Check volume & System-1 triaged threads: `python3 project/scripts/query_chat.py -C <chat_id> --shard-sphere <Letter> --batch-size 5`.
+   Note: `--shard-sphere` automatically includes threads pre-classified by System-1 (`thread_triage.covered_spheres`). Audit assigned triaged threads and their locate evidence quotes FIRST before resorting to open semantic probes.
    If > 6 threads, self-scale by dispatching forensic-thread-investigator workers per shard.
-4. Execute semantic vector probes (`--semantic`) and targeted lexical searches (`-s --with-context 5`).
+4. Execute targeted semantic vector probes (`--semantic`) and lexical searches (`-s --with-context 5`) strictly to fill remaining checklist gaps.
 5. Persist findings via `checklist.py`:
    - For evidenced items: pass `--semantic-queries "<queries>"` when persisting findings:
      `python3 project/scripts/checklist.py -C <chat_id> --update <item_id> --set-status completed --notes "..." --queries "..." --semantic-queries "..."`

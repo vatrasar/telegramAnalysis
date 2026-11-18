@@ -128,12 +128,14 @@ Before executing raw searches across the chat archive:
 3. **Incorporate Existing Evidence:**
    Directly integrate applicable pre-extracted quotes and insights into relevant `item_id`s in `checklist.py`.
 
-### Step 0.5: Pre-Flight Volume Assessment & Autonomous Self-Scaling
+### Step 0.5: Pre-Flight Volume Assessment & System-1 Triaged Thread Ingestion
 Check the thread volume associated with your assigned sphere:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --shard-sphere <sphere_letter> --batch-size 5
 ```
-- **If `SINGLE_WORKER` ($\le 6$ threads):** Proceed directly with your focused criteria investigation (Steps 1–6).
+- **System-1 Pre-Mapped Threads:** `--shard-sphere` pulls all threads pre-classified by System-1 triage (`thread_triage.covered_spheres`) matching your sphere letter, including exact `evidence_quote` anchors (`locate`).
+- **Guided Audit Order:** Audit and verify these pre-mapped threads and their locate anchors FIRST. Do not start with blind global searches.
+- **If `SINGLE_WORKER` ($\le 6$ threads):** Proceed directly with your focused criteria investigation across these threads (Steps 1–6).
 - **If `SPLIT_REQUIRED` ($> 6$ threads):**
   1. Do NOT dump all threads into your context.
   2. Launch worker subagents in parallel (`TypeName: "forensic-thread-investigator"`, `Model: "flash"`), assigning one chronological shard (up to 5 threads) to each worker.
@@ -143,11 +145,12 @@ python3 project/scripts/query_chat.py -C <chat_id> --shard-sphere <sphere_letter
 ### Step 1: Review Item Criteria & Search Lexicons
 Consult `project/skills/life-spheres-investigation/SKILL.md` for definitions, criteria, and suggested queries for each assigned `item_id`.
 
-### Step 2: Execute Primary Semantic Vector Queries (Targeted on Gaps)
-For criteria still lacking evidence after Step 0:
+### Step 2: Execute Primary Semantic Vector Queries (Targeted on Gaps Only)
+For criteria STILL lacking conclusive evidence after auditing the System-1 triaged threads from Step 0.5:
 ```bash
 python3 project/scripts/query_chat.py -C <chat_id> --semantic "<descriptive natural language query>" -k 5
 ```
+**Anti-Blind-Fishing Rule:** Never execute broad, generic vector queries across the entire archive for criteria already substantiated by pre-mapped threads. Use semantic queries strictly as a gap-filling sniper.
 
 ### Step 3: Execute Targeted Lexical Searches
 ```bash
