@@ -109,25 +109,14 @@ You serve as the **Single Source of Truth and Sole Write Authority** for the ent
    python3 project/scripts/query_chat.py -C <chat_id> --descriptors
    python3 project/scripts/query_chat.py -C <chat_id> --audit-descriptor "<role_or_descriptor>"
    ```
-3. **Handle High Candidate Volume (> 35 mentions) via Dedicated Screener Subagents:**
-   - Do NOT attempt to ingest hundreds of candidates into your own prompt and do NOT write ad-hoc Python scripts.
-   - Calculate candidate shards dynamically targeting ~25–35 candidates per subagent:
-     $$\text{shards} = \max(2, \lceil \text{total\_candidates} / 30 \rceil)$$
-     (e.g. for 460 candidates, partition into 15 shards `1/15` ... `15/15` and dispatch 15 parallel `candidate-triage` subagents — do NOT artificially cap at 4 shards).
-   - Dispatch parallel `candidate-triage` subagents:
-     - `TypeName`: `"candidate-triage"`
-     - `Model`: `"flash"`
-     - `Role`: `"Candidate Screener - Shard <X/Y>"`
-     - `Prompt`: "Screen candidate shard <X/Y> using `python3 project/scripts/query_chat.py -C <chat_id> --candidates --candidates-shard <X/Y> --json`. Evaluate candidates by substance (proper names, kinship, personal relational figures) and discard purely transactional noise. Return structured JSON with candidates_to_keep and discovered_noise_words."
-   - When screeners return:
-     - If screeners found recurring noise words, register them permanently in the database:
-       ```bash
-       python3 project/scripts/query_chat.py -C <chat_id> --add-noise-word "<discovered_noise_words>"
-       ```
-     - Aggregate the verified candidates across all shards.
-4. **If Candidate Count is Compact ($\le$ 35 mentions):**
-   Retrieve the candidate list directly: `python3 project/scripts/query_chat.py -C <chat_id> --candidates --json`.
-5. **Generate Hybrid Pre-Clusters & Conflation Risk Alerts:**
+3. **Automated System-1 Candidate Screening & Noise Discard:**
+   - Execute the high-throughput System-1 candidate screening command:
+     ```bash
+     python3 project/scripts/query_chat.py -C <chat_id> --triage-candidates-system1
+     ```
+   - This classifies all candidate mentions into legitimate third parties vs transactional/collective noise via the OpenRouter Decisions API, automatically registering discarded noise words in the database (`chat_descriptors`) and retaining genuine interpersonal contacts.
+   - Spawning manual `candidate-triage` subagents is superseded by this automated command.
+4. **Generate Hybrid Pre-Clusters & Conflation Risk Alerts:**
    Run the deterministic co-occurrence clustering engine:
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --suggest-clusters --json

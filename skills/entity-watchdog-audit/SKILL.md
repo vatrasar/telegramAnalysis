@@ -40,13 +40,13 @@ To maximize throughput while eliminating duplicate registrations and character c
    ```bash
    python3 project/scripts/query_chat.py -C <chat_id> --candidates
    ```
-2. **If Candidate Count is High (> 35 mentions):**
-   The Supervisor shards candidates dynamically targeting ~25–35 candidates per subagent ($\max(2, \lceil \text{total\_candidates} / 30 \rceil)$) and dispatches lightweight `candidate-triage` screener subagents:
-   - `python3 project/scripts/query_chat.py -C <chat_id> --candidates --candidates-shard <X/Y> --json`
-   - Screeners separate genuine third parties from transactional noise, reporting back candidates to keep and any recurring noise words to register permanently (`--add-noise-word "<words>"`).
-3. **If Candidate Count is Compact ($\le$ 35 mentions):**
-   The Supervisor inspects candidates directly via `--candidates --json`.
-4. **Generate Hybrid Clusters & Conflation Alerts:**
+2. **Automated System-1 Candidate Screening & Noise Discard:**
+   The Supervisor executes automated System-1 screening via OpenRouter Decisions API:
+   ```bash
+   python3 project/scripts/query_chat.py -C <chat_id> --triage-candidates-system1
+   ```
+   This separates genuine interpersonal third parties from transactional noise, automatically registering discarded noise words in the database (`chat_descriptors`) and retaining genuine interpersonal contacts without spawning subagents.
+3. **Generate Hybrid Clusters & Conflation Alerts:**
    The Supervisor runs: `python3 project/scripts/query_chat.py -C <chat_id> --suggest-clusters --json`
    This automatically forms 2–3 candidate clusters based on shared thread co-occurrence and role match, while highlighting `high_conflation_risks` to prevent accidental merges ($K=1$ vs $K \ge 2$).
 

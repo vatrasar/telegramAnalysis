@@ -318,7 +318,7 @@ def print_candidate_entities_summary(data: Dict[str, Any], chat_name: Optional[s
 
     print("-" * 80)
     print("💡 SUPERVISOR ACTION:")
-    print("   1. Dispatch `candidate-triage` subagents on candidate shards to select legitimate third parties.")
-    print("   2. Register custom noise words if needed via: --add-noise-word \"term1,term2\"")
-    print("   3. Group vetted candidates into 2-3 person clusters for `entity-investigator` subagents.")
+    print("   1. Run System-1 candidate screening: python3 project/scripts/query_chat.py -C <chat_id> --triage-candidates-system1")
+    print("   2. Generate 2-3 person clusters for investigation: python3 project/scripts/query_chat.py -C <chat_id> --suggest-clusters")
+    print("   3. Dispatch parallel `entity-investigator` subagents on each character cluster.")
     print("=" * 80 + "\n")

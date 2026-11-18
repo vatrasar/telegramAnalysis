@@ -153,6 +153,24 @@ def handle_entity_actions(args: Any, batch_config: Dict[str, Any], resolved_chat
             print_candidate_entities_summary(cdata, chat_name=resolved_chat_name)
         return True
 
+    if getattr(args, "triage_candidates_system1", False) or batch_config.get("triage_candidates_system1", False):
+        if not resolved_chat_id:
+            print("[!] Error: Please specify target chat via -C <chat_id> for --triage-candidates-system1.")
+            sys.exit(1)
+        from .candidate_triage_decider import run_candidate_triage_system1
+        limit_val = getattr(args, "limit", None)
+        run_candidate_triage_system1(
+            db_path=args.db,
+            chat_id=resolved_chat_id,
+            model_override=getattr(args, "model", None),
+            auto_discard=getattr(args, "auto_discard_noise", True),
+            concurrency=getattr(args, "concurrency", 6) or 6,
+            limit=limit_val if limit_val and limit_val > 0 else None,
+            force=getattr(args, "force_candidates_triage", False),
+            json_output=args.json
+        )
+        return True
+
     if args.suggest_clusters or batch_config.get("suggest_clusters", False):
         if not resolved_chat_id:
             print("[!] Error: Please specify target chat via -C <chat_id> for --suggest-clusters.")

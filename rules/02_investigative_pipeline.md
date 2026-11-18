@@ -66,7 +66,7 @@ When a chat is updated with new messages or threads:
 #### Step B.2: Entity Disambiguation & Relational Dossiers (Delegated to `entity-supervisor`)
 - **Mandatory Supervisory Delegation:** To protect primary context, the Main Coordinator does NOT process individual candidate mentions or register entities directly.
 - Activate `entity-watchdog-audit` skill and invoke the **Entity Registry Supervisor** (`entity-supervisor`, `Model: "flash"`):
-  - Manages candidate screening (`candidate-triage`), parallel snippet investigation (`entity-investigator`), thread audit caching (`--record-thread-audit`), fact persistence (`--record-facts-batch`), entity registration (`--register-entity`), and anti-conflation audits (`--conflation-audit`).
+  - Manages automated System-1 candidate screening (`--triage-candidates-system1`), parallel snippet investigation (`entity-investigator`), thread audit caching (`--record-thread-audit`), fact persistence (`--record-facts-batch`), entity registration (`--register-entity`), and anti-conflation audits (`--conflation-audit`).
   - Oversees parallel deep relational profiling (`entity-deep-profiler`) across salient figures and the interlocutor dyad, synthesizing the Relational Dossier (`reports/<chat_id>_entities/`).
 - **Prerequisite Gate:** Step B.2 is complete when `query_chat.py --check-watchdog-gate -C <chat_id>` exits with code 0. Initializing downstream checklists is programmatically blocked until this gate clears.
 
