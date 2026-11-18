@@ -18,6 +18,11 @@ from typing import Dict, Any, List, Optional, Tuple
 
 from common.config import load_config, get_api_key
 from checklist_engine.threads_db import ensure_thread_checklist_table
+from checklist_engine.fact_packets import (
+    build_fact_packets,
+    map_thread_to_domain,
+    evaluate_domain_novelty,
+)
 
 ALLOWED_THEMES = [
     "corroborating_routine_baseline",
@@ -74,6 +79,7 @@ def _call_delta_system1_api(
     baseline_text: str,
     api_key: str,
     model: str,
+    domain_instructions: Optional[str] = None,
     max_retries: int = 3
 ) -> Tuple[Dict[str, Any], float]:
     """Call OpenRouter API for System-1 thread delta evaluation."""
@@ -85,11 +91,15 @@ def _call_delta_system1_api(
         "X-Title": "System-1 Thread Delta Triage"
     }
 
-    user_content = f"ESTABLISHED BASELINE SUMMARY:\n{baseline_text}\n\nPENDING THREAD CANDIDATE:\n{thread_payload}"
+    system_prompt = SYSTEM_DELTA_TRIAGE_PROMPT
+    if domain_instructions:
+        system_prompt += f"\n\nDOMAIN FOCUS & INSTRUCTIONS:\n{domain_instructions}"
+
+    user_content = f"ESTABLISHED DOMAIN BASELINE:\n{baseline_text}\n\nPENDING THREAD CANDIDATE:\n{thread_payload}"
     body = {
         "model": model,
         "messages": [
-            {"role": "system", "content": SYSTEM_DELTA_TRIAGE_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}
         ],
         "response_format": {"type": "json_object"},
@@ -124,91 +134,60 @@ def _call_delta_system1_api(
     }, 0.0
 
 
-def _evaluate_heuristic_indicator(row_dict: Dict[str, Any], baseline_text: str = "") -> Dict[str, Any]:
-    """Fast indicator evaluation based on Stage 1 System-1 radar attributes, semantic triggers, and baseline discounting."""
-    import re
-    salience = float(row_dict.get("salience_score") or 2.0)
-    is_atypical = int(row_dict.get("is_atypical") or 0)
-    emotional_peak = str(row_dict.get("emotional_peak") or "none")
-    is_relational = int(row_dict.get("is_relational_conflict") or 0)
-    is_crisis = int(row_dict.get("is_medical_or_grief_crisis") or 0)
-    is_breakdown = int(row_dict.get("is_acute_vulnerability_or_breakdown") or 0)
-    is_bizarre = int(row_dict.get("is_bizarre_or_boundary_violation") or 0)
-    radar = str(row_dict.get("radar_sources") or "")
-    cat = str(row_dict.get("primary_category") or "")
-    summary = str(row_dict.get("summary_short") or "").lower()
-    base_lower = baseline_text.lower()
+def _evaluate_heuristic_indicator(
+    row_dict: Dict[str, Any],
+    domain_packets_or_text: Any = None
+) -> Dict[str, Any]:
+    """Evaluate thread against domain-specific packet chunks or baseline."""
+    if isinstance(domain_packets_or_text, dict):
+        domain_packets = domain_packets_or_text
+    else:
+        # Fallback if text or None was passed
+        domain_packets = {}
 
-    # Check for known baseline echo discounting (e.g. tumor surgery recovery already in baseline)
-    is_known_health_echo = False
-    if ("tumor" in summary or "fibroadenoma" in summary or "wound" in summary or "painkiller" in summary) and \
-       ("tumor" in base_lower or "fibroadenoma" in base_lower) and not (is_breakdown or is_bizarre or is_relational):
-        is_known_health_echo = True
-
-    novelty_points = 0.0
-    if is_breakdown:
-        novelty_points += 2.5
-    if is_crisis and not is_known_health_echo:
-        novelty_points += 2.0
-    if is_bizarre:
-        novelty_points += 2.0
-    if emotional_peak in ["profound_sadness", "intense_rage"] and not is_known_health_echo:
-        novelty_points += 1.8
-    elif emotional_peak != "none" and not is_known_health_echo:
-        novelty_points += 1.0
-    if is_atypical:
-        novelty_points += 1.5
-    if is_relational:
-        novelty_points += 1.2
-    if "radar_1_anomalies" in radar and not is_known_health_echo:
-        novelty_points += 1.0
-    if "radar_2_peak" in radar and not is_known_health_echo:
-        novelty_points += 1.0
-
-    # Semantic triggers in summary indicating novel life events or turning points
-    novelty_kws = [
-        "ex", "caleb", "cj", "suitor", "suicide", "breakup", "crying", "cry",
-        "burnout", "breakdown", "matrimonial", "cheating", "relapse", "alcohol",
-        "panic", "confess", "overdose", "arranged", "ultimatum"
-    ]
-    matched_kws = [kw for kw in novelty_kws if re.search(r"\b" + kw + r"\b", summary)]
-    if matched_kws:
-        novelty_points += min(2.5, 0.9 * len(matched_kws))
-
-    # Also detect unmapped paternal family dynamics
-    if "father" in summary and any(k in summary for k in ["visit", "strict", "pressure", "marry", "marriage", "cream"]):
-        novelty_points += 1.5
-        matched_kws.append("paternal_boundary")
-
-    calculated_score = min(5.0, 1.0 + novelty_points)
-
-    if not is_known_health_echo and (calculated_score >= 3.0 or salience >= 3.8):
-        kw_note = f" (matched: {', '.join(matched_kws[:3])})" if matched_kws else ""
+    dom = map_thread_to_domain(
+        row_dict.get("primary_category", ""),
+        row_dict.get("summary_short", ""),
+        row_dict.get("radar_sources", "")
+    )
+    pkts = domain_packets.get(dom) or []
+    if not pkts:
+        # Fallback to direct indicator evaluation
+        theme_map = {
+            "family": "corroborating_family_conflict",
+            "romantic": "corroborating_courtship_filtering",
+            "career": "corroborating_academic_anxiety",
+            "health": "corroborating_health_somatic",
+            "worldview": "corroborating_faith_and_values",
+        }
+        salience = float(row_dict.get("salience_score") or 2.0)
+        is_breakdown = int(row_dict.get("is_acute_vulnerability_or_breakdown") or 0)
+        if is_breakdown or salience >= 3.8:
+            return {
+                "decision": "novel",
+                "novelty_score": 3.5,
+                "corroborating_theme": "novel_investigate",
+                "justification": "Indicator fallback novelty elevation"
+            }
         return {
-            "decision": "novel",
-            "novelty_score": round(calculated_score, 1),
-            "corroborating_theme": "novel_investigate",
-            "justification": f"System-1 novelty elevation (score {calculated_score:.1f}, radar: {radar}){kw_note}"
+            "decision": "redundant",
+            "novelty_score": 1.5,
+            "corroborating_theme": theme_map.get(dom, "corroborating_routine_baseline"),
+            "justification": "Corroborates established baseline patterns"
         }
 
-    theme_map = {
-        "family": "corroborating_family_conflict",
-        "romantic": "corroborating_courtship_filtering",
-        "career": "corroborating_academic_anxiety",
-        "health": "corroborating_health_somatic",
-        "worldview": "corroborating_faith_and_values",
-        "trivial_logistics": "corroborating_routine_baseline",
-        "values_and_worldview": "corroborating_faith_and_values",
-        "emotional_vulnerability": "corroborating_dyadic_rapport",
-    }
-    assigned_theme = theme_map.get(cat, "corroborating_routine_baseline")
-    echo_note = " (Corroborating known baseline health event)" if is_known_health_echo else ""
+    final_res = None
+    for pkt in pkts:
+        res = evaluate_domain_novelty(row_dict, pkt)
+        if res.get("decision") == "redundant":
+            return res
+        final_res = res
 
-    return {
+    return final_res or {
         "decision": "redundant",
-        "novelty_score": round(calculated_score, 1),
-        "corroborating_theme": assigned_theme,
-        "justification": f"Corroborates established baseline patterns (score {calculated_score:.1f}){echo_note}"
+        "novelty_score": 1.0,
+        "corroborating_theme": "corroborating_routine_baseline",
+        "justification": "Domain evaluation complete"
     }
 
 
@@ -304,11 +283,32 @@ def auto_triage_delta(
             "payload": payload
         })
 
+    packets = build_fact_packets(conn, chat_id, max_per_chunk=50)
+    domain_packets: Dict[str, List[Dict[str, Any]]] = {}
+    for p in packets:
+        domain_packets.setdefault(p["domain"], []).append(p)
+
     if has_live_api:
         def _worker(item: Dict[str, Any]) -> Tuple[str, Dict[str, Any], float]:
             tid = item["thread_id"]
-            parsed, cost = _call_delta_system1_api(item["payload"], baseline_summary, api_key, chosen_model)
-            return tid, parsed, cost
+            dom = map_thread_to_domain(item["primary_category"], item["summary_short"], item["radar_sources"])
+            pkts = domain_packets.get(dom) or (packets if packets else [])
+            if not pkts:
+                parsed, cost = _call_delta_system1_api(item["payload"], "", api_key, chosen_model)
+                return tid, parsed, cost
+
+            total_item_cost = 0.0
+            final_parsed = None
+            for pkt in pkts:
+                parsed, cost = _call_delta_system1_api(
+                    item["payload"], pkt["baseline_text"], api_key, chosen_model, domain_instructions=pkt.get("instructions")
+                )
+                total_item_cost += cost
+                if parsed.get("decision") == "redundant":
+                    final_parsed = parsed
+                    break
+                final_parsed = parsed
+            return tid, final_parsed or parsed, total_item_cost
 
         with ThreadPoolExecutor(max_workers=max(1, concurrency)) as executor:
             futures = [executor.submit(_worker, it) for it in threads_to_eval]
@@ -318,7 +318,7 @@ def auto_triage_delta(
                 total_cost += cost
     else:
         for it in threads_to_eval:
-            results[it["thread_id"]] = _evaluate_heuristic_indicator(it, baseline_summary)
+            results[it["thread_id"]] = _evaluate_heuristic_indicator(it, domain_packets)
 
     elapsed = time.time() - start_time
     redundant_count = novel_count = 0
@@ -378,7 +378,11 @@ def benchmark_delta_triage(conn: sqlite3.Connection, chat_id: str) -> Dict[str, 
     """, (chat_id,))
     ground_truth = {r[0]: r[1] for r in cur.fetchall()}
 
-    baseline_summary = _get_baseline_summary(conn, chat_id)
+    packets = build_fact_packets(conn, chat_id, max_per_chunk=50)
+    domain_packets: Dict[str, List[Dict[str, Any]]] = {}
+    for p in packets:
+        domain_packets.setdefault(p["domain"], []).append(p)
+
     tp = fp = tn = fn = 0
     cur.execute("SELECT thread_id FROM thread_audit_checklist WHERE chat_id = ?;", (chat_id,))
     all_tids = [r[0] for r in cur.fetchall()]
@@ -408,7 +412,7 @@ def benchmark_delta_triage(conn: sqlite3.Connection, chat_id: str) -> Dict[str, 
             "is_acute_vulnerability_or_breakdown": r[8], "is_bizarre_or_boundary_violation": r[9],
             "summary_short": r[10]
         }
-        pred_dict = _evaluate_heuristic_indicator(item_dict, baseline_summary)
+        pred_dict = _evaluate_heuristic_indicator(item_dict, domain_packets)
         pred = pred_dict["decision"]
 
         if pred == "novel" and orig == "novel":
@@ -433,6 +437,10 @@ def benchmark_delta_triage(conn: sqlite3.Connection, chat_id: str) -> Dict[str, 
         "recall_pct": round(recall * 100, 1),
         "f1_score": round(f1, 3),
         "confusion_matrix": {"TP_novel": tp, "FP_novel": fp, "TN_redundant": tn, "FN_redundant": fn},
+        "packets_summary": {
+            "total_packets": len(packets),
+            "domains": {dom: len(pkts) for dom, pkts in domain_packets.items()}
+        },
         "token_comparison": {
             "original_subagents_tokens": 3762578,
             "original_supervisor_tokens": 9273883,
