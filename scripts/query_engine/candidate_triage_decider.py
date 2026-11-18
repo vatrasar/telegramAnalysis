@@ -50,16 +50,17 @@ def build_candidate_triage_questions() -> Dict[str, Any]:
             "instructions": "Classify the exact nature of this candidate entity mention:",
             "criteria": {
                 "legitimate_third_party": (
-                    "A distinct, identifiable human individual (named person, family member, friend, lover, "
-                    "ex-partner, colleague, boss, doctor, therapist) personally interacting with or known to the participants."
+                    "A distinct, identifiable human individual (named contact, family member, friend, lover, "
+                    "ex-partner, colleague, boss, doctor, therapist) personally interacting with or personally known to the participants. "
+                    "STRICT EXCLUSION: Do NOT select this for famous public figures, celebrities, pop stars, actors, or politicians."
                 ),
                 "transactional_service": (
                     "A transient, one-off service or transactional worker with zero personal or relational connection "
                     "(e.g., courier, taxi driver, random cashier, tyre mechanic, waiter, delivery guy)."
                 ),
                 "collective_or_abstract": (
-                    "A collective plural group, demographic category, nationality, deity, abstract concept, "
-                    "or linguistic artifact (e.g., kids, people, god, prophet, indonesian guys, polish people, crowd)."
+                    "A famous public figure, celebrity, politician, collective plural group, demographic category, nationality, deity, abstract concept, "
+                    "or linguistic artifact (e.g., Brad Pitt, Donald Trump, kids, people, god, prophet, indonesian guys, polish people, crowd)."
                 ),
                 "participant_self_mention": (
                     "Direct mention of the primary chat subject or interlocutor themselves."

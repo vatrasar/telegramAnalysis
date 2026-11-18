@@ -158,7 +158,9 @@ def handle_entity_actions(args: Any, batch_config: Dict[str, Any], resolved_chat
             print("[!] Error: Please specify target chat via -C <chat_id> for --triage-candidates-system1.")
             sys.exit(1)
         from .candidate_triage_decider import run_candidate_triage_system1
-        limit_val = getattr(args, "limit", None)
+        limit_val = None
+        if "--limit" in sys.argv or "-n" in sys.argv:
+            limit_val = args.limit if args.limit > 0 else None
         run_candidate_triage_system1(
             db_path=args.db,
             chat_id=resolved_chat_id,
