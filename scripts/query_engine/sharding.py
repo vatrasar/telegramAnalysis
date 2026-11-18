@@ -249,6 +249,20 @@ def find_sphere_threads(conn: sqlite3.Connection, chat_id: str, sphere_letter: s
             if row[0]:
                 thread_ids.add(row[0])
 
+    # 4. From thread_triage (System-1 Multi-label Sphere Triage)
+    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
+    if cur.fetchone()[0] > 0:
+        cur.execute("PRAGMA table_info(thread_triage)")
+        cols = {col[1] for col in cur.fetchall()}
+        if "covered_spheres" in cols:
+            cur.execute("""
+            SELECT thread_id FROM thread_triage
+            WHERE chat_id = ? AND covered_spheres IS NOT NULL AND upper(covered_spheres) LIKE ?
+            """, (chat_id, f"%{sphere_letter}%"))
+            for row in cur.fetchall():
+                if row[0]:
+                    thread_ids.add(row[0])
+
     if not thread_ids:
         return []
 

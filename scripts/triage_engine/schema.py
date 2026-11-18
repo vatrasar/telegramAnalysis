@@ -54,6 +54,16 @@ def init_triage_table(conn: sqlite3.Connection):
         cur.execute("ALTER TABLE thread_triage ADD COLUMN is_acute_vulnerability_or_breakdown INTEGER DEFAULT 0")
     if "articulates_stance_or_preference" not in existing_cols:
         cur.execute("ALTER TABLE thread_triage ADD COLUMN articulates_stance_or_preference INTEGER DEFAULT 0")
+    if "covered_spheres" not in existing_cols:
+        cur.execute("ALTER TABLE thread_triage ADD COLUMN covered_spheres TEXT")
+    if "sphere_scores" not in existing_cols:
+        cur.execute("ALTER TABLE thread_triage ADD COLUMN sphere_scores TEXT")
+    if "evidence_quote" not in existing_cols:
+        cur.execute("ALTER TABLE thread_triage ADD COLUMN evidence_quote TEXT")
+    if "evidence_span_start" not in existing_cols:
+        cur.execute("ALTER TABLE thread_triage ADD COLUMN evidence_span_start INTEGER")
+    if "evidence_span_end" not in existing_cols:
+        cur.execute("ALTER TABLE thread_triage ADD COLUMN evidence_span_end INTEGER")
 
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_escalate ON thread_triage(escalate);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_score ON thread_triage(salience_score);")
@@ -67,4 +77,5 @@ def init_triage_table(conn: sqlite3.Connection):
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_bizarre ON thread_triage(is_bizarre_or_boundary_violation);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_vulner ON thread_triage(is_acute_vulnerability_or_breakdown);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_stance ON thread_triage(articulates_stance_or_preference);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_triage_spheres ON thread_triage(covered_spheres);")
     conn.commit()

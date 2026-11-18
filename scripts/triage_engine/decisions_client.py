@@ -6,6 +6,8 @@ import urllib.request
 import urllib.error
 from typing import Dict, Any
 
+from triage_engine.spheres_triage import build_sphere_questions, parse_sphere_answers
+
 
 def call_openrouter_decisions(
     dialogue_text: str,
@@ -140,6 +142,7 @@ def call_openrouter_decisions(
             }
         }
     }
+    payload["questions"].update(build_sphere_questions())
 
     req_data = json.dumps(payload).encode("utf-8")
 
@@ -234,6 +237,11 @@ def call_openrouter_decisions(
             if articulates_stance_or_pref:
                 notes_parts.append("Personal stance or preference")
 
+            sphere_res = parse_sphere_answers(answers, threshold=0.60)
+            if sphere_res["covered_spheres"]:
+                notes_parts.append(f"Spheres: {sphere_res['covered_spheres']}")
+                reason_parts.append(f"spheres:{sphere_res['covered_spheres']}")
+
             return {
                 "escalate": 1 if should_escalate else 0,
                 "salience_score": round(score, 2),
@@ -249,6 +257,11 @@ def call_openrouter_decisions(
                 "is_bizarre_or_boundary_violation": is_bizarre_or_boundary_violation,
                 "is_acute_vulnerability_or_breakdown": is_acute_vulnerability_or_breakdown,
                 "articulates_stance_or_preference": articulates_stance_or_pref,
+                "covered_spheres": sphere_res["covered_spheres"],
+                "sphere_scores": sphere_res["sphere_scores"],
+                "evidence_quote": sphere_res["evidence_quote"],
+                "evidence_span_start": sphere_res["evidence_span_start"],
+                "evidence_span_end": sphere_res["evidence_span_end"],
                 "anomaly_notes": ", ".join(notes_parts),
                 "reason": ", ".join(reason_parts),
                 "raw_response": json.dumps(resp_data)
@@ -318,6 +331,8 @@ def call_openrouter_chat_completions(
         '  "is_advice_seeking": boolean,\n'
         '  "mentions_third_party": boolean,\n'
         '  "articulates_stance_or_preference": boolean,\n'
+        '  "covered_spheres": "comma-separated letters from A, B, C, D, E, F representing evidenced life spheres",\n'
+        '  "evidence_quote": "Verbatim sentence representing peak disclosure or conflict, or empty string",\n'
         '  "anomaly_notes": "Short 1-sentence description if special radars triggered, otherwise empty string",\n'
         '  "reason": "1-sentence concise diagnostic rationale"\n'
         "}"
@@ -384,6 +399,11 @@ def call_openrouter_chat_completions(
                 "is_advice_seeking": 1 if is_advice_seeking else 0,
                 "mentions_third_party": 1 if mentions_third_party else 0,
                 "articulates_stance_or_preference": 1 if articulates_stance else 0,
+                "covered_spheres": str(parsed.get("covered_spheres", "")).strip().upper(),
+                "sphere_scores": "{}",
+                "evidence_quote": str(parsed.get("evidence_quote", "")).strip(),
+                "evidence_span_start": None,
+                "evidence_span_end": None,
                 "anomaly_notes": anomaly_notes,
                 "reason": reason,
                 "raw_response": content

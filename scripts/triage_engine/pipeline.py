@@ -119,8 +119,9 @@ def run_triage(
                  is_atypical, interlocutor_surprised, emotional_peak, is_advice_seeking, mentions_third_party,
                  is_relational_conflict, is_medical_or_grief_crisis, is_bizarre_or_boundary_violation,
                  is_acute_vulnerability_or_breakdown, articulates_stance_or_preference,
+                 covered_spheres, sphere_scores, evidence_quote, evidence_span_start, evidence_span_end,
                  anomaly_notes, raw_response, triaged_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     result["thread_id"],
                     result["chat_id"],
@@ -139,6 +140,11 @@ def run_triage(
                     result.get("is_bizarre_or_boundary_violation", 0),
                     result.get("is_acute_vulnerability_or_breakdown", 0),
                     result.get("articulates_stance_or_preference", 0),
+                    result.get("covered_spheres", ""),
+                    result.get("sphere_scores", "{}"),
+                    result.get("evidence_quote", ""),
+                    result.get("evidence_span_start", None),
+                    result.get("evidence_span_end", None),
                     result.get("anomaly_notes", ""),
                     result.get("raw_response", ""),
                     now_iso
@@ -160,11 +166,15 @@ def run_triage(
                     icons.append("👤")
                 if result.get("articulates_stance_or_preference"):
                     icons.append("⚖️")
+                if result.get("covered_spheres"):
+                    icons.append("🌐")
                 if not icons:
                     icons.append("🟢" if result["escalate"] == 1 else "⚪")
 
                 status_icon = "".join(icons)
                 badge = ""
+                if result.get("covered_spheres"):
+                    badge += f"[{result['covered_spheres']}] "
                 if result.get("is_atypical"):
                     badge += "[ATYPICAL] "
                 if result.get("interlocutor_surprised"):
