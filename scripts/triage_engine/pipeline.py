@@ -34,7 +34,10 @@ def run_triage(
         print("  -> Please edit config/embeddings_config.json and set your OpenRouter API key.")
         return 2
 
-    model = model_override or str(config.get("triage_model", "perplexity/pplx-decider-v1.2")).strip()
+    model = model_override or str(config.get("triage_model", "")).strip()
+    if not model:
+        print("[ERROR] Missing triage_model in config/embeddings_config.json!")
+        return 2
     concurrency = concurrency_override or int(config.get("concurrency", 4))
     salience_threshold = threshold_override if threshold_override is not None else float(config.get("salience_threshold", 2.0))
 

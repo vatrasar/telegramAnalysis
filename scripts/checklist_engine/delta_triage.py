@@ -114,18 +114,19 @@ def _call_delta_decisions_api(
                     "corroborating_theme": "novel_investigate" if final_decision == "novel" else "corroborating_routine_baseline",
                     "justification": f"PPLX Decider (p_novel: {is_novel_prob:.3f}, choice: {decision_choice})"
                 }, cost
-        except Exception:
+        except urllib.error.HTTPError as e:
+            err_msg = e.read().decode("utf-8", errors="ignore")
+            if e.code == 429 and attempt < max_retries - 1:
+                time.sleep(2.0 ** attempt)
+                continue
+            raise RuntimeError(f"OpenRouter Decisions API HTTP {e.code}: {err_msg}")
+        except Exception as e:
             if attempt < max_retries - 1:
                 time.sleep(1.0 + attempt * 0.5)
-            else:
-                break
+                continue
+            raise e
 
-    return {
-        "decision": "redundant",
-        "novelty_score": 1.0,
-        "corroborating_theme": "corroborating_routine_baseline",
-        "justification": "Decider fallback"
-    }, 0.0
+    raise RuntimeError(f"Decisions API failed after {max_retries} attempts.")
 
 
 def _evaluate_heuristic_indicator(
@@ -213,7 +214,9 @@ def auto_triage_delta(
         config, api_key = {}, ""
 
     has_live_api = bool(api_key and api_key != "YOUR_OPENROUTER_API_KEY_HERE" and not use_indicators_only)
-    chosen_model = model or config.get("triage_model") or config.get("model") or "~perplexity/pplx-decider-latest"
+    chosen_model = model or config.get("triage_model")
+    if has_live_api and not chosen_model:
+        raise ValueError("Missing triage_model in config/embeddings_config.json")
 
     cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_triage';")
     has_triage_table = cur.fetchone()[0] > 0

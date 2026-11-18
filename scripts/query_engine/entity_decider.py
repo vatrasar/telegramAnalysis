@@ -176,7 +176,9 @@ def filter_candidate_threads_system1(
         api_key = get_api_key(config)
         if not api_key or "YOUR_OPENROUTER_API_KEY" in api_key:
             return {}
-        model = config.get("triage_model", "openrouter/decision-model")
+        model = (config.get("triage_model") or "").strip()
+        if not model:
+            return {}
     except Exception:
         return {}
 

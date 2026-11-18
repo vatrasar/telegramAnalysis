@@ -36,7 +36,7 @@ def init_and_load_config() -> Dict[str, Any]:
             default_conf = {
                 "api_key": "YOUR_OPENROUTER_API_KEY_HERE",
                 "model": "qwen/qwen3-embedding-8b",
-                "triage_model": "perplexity/pplx-decider-v1.2",
+                "triage_model": "~perplexity/pplx-decider-latest",
                 "summary_model": "scaledown/summarize",
                 "extraction_model": "scaledown/extract"
             }
@@ -266,7 +266,7 @@ def main() -> int:
 
     api_key = str(config.get("api_key", "")).strip()
     embeddings_model = str(config.get("model", "qwen/qwen3-embedding-8b")).strip()
-    triage_model = str(config.get("triage_model", "perplexity/pplx-decider-v1.2")).strip()
+    triage_model = str(config.get("triage_model", "~perplexity/pplx-decider-latest")).strip()
     summary_model = str(config.get("summary_model", "scaledown/summarize")).strip()
     extraction_model = str(config.get("extraction_model", "scaledown/extract")).strip()
 

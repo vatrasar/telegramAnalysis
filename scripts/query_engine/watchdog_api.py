@@ -76,7 +76,9 @@ def run_watchdog_check(
 
     cfg = load_config()
     api_key = (cfg.get("api_key") or cfg.get("openrouter_api_key", "")).strip()
-    model = cfg.get("triage_model", "openrouter/auto")
+    model = (cfg.get("triage_model") or "").strip()
+    if not model:
+        raise ValueError("Missing triage_model in config/embeddings_config.json")
 
     has_unregistered, prob = verify_unregistered_entities_decider(
         dialogue_text=dialogue_text,
@@ -169,7 +171,9 @@ def run_anomaly_check(
 
     cfg = load_config()
     api_key = (cfg.get("api_key") or cfg.get("openrouter_api_key", "")).strip()
-    model = cfg.get("triage_model", "openrouter/auto")
+    model = (cfg.get("triage_model") or "").strip()
+    if not model:
+        raise ValueError("Missing triage_model in config/embeddings_config.json")
 
     has_secondary, prob = verify_secondary_anomaly_decider(
         dialogue_text=dialogue_text,

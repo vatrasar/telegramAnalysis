@@ -74,7 +74,9 @@ def run_sequential_watchdog_scan(
 
     cfg = load_config()
     api_key = (cfg.get("api_key") or cfg.get("openrouter_api_key", "")).strip()
-    model = cfg.get("triage_model", "perplexity/pplx-decider-v1.2")
+    model = (cfg.get("triage_model") or "").strip()
+    if not model:
+        raise ValueError("Missing triage_model in config/embeddings_config.json")
 
     total_threads = len(rows)
     cleared_count = sum(1 for r in rows if r[4] in ('cleared', 'skipped'))

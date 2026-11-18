@@ -60,14 +60,18 @@ Respond strictly with a JSON object:
 }"""
 
 
+def _is_decision_model(model: str) -> bool:
+    """Check if model targets the native OpenRouter Decisions API."""
+    return any(k in (model or "").lower() for k in ["decider", "decision", "jev", "systemone"])
+
+
 def _call_system1_api(
     item_payload: str,
     api_key: str,
     model: str,
     max_retries: int = 3
 ) -> Tuple[Dict[str, Any], float]:
-    """Call OpenRouter Chat Completions endpoint with JSON schema constraint."""
-    url = "https://openrouter.ai/api/v1/chat/completions"
+    """Call OpenRouter Decisions API or Chat Completions endpoint."""
     headers = {
         "Authorization": f"Bearer {api_key.strip()}",
         "Content-Type": "application/json",
@@ -75,6 +79,74 @@ def _call_system1_api(
         "X-Title": "System-1 Evidence Triage"
     }
 
+    if _is_decision_model(model):
+        url = "https://openrouter.ai/api/alpha/decisions"
+        payload = {
+            "model": model,
+            "state": item_payload,
+            "questions": {
+                "is_valuable": {
+                    "type": "noul",
+                    "instructions": "Does this dialogue contain substantively valuable psychological evidence about the primary subject?"
+                },
+                "salience": {
+                    "type": "score",
+                    "instructions": "Rate psychological diagnostic depth",
+                    "criteria": ["Noise", "Low", "Moderate", "High", "Critical"]
+                },
+                "target_chapter": {
+                    "type": "choice",
+                    "instructions": "Assign to the most relevant report chapter",
+                    "criteria": {
+                        "family": "Family dynamics, parental authority, sibling relationships",
+                        "career": "Professional trajectory, work accomplishments, vocational conflicts",
+                        "worldview": "Religious orthodoxy, halal/haram, moral fatalism, political worldview",
+                        "romantic": "Romantic relationships, courtship, suitors, dating apps, ex-partners",
+                        "lifestyle": "Daily habits, studies/thesis, healthcare work, sleep patterns",
+                        "attachment": "Attachment style, abandonment fears, rejection sensitivity, boundary porosity",
+                        "playbook_tactics": "Communication friction, red buttons, triggers, manipulation defenses",
+                        "creed_quirks": "Deep personal creed, idiosyncrasies, specific habits, non-religious ethical codes",
+                        "reliability_defenses": "Psychological defenses, rationalization, suppression, emotional decompensation",
+                        "discard_noise": "Interlocutor-only monologues, trivial chitchat, or zero psychological relevance"
+                    }
+                }
+            }
+        }
+        req_data = json.dumps(payload).encode("utf-8")
+        for attempt in range(max_retries):
+            try:
+                req = urllib.request.Request(url, data=req_data, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=25) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    answers = data.get("answers", {})
+                    cost = float(data.get("usage", {}).get("cost", 0.0))
+
+                    is_val_prob = float(answers.get("is_valuable", {}).get("noul", 0.0))
+                    raw_score = float(answers.get("salience", {}).get("score", 0.0))
+                    salience = round(1.0 + raw_score, 1)  # Scale 0..4 score to 1..5
+                    target_ch = answers.get("target_chapter", {}).get("choice", "discard_noise")
+                    is_valuable = (is_val_prob >= 0.5) and (target_ch != "discard_noise")
+
+                    return {
+                        "is_valuable_subject_evidence": is_valuable,
+                        "salience_score": salience,
+                        "target_chapter": target_ch if is_valuable else "discard_noise",
+                        "significance": f"System-1 Decider classified into '{target_ch}' (p_val={is_val_prob:.2f})"
+                    }, cost
+            except urllib.error.HTTPError as e:
+                err_msg = e.read().decode("utf-8", errors="ignore")
+                if e.code == 429 and attempt < max_retries - 1:
+                    time.sleep(2.0 ** attempt)
+                    continue
+                raise RuntimeError(f"OpenRouter Decisions API HTTP {e.code}: {err_msg}")
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    time.sleep(1.5 ** attempt)
+                    continue
+                raise e
+
+    # Fallback to chat completions if user configured a generative model
+    url = "https://openrouter.ai/api/v1/chat/completions"
     body = {
         "model": model,
         "messages": [
@@ -100,23 +172,19 @@ def _call_system1_api(
                 parsed = json.loads(content)
                 cost = float(data.get("usage", {}).get("cost", 0.0))
                 return parsed, cost
-        except Exception:
+        except urllib.error.HTTPError as e:
+            err_msg = e.read().decode("utf-8", errors="ignore")
+            if e.code == 429 and attempt < max_retries - 1:
+                time.sleep(2.0 ** attempt)
+                continue
+            raise RuntimeError(f"OpenRouter Chat API HTTP {e.code}: {err_msg}")
+        except Exception as e:
             if attempt < max_retries - 1:
                 time.sleep(1.0 + attempt * 0.5)
-            else:
-                return {
-                    "is_valuable_subject_evidence": False,
-                    "salience_score": 1.0,
-                    "target_chapter": "discard_noise",
-                    "significance": "API call failure after retries"
-                }, 0.0
+                continue
+            raise e
 
-    return {
-        "is_valuable_subject_evidence": False,
-        "salience_score": 1.0,
-        "target_chapter": "discard_noise",
-        "significance": "Unknown evaluation failure"
-    }, 0.0
+    raise RuntimeError(f"Failed to triage evidence item after {max_retries} attempts.")
 
 
 def auto_triage_evidence(
@@ -150,9 +218,7 @@ def auto_triage_evidence(
     raw_model = model or config.get("triage_model")
     if not raw_model:
         raise ValueError("Missing triage_model in config/embeddings_config.json")
-    if raw_model.startswith("~"):
-        raw_model = raw_model.lstrip("~")
-    chosen_model = raw_model
+    chosen_model = raw_model.strip()
 
     # Select completed threads needing triage
     if force:
