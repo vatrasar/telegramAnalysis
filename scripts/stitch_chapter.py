@@ -20,6 +20,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
+from common.config import get_workspace_root
+from common.citation_tracker import record_citations_from_text
 from epistemic_engine import (
     ParsedSection,
     parse_subsections_from_markdown,
@@ -150,13 +152,42 @@ def stitch_subsections(
 
     # Check for duplicate quotes across DIFFERENT subsections
     duplicates: Dict[int, List[str]] = {}
+    citation_notices: List[str] = []
     for msg_id, sections in seen_quotes.items():
         unique_sections = sorted(list(set(sections)))
         if len(unique_sections) > 1:
             duplicates[msg_id] = unique_sections
-            all_warnings.append(
-                f"Duplicate quote anchor [#{msg_id}] reused across subsections: {', '.join(unique_sections)}"
+            citation_notices.append(
+                f"Quote anchor [#{msg_id}] cited across multiple subsections ({', '.join(unique_sections)}). "
+                "Permitted if analyzing distinct psychological dimensions; drafters must not re-query raw chat logs for replacements."
             )
+
+    # Persist citations in SQLite report_citations if database is available
+    db_candidate = os.path.join(get_workspace_root(), "chat.db")
+    if not os.path.exists(db_candidate) and os.path.exists("chat.db"):
+        db_candidate = "chat.db"
+    if os.path.exists(db_candidate):
+        try:
+            import sqlite3
+            c_conn = sqlite3.connect(db_candidate)
+            c_cur = c_conn.cursor()
+            c_cur.execute("SELECT chat_id FROM chats LIMIT 1;")
+            c_row = c_cur.fetchone()
+            cid = c_row[0] if c_row else "default"
+            chap_name = os.path.splitext(os.path.basename(output_filepath))[0]
+            for fpath in files:
+                with open(fpath, "r", encoding="utf-8") as f_in:
+                    f_content = f_in.read()
+                record_citations_from_text(
+                    c_conn,
+                    chat_id=cid,
+                    content=f_content,
+                    chapter=chap_name,
+                    section_file=os.path.basename(fpath)
+                )
+            c_conn.close()
+        except Exception:
+            pass
 
     # Optional System-1 Epistemic Invariants Audit
     epistemic_report = None
@@ -191,6 +222,7 @@ def stitch_subsections(
         "total_words": total_words,
         "unique_quotes_count": len(seen_quotes),
         "duplicate_quotes": duplicates,
+        "citation_notices": citation_notices,
         "warnings": all_warnings,
         "files_merged": [os.path.basename(f) for f in files],
         "epistemic_audit": {
@@ -289,12 +321,17 @@ def main() -> None:
             ea = res["epistemic_audit"]
             print(f"Epistemic Audit: {'[✓] PASS' if ea['total_breaches'] == 0 else f'[🚨] {ea['total_breaches']} BREACHES DETECTED'} (Cost: ${ea['cost_usd']:.5f} USD)")
 
+        if res.get("citation_notices"):
+            print(f"\n[ℹ️] Citation Notices ({len(res['citation_notices'])}):")
+            for n in res["citation_notices"]:
+                print(f"  - {n}")
+
         if res["warnings"]:
             print(f"\n[!] QA Warnings / Coherence Flags ({len(res['warnings'])}):")
             for w in res["warnings"]:
                 print(f"  - {w}")
         else:
-            print("\n[✓] QA Coherence Check: PASS (Zero duplicate quotes, clean formatting, valid syntax).")
+            print("\n[✓] QA Coherence Check: PASS (Clean formatting, valid syntax, properly anchored quotes).")
 
         print("===============================================\n")
 

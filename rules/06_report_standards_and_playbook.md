@@ -27,3 +27,11 @@ These rules govern the presentation standards, formatting prohibitions, and outp
 
 - Final report drafting and assembly are strictly delegated to the **Dossier Assembly Supervisor** (`dossier-supervisor`).
 - For the full report blueprint, playbook templates, summary matrix, and automated compilation via `assemble_report.py`, activate the `dossier-report-assembly` skill.
+
+---
+
+## 4. Citation Discipline & Substantive Evidence Reuse
+
+1. **Substance Over ID Uniqueness:** Multiple sections or chapters may cite the same landmark quote anchor (`[#ID | YYYY-MM-DD]`) if it substantively illustrates distinct psychological dimensions (e.g. attachment style vs. ego defenses).
+2. **Database-Only Selection:** Drafters must select evidence exclusively from compiled SQLite tables (`discovered_facts`, `report_citations`). If multiple candidate facts exist for a subtopic, prefer an uncited one; if only one landmark fact exists, cite it directly.
+3. **Strict Ban on Chat Re-Hunting:** Drafters are strictly forbidden from executing exploratory search or opening raw chat threads (`query_chat.py -s / -t`) solely to find an uncited replacement quote.

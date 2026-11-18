@@ -20,6 +20,7 @@ if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
 from common.config import get_workspace_root
+from common.citation_tracker import get_cited_quotes_map, format_citation_guidance
 from vector_engine.client import deserialize_vector, dot_product
 
 
@@ -91,6 +92,8 @@ def fetch_facts_and_vectors(
     sql += " ORDER BY f.fact_id ASC "
     cur.execute(sql, params)
 
+    citations_map = get_cited_quotes_map(conn, chat_id)
+
     results = []
     for r in cur.fetchall():
         emb = None
@@ -99,11 +102,15 @@ def fetch_facts_and_vectors(
                 emb = deserialize_vector(r[10])
             except Exception:
                 emb = None
+        anchor_id = r[3]
+        locs = citations_map.get(anchor_id, [])
+        is_cited = len(locs) > 0
+        guidance = format_citation_guidance(is_cited, locs)
         results.append({
             "fact_id": r[0],
             "chat_id": r[1],
             "thread_id": r[2],
-            "anchor_msg_id": r[3],
+            "anchor_msg_id": anchor_id,
             "category": r[4],
             "sphere_id": r[5],
             "target_agent": r[6],
@@ -111,6 +118,9 @@ def fetch_facts_and_vectors(
             "verbatim_quote": r[8],
             "subject": r[9],
             "vector": emb,
+            "is_cited": is_cited,
+            "cited_in": [loc["chapter"] for loc in locs],
+            "citation_guidance": guidance,
         })
     return results
 
@@ -256,19 +266,38 @@ def main() -> None:
 
     # Check threshold
     if total_facts <= args.threshold:
+        facts_summary = [
+            {
+                "fact_id": f["fact_id"],
+                "anchor_msg_id": f["anchor_msg_id"],
+                "summary": f["fact_summary"],
+                "is_cited": f.get("is_cited", False),
+                "cited_in": f.get("cited_in", []),
+                "citation_guidance": f.get("citation_guidance", "")
+            }
+            for f in facts
+        ]
         result = {
             "needs_clustering": False,
             "total_facts": total_facts,
             "threshold": args.threshold,
             "message": f"Fact count ({total_facts}) is within the threshold ({args.threshold}). Synthesize directly.",
-            "fact_ids": [f["fact_id"] for f in facts]
+            "fact_ids": [f["fact_id"] for f in facts],
+            "facts": facts_summary
         }
         if args.json:
             print(json.dumps(result, indent=2, ensure_ascii=False))
         else:
             print(f"\n[✓] Total facts: {total_facts} <= threshold {args.threshold}.")
             print("    Status: NO CLUSTERING REQUIRED. The subsection drafter can synthesize directly.")
-            print(f"    Fact IDs: {result['fact_ids']}\n")
+            print(f"    Fact IDs: {result['fact_ids']}")
+            print("\n  Available Facts & Citation Status (Discovered Database):")
+            for f in facts:
+                status_icon = "⚠️ CITED" if f.get("is_cited") else "✓ UNCITED"
+                print(f"    • Fact #{f['fact_id']} [#{f['anchor_msg_id']}] [{status_icon}]: {f['fact_summary']}")
+                if f.get("is_cited"):
+                    print(f"      ↳ {f['citation_guidance']}")
+            print()
         return
 
     # Determine K clusters
@@ -283,9 +312,11 @@ def main() -> None:
     for idx, c_facts in enumerate(fact_clusters, 1):
         medoid = find_medoid_fact(c_facts)
         keywords = extract_keywords_from_cluster(c_facts)
+        uncited_in_cluster = sum(1 for f in c_facts if not f.get("is_cited"))
         c_info = {
             "cluster_id": idx,
             "fact_count": len(c_facts),
+            "uncited_count": uncited_in_cluster,
             "representative_summary": medoid.get("fact_summary", ""),
             "representative_anchor": f"[#{medoid.get('anchor_msg_id')} | {medoid.get('category')}]",
             "keywords": keywords,
@@ -308,7 +339,7 @@ def main() -> None:
         print(f"\n[!] Total facts: {total_facts} > threshold {args.threshold}.")
         print(f"    Status: CLUSTERING ENFORCED. Partitioned into {len(cluster_outputs)} semantic clusters.\n")
         for c in cluster_outputs:
-            print(f"  ● Cluster {c['cluster_id']} ({c['fact_count']} facts):")
+            print(f"  ● Cluster {c['cluster_id']} ({c['fact_count']} facts, {c['uncited_count']} uncited):")
             print(f"    - Theme/Representative: \"{c['representative_summary']}\"")
             print(f"    - Keywords: {', '.join(c['keywords'])}")
             print(f"    - Fact IDs: {c['fact_ids']}")

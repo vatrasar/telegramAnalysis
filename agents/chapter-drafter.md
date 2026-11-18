@@ -104,11 +104,11 @@ Inspect the stitched chapter and subsection drafts against non-negotiable criter
 4. **Sender-vs-Author Disambiguation:** Verify that forwarded messages, pasted external links, or third-party text are not treated as the subject's inner psychology.
 5. **Actuation Gate Enforcement:** Confirm aspirations, offers, or unexecuted plans (*"wanted to"*, *"chciał"*, *"planował"*) are framed strictly as psychological desires, fantasies, or defenses, NEVER as completed biographical achievements.
 6. **Medical Grounding Gate:** Confirm formal psychiatric labels or chronic diagnoses are not applied based on conversational hyperbole, teasing, or third-party banter.
-7. **Quote Redundancy Check:** Verify whether any quote ID was cited across multiple subsections. If a quote is unnecessarily duplicated, instruct one subsection drafter to replace it with an alternative anchored quote or cross-reference it.
+7. **Quote Redundancy & Citation Discipline:** Multiple subsections may cite the same anchor quote if it substantively illustrates distinct psychological dimensions (e.g. a defense mechanism in one subsection and an attachment trigger in another). **Anti-Exploration Mandate:** Drafters are strictly forbidden from re-opening raw chat logs or executing expensive exploratory searches (`query_chat.py -s / -t`) solely to find an uncited replacement quote. If alternative facts already exist in `discovered_facts`, prefer uncited ones; otherwise, citing the same landmark incident under a distinct analytical lens is explicitly permitted.
 8. **Thematic Coherence & Delivery Invariants:** Ensure smooth transitions between subsections, absence of contradictory diagnostic claims, uniform high-register clinical Polish, and verified closure of all code blocks.
 
 ### Step 5: Delivery to Dossier Supervisor
 Return a concise delivery receipt:
 * Output file path (`reports/<subject>_sections/<chapter_filename>.md`),
 * Subsection count and total word count,
-* Confirmation of zero duplicate quotes and clean coherence check.
+* Confirmation of substantive evidence alignment, citation review, and clean coherence check.

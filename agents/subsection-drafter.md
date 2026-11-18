@@ -79,11 +79,11 @@ python3 project/scripts/cluster_facts.py -C <chat_id> \
 
 ### Scenario A: Total Facts $\le 20$ (Direct Synthesis)
 If `needs_clustering` is `false`:
-- Query the facts directly:
+- Query the facts and their linked 1:N quotes directly via evidence package:
   ```bash
-  python3 project/scripts/query_chat.py -C <chat_id> --facts --category "<category>"
+  python3 project/scripts/query_chat.py -C <chat_id> --export-chapter-evidence "<category>"
   ```
-- Synthesize the entire subsection directly in your context, giving each relevant quote detailed clinical unpacking.
+- Synthesize the entire subsection directly in your context, utilizing the complete quote cascade attached to each fact without executing redundant exploratory queries.
 
 ### Scenario B: Total Facts $> 20$ (Algorithmic Clustering & Parallel Sub-Delegation)
 If `needs_clustering` is `true`:
@@ -96,6 +96,13 @@ If `needs_clustering` is `true`:
 - Read the 2–3 micro-analyses returned by your helpers:
   - Formulate an overarching **Core Thesis** that synthesizes the distinct facets.
   - Integrate the best case studies into a cohesive, non-redundant subsection.
+
+### 2.1 Citation Reuse Protocol & Anti-Exploration Mandate
+- **Database-Only Selection:** You are an analytical synthesizer operating strictly on `discovered_facts` already compiled in SQLite.
+- **Handling Previously Cited Quotes:** When `cluster_facts.py` flags that a candidate quote is already cited in another chapter/subsection:
+  1. *Prefer Uncited When Available:* If alternative facts/quotes for this theme already exist in your retrieved database package, prefer an uncited one.
+  2. *Substance Over Uniqueness:* If the database offers only this single landmark quote for this point, **USE IT IMMEDIATELY WITHOUT HESITATION**. Substantive evidentiary depth strictly overrides anchor ID uniqueness.
+  3. *Absolute Prohibition on Chat Re-Hunting:* You are strictly forbidden from opening raw chat threads (`-t`) or running exploratory searches (`-s`, `--semantic`) to hunt for replacement quotes. Searching raw logs to replace a valid database fact is an epistemic breach and token waste.
 
 ---
 
