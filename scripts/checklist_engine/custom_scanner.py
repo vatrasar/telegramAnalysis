@@ -151,10 +151,15 @@ def scan_custom_sections_system1(
     all_threads: bool = False,
     threads_filter: Optional[List[str]] = None,
     limit: Optional[int] = None,
-    dry_run: bool = False,
-    auto_record_facts: bool = True
+    dry_run: bool = False
 ) -> Dict[str, Any]:
-    """Execute System-1 multi-theme scan across threads for all proposed custom sections."""
+    """
+    Execute System-1 multi-theme scan across threads for all proposed custom sections.
+    
+    Epistemic Invariant: System-1 locate spans and matched threads are stored in
+    custom_report_sections (associated_threads, key_quotes) as candidate pointers ONLY.
+    They are NEVER written directly into discovered_facts without System-2 verification.
+    """
     ensure_custom_sections_table(conn)
     cur = conn.cursor()
 
@@ -338,26 +343,6 @@ def scan_custom_sections_system1(
                 key_quotes = ?
             WHERE section_id = ? AND chat_id = ?;
             """, (updated_tids_str, updated_quotes_str, sec_id, chat_id))
-
-            # Auto record into discovered_facts if requested
-            if auto_record_facts and new_quotes:
-                cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='discovered_facts';")
-                if cur.fetchone()[0] > 0:
-                    for qinfo in sec_matches["extracted_quotes"]:
-                        if not qinfo["quote_text"]:
-                            continue
-                        cat = f"custom_{s['filename'].replace('.md', '')}"
-                        summary = f"{s['title']}: Milestone/Evidence verified via System-1 scan"
-                        cur.execute("""
-                        INSERT INTO discovered_facts (
-                            chat_id, thread_id, anchor_msg_id, category,
-                            sphere_id, target_agent, fact_summary, verbatim_quote,
-                            discovered_by, created_at, subject
-                        ) VALUES (?, ?, ?, ?, 'CUSTOM', 'chapter-drafter', ?, ?, 'system1_custom_scanner', ?, '');
-                        """, (
-                            chat_id, qinfo["thread_id"], qinfo["anchor_msg_id"],
-                            cat, summary, qinfo["quote_text"], now_iso
-                        ))
 
         conn.commit()
 

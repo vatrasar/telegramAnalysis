@@ -140,16 +140,17 @@ If anomalous evidence reveals high-salience themes that exceed standard chapter 
      --target-agent "chapter-drafter"
    ```
 2. **Execute Automated System-1 Multi-Theme Corroboration Scan:**
-   Run the System-1 multi-theme scan across candidate threads to discover all corroborating evidence across the longitudinal archive using `locate`:
+   Run the System-1 multi-theme scan across candidate threads to discover all candidate threads and anchor quotes across the longitudinal archive using `locate`:
    ```bash
    python3 project/scripts/thread_checklist.py -C <chat_id> --scan-custom-sections-system1
    ```
-   This automatically evaluates candidate threads against all proposed custom section themes, links matching threads, and extracts anchor quotes.
-3. **Dispatch Scoped Subagent (Strict Assigned-Threads Boundary):**
-   If trajectory verification is needed across the matched threads, dispatch a `forensic-thread-investigator` subagent:
+   This automatically maps matching candidate threads into `custom_report_sections.associated_threads` and extracts candidate anchor quotes (`locate`) into `custom_report_sections.key_quotes`.
+   *(Epistemic Invariant: System-1 locate spans are candidate pointers ONLY; they are NEVER committed directly to `discovered_facts`.)*
+3. **Dispatch Scoped Subagent (Strict Assigned-Threads Boundary & Mandatory Verification):**
+   Dispatch a `forensic-thread-investigator` subagent (`Model: "flash"`) for each custom section:
    - **Strict Assigned-Threads Boundary:** The worker is strictly confined to the matched threads (`--section-threads`) plus immediate adjacent boundary seams ($T_{n-1} \leftrightarrow T_n \leftrightarrow T_{n+1}$).
    - **Absolute Ban on Global Searching:** Global `--semantic` queries and unconstrained `-s` across unrelated threads are strictly prohibited.
-   - The subagent verifies longitudinal trajectory (genesis $\to$ escalation $\to$ resolution), records facts, and exits cleanly before Stage 6 drafting begins.
+   - **Mandatory Contextual Audit ($N-5 \dots N+5$):** The subagent audits dialogue context around locate pointers, confirms evidence validity, and records verified facts into `discovered_facts` (`query_chat.py -C <chat_id> --record-fact ...`) before Stage 6 drafting begins.
 
 ---
 

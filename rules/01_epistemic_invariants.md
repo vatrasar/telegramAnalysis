@@ -23,6 +23,10 @@ Deriving analytical conclusions, biographical traits, or psychodynamic claims fr
 - Text teasers or bare search match previews from CLI outputs are discovery pointers ONLY, NEVER admissible evidence.
 - Quoting or extracting claims directly from search previews without inspecting dialogue context is unconditionally forbidden.
 
+### 1.1a System-1 Extraction & `locate` Span Invariant
+- Spans and quotes extracted by System-1 models (e.g., the `locate` primitive in OpenRouter Decisions API or regex matchers) are discovery pointers / candidate spotters ONLY.
+- Under NO circumstances may an extracted `locate` span or single-turn snippet be committed directly into `discovered_facts` or cited as validated psychological proof without an unconditional System-2 contextual audit ($N-5 \dots N+5$, sender vs. author verification, conversational tone, and actuation checks).
+
 ### 1.2 Bare-Pronoun Attribution Ban & Sender != Author
 - **Bare-Pronoun Ban:** When search hits contain bare third-person pronouns (*"He works at"*, *"On ma"*), attributing traits based on conversational inertia is strictly forbidden. The proper noun antecedent in $N-5 \dots N$ must be verified.
 - **Sender != Author:** The `sender` field denotes the transport account, NOT intellectual authorship. Forwarded emails, articles, or partner text sent from the subject's account must never be attributed to the subject's inner psychology without antecedent audit.

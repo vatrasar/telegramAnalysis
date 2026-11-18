@@ -399,28 +399,9 @@ def auto_triage_delta(
                     formatted_quote = f'"{quote_text}"'
                     note_text += f" | Spotter Quote: {quote_text[:60]}..."
 
-                it_dict = next((it for it in threads_to_eval if it["thread_id"] == tid), None)
-                if it_dict and (it_dict.get("is_relational_conflict") == 1 or "conflict" in theme.lower()):
-                    from query_engine.facts_engine import add_discovered_fact
-                    sum_txt = str(it_dict.get("summary_short") or "").strip()
-                    c_subj = "Interpersonal"
-                    for kw, sname in [("father", "Father"), ("mother", "Mother"), ("sister", "Sister"), ("brother", "Brother"), ("caleb", "Caleb"), ("hilal", "Hilal"), ("suitor", "Suitor")]:
-                        if kw in sum_txt.lower():
-                            c_subj = sname
-                            break
-                    add_discovered_fact(
-                        conn=conn,
-                        chat_id=chat_id,
-                        category="relational_conflict",
-                        fact_summary=f"Relational conflict episode ({c_subj}): {sum_txt[:120]}",
-                        verbatim_quote=formatted_quote or quote_text or "Interpersonal conflict identified during delta triage",
-                        sphere_id="D" if c_subj in ["Father", "Mother", "Sister", "Brother"] else ("E" if c_subj in ["Caleb", "Hilal", "Suitor"] else None),
-                        thread_id=tid,
-                        anchor_msg_id=anchor_id,
-                        discovered_by="delta_triage",
-                        subject=c_subj
-                    )
-
+                # Epistemic Invariant: System-1 triage locate spans are spotter pointers ONLY.
+                # Never write directly into discovered_facts without System-2 context audit.
+                # The thread remains pending with candidate spotters for subagent verification.
                 cur.execute(
                     "UPDATE thread_audit_checklist SET key_quotes = coalesce(?, key_quotes), notes = coalesce(notes || ' | ', '') || ?, updated_at = ? WHERE chat_id = ? AND thread_id = ?;",
                     (formatted_quote, note_text, now_iso, chat_id, tid)

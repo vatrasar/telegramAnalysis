@@ -78,16 +78,18 @@ For each high-value evidence item, classify into one of three destinations:
     --target-agent "chapter-drafter"
   ```
 - **Step 2: Automated System-1 Multi-Theme Corroboration Scan:**
-  Immediately execute the System-1 multi-theme scan across candidate threads to discover all corroborating evidence across the longitudinal archive using `locate`:
+  Immediately execute the System-1 multi-theme scan across candidate threads to locate candidate corroborating threads and anchor quotes across the longitudinal archive using `locate`:
   ```bash
   python3 project/scripts/thread_checklist.py -C <chat_id> --scan-custom-sections-system1
   ```
-  This automatically links all corroborating threads and extracts verbatim anchor quotes directly into `custom_report_sections` and `discovered_facts`.
-- **Step 3: Scoped Subagent Dispatch (Strict Assigned-Threads Boundary):**
-  If the custom thesis requires verifying longitudinal trajectory or resolving ambiguity across the matched threads, dispatch a `forensic-thread-investigator` subagent:
-  - **Strict Assigned-Threads Boundary:** The worker is **strictly confined to the matched threads** returned by System 1 (plus adjacent boundary seams $T_{n-1} \leftrightarrow T_n \leftrightarrow T_{n+1}$).
+  This links all corroborating threads into `custom_report_sections.associated_threads` and extracts candidate anchor quotes (`locate`) into `custom_report_sections.key_quotes`.
+  *(Epistemic Invariant: System 1 produces discovery pointers ONLY; it NEVER commits unverified facts into `discovered_facts`.)*
+- **Step 3: Mandatory Subagent Verification (Strict Assigned-Threads Boundary):**
+  For each proposed custom section, dispatch a `forensic-thread-investigator` subagent (`Model: "flash"`) to rigorously verify the candidate threads and locate pointers:
+  - **Strict Assigned-Threads Boundary:** The worker is **strictly confined to the matched threads** returned by System 1 (`associated_threads`, plus adjacent boundary seams $T_{n-1} \leftrightarrow T_n \leftrightarrow T_{n+1}$).
   - **Absolute Ban on Global Searching:** Workers are strictly forbidden from executing global `--semantic` queries or unconstrained keyword digging across unrelated threads.
-  - The subagent inspects the assigned threads, verifies the longitudinal trajectory (genesis $\to$ escalation $\to$ resolution), records facts, and exits cleanly.
+  - **Contextual Audit ($N-5 \dots N+5$):** The subagent reads the dialogue turns around the locate pointers (`query_chat.py -t <thread_id>`), checks for sarcasm, banter, or retraction, and authenticates the thesis.
+  - **Fact Ingestion:** Only upon successful verification, the subagent records authenticated facts into `discovered_facts` (`query_chat.py -C <chat_id> --record-fact ...`).
 
 ---
 
