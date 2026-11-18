@@ -34,6 +34,10 @@ from checklist_engine.threads_evidence import (
     route_thread_evidence,
     get_evidence_for_target,
 )
+from checklist_engine.evidence_triage import (
+    auto_triage_evidence,
+    batch_route_evidence,
+)
 from checklist_engine.custom_sections import (
     ensure_custom_sections_table,
     propose_custom_section,
@@ -95,6 +99,13 @@ def main():
     parser.add_argument("--export-evidence", action="store_true", help="Export complete bank of audited forensic evidence and quotes for final report synthesis")
     parser.add_argument("--evidence-catalog", action="store_true", help="Display thematic category/tag catalog of audited evidence to guide modular chapter drafting")
     parser.add_argument("--route-evidence", type=str, metavar="THREAD_ID", help="Route audited evidence to a target drafter agent and report chapter")
+    parser.add_argument("--auto-triage-evidence", action="store_true", help="Automatically triage and route all audited evidence to chapters using System 1")
+    parser.add_argument("--batch-route", type=str, metavar="FILE_OR_JSON", help="Batch route evidence items from a JSON file or JSON string")
+    parser.add_argument("--concurrency", "-c", type=int, default=4, help="Concurrency for System-1 triage (default: 4)")
+    parser.add_argument("--threshold", "-t", type=float, default=2.5, help="Salience threshold for System-1 evidence triage (default: 2.5)")
+    parser.add_argument("--model", "-m", type=str, help="Override model for System-1 evidence triage")
+    parser.add_argument("--force", action="store_true", help="Force re-evaluation of already routed evidence items")
+    parser.add_argument("--dry-run", action="store_true", help="Preview System-1 triage without modifying database")
     parser.add_argument("--target-agent", type=str, help="Target drafter agent (e.g. chapter-drafter, subsection-drafter)")
     parser.add_argument("--target-chapter", type=str, help="Target report chapter or sphere category (e.g. family, career, playbook)")
     parser.add_argument("--significance", type=str, help="Significance or rationale note for routed evidence")
@@ -205,6 +216,46 @@ def main():
                 print(f"    Target Chapter: {args.target_chapter}")
             if args.significance:
                 print(f"    Significance:   {args.significance}")
+        sys.exit(0)
+
+    if args.auto_triage_evidence:
+        res = auto_triage_evidence(
+            conn, chat_id,
+            db_path=args.db,
+            model=args.model,
+            concurrency=args.concurrency,
+            salience_threshold=args.threshold,
+            force=args.force,
+            dry_run=args.dry_run
+        )
+        conn.close()
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            print(f"[✓] System-1 Evidence Triage completed for chat '{chat_id}':")
+            print(f"    Evaluated:  {res['total_evaluated']} items (Model: {res.get('model', 'default')})")
+            print(f"    Routed:     {res['routed_count']} items to chapters")
+            print(f"    Discarded:  {res['discarded_count']} items (noise / low-salience)")
+            if res.get("chapter_breakdown"):
+                print("    Chapter breakdown:")
+                for ch, cnt in sorted(res["chapter_breakdown"].items()):
+                    print(f"      • {ch}: {cnt} items")
+            print(f"    Latency:    {res['elapsed_seconds']}s | Cost: ${res['total_cost_usd']:.5f}")
+            if res.get("dry_run"):
+                print("    [!] Dry-run mode: database was not modified.")
+            else:
+                print("    [✓] Database updated and committed.")
+        sys.exit(0)
+
+    if args.batch_route:
+        res = batch_route_evidence(conn, chat_id, args.batch_route)
+        conn.close()
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            print(f"[✓] Batch routed {res['total_routed']} evidence items for chat '{chat_id}':")
+            for ch, cnt in sorted(res.get("chapter_breakdown", {}).items()):
+                print(f"    • {ch}: {cnt} items")
         sys.exit(0)
 
     if args.evidence_for_target:

@@ -39,6 +39,10 @@ from checklist_engine.threads_evidence import (
     route_thread_evidence,
     get_evidence_for_target,
 )
+from checklist_engine.evidence_triage import (
+    auto_triage_evidence,
+    batch_route_evidence,
+)
 from checklist_engine.custom_sections import (
     ensure_custom_sections_table,
     propose_custom_section,
@@ -87,6 +91,8 @@ __all__ = [
     "export_audited_evidence",
     "route_thread_evidence",
     "get_evidence_for_target",
+    "auto_triage_evidence",
+    "batch_route_evidence",
     "ensure_custom_sections_table",
     "propose_custom_section",
     "get_custom_sections",

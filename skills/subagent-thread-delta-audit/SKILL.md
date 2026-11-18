@@ -101,10 +101,17 @@ Once all novel threads are audited and marked `completed`, the Supervisor dispat
 - **Role:** `Forensic Evidence Curator`
 - **Model:** `flash`
 
-### Step 4.1: Autonomous Sharding Invariant ($\le 5$ Items per Worker)
-If completed evidence items $> 5$, the curator shards items into batches of up to 5 items and delegates evaluation to parallel helper subagents.
+### Step 4.1: Automated System-1 Evidence Triage
+Execute the native System-1 classifier to screen all completed evidence items, discard low-salience noise, and automatically route findings directly to target chapters in SQLite:
+```bash
+python3 project/scripts/thread_checklist.py -C <chat_id> --auto-triage-evidence
+```
+For external or pre-compiled routing lists, use batch ingestion:
+```bash
+python3 project/scripts/thread_checklist.py -C <chat_id> --batch-route <routings.json>
+```
 
-### Step 4.2: Evidence Valuation & Chapter Routing
+### Step 4.2: Manual Evidence Valuation & Chapter Routing (Ad-Hoc $\le 5$ Items)
 For each evidence item, the curator determines value-add and records routing in SQLite:
 ```bash
 python3 project/scripts/thread_checklist.py -C <chat_id> --route-evidence <thread_id> \
