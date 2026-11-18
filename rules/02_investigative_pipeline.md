@@ -74,7 +74,7 @@ When a chat is updated with new messages or threads:
 - **Mandatory Supervisory Delegation:** The Main Coordinator delegates Step B.3 entirely to the **Life Spheres Supervisor** (`sphere-supervisor`, `Model: "flash"`).
 - Activate `life-spheres-investigation` skill.
 - The Supervisor initializes `checklist.py -C <chat_id> --init`, partitions the 6 life spheres (A–F) across parallel `life-sphere-investigator` subagents, tracks progress, routes serendipitous discoveries, and ensures each investigator directly drafts its modular chapter section (`reports/<chat_id>_sections/05_<sphere_letter>_<canonical_name>.md`).
-- **Guided Navigation Invariant:** Investigators do NOT conduct blind global searches. They retrieve pre-mapped threads identified during Step B.1 System-1 triage (`query_chat.py --shard-sphere <letter>`), auditing targeted triaged threads first before using semantic search for pinpoint gap-filling.
+- **Guided Navigation & Scoped Search Invariant:** Investigators are strictly forbidden from executing unconstrained global searches across the entire 300+ thread archive. They retrieve pre-mapped threads identified during Step B.1 System-1 triage (`query_chat.py --shard-sphere <letter>`), auditing targeted triaged threads first. Any subsequent semantic vector query MUST be scoped exclusively to assigned threads via `--sphere <letter>` (e.g. `query_chat.py --semantic "<query>" --sphere <letter>`) or thread IDs (`-ts <tids>`). Global unconstrained semantic probes during Step B.3 constitute an epistemic breach.
 - Completing the 50 spheres establishes the empirical psychological baseline.
 
 #### Step B.4: Subagent Thread Delta Audit & Evidence Curation (Delegated to `thread-supervisor`)

@@ -186,26 +186,26 @@ python3 project/scripts/checklist.py -C <chat_id> --enable
 
 All searches operate against the analytical SQLite database (default: `chat.db` in workspace root):
 
-### 5.1 Semantic Vector Search (`--semantic`) — The Primary Discovery Engine
-Dense vector search maps conceptual meaning regardless of wording. Execute individual or batch queries:
+### 5.1 Scoped Semantic Vector Search (`--semantic --sphere <Letter>`) — Targeted Gap-Filling Engine
+Dense vector search maps conceptual meaning within assigned spheres. **MANDATORY SCOPING:** During Step B.3, vector queries MUST include `--sphere <Letter>` (or `-ts <tids>`) to restrict similarity calculations strictly to the threads pre-mapped to your assigned sphere. Unconstrained global searches across the entire archive are strictly prohibited.
+
 ```bash
-# Probing Political & Socio-Civic Orientations:
-python3 project/scripts/query_chat.py --db chat.db \
+# Probing Political & Socio-Civic Orientations (Scoped to Sphere C):
+python3 project/scripts/query_chat.py -C <chat_id> --sphere C \
   --semantic "political opinions, voting, attitude towards government policies, taxes, civic duty"
 
-# Probing Financial Psychology & Ways of Saving Money:
-python3 project/scripts/query_chat.py --db chat.db \
+# Probing Financial Psychology & Ways of Saving Money (Scoped to Sphere B):
+python3 project/scripts/query_chat.py -C <chat_id> --sphere B \
   --semantic "saving money, frugal habits, buying second-hand, bargains, guilt when spending, avoiding debt"
 
-# Probing Attachment Style & Intimacy Defenses:
-python3 project/scripts/query_chat.py --db chat.db \
+# Probing Attachment Style & Intimacy Defenses (Scoped to Sphere E):
+python3 project/scripts/query_chat.py -C <chat_id> --sphere E \
   --semantic "fear of commitment, deflecting intimacy with humor, emotional avoidance, reluctance to plan future"
 
-# Batch Multi-Concept Semantic Vector Probing (Runs multiple vector queries simultaneously):
-python3 project/scripts/query_chat.py --db chat.db \
+# Batch Multi-Concept Semantic Vector Probing Scoped to Sphere B:
+python3 project/scripts/query_chat.py -C <chat_id> --sphere B \
   --semantic "unfulfilled ambitions, abandoned dreams, deferred projects, regret" \
-  --semantic "work ethic, diligence, working overtime vs slacking and procrastination" \
-  --semantic "domestic cleanliness, neatness, mess tolerance, cleaning apartment"
+  --semantic "work ethic, diligence, working overtime vs slacking and procrastination"
 ```
 
 ### 5.2 Lexical Keyword Search (`-s` / `-st`) — Reserved for Concrete Entities

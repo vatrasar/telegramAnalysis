@@ -73,7 +73,7 @@ Instructions:
 3. Check volume & System-1 triaged threads: `python3 project/scripts/query_chat.py -C <chat_id> --shard-sphere <Letter> --batch-size 5`.
    Note: `--shard-sphere` automatically includes threads pre-classified by System-1 (`thread_triage.covered_spheres`). Audit assigned triaged threads and their locate evidence quotes FIRST before resorting to open semantic probes.
    If > 6 threads, self-scale by dispatching forensic-thread-investigator workers per shard.
-4. Execute targeted semantic vector probes (`--semantic`) and lexical searches (`-s --with-context 5`) strictly to fill remaining checklist gaps.
+4. Execute scoped semantic vector probes (`python3 project/scripts/query_chat.py -C <chat_id> --semantic "<query>" --sphere <Letter>`) and targeted lexical searches strictly within your sphere's threads to fill remaining checklist gaps. Global unconstrained semantic probes are strictly prohibited.
 5. Persist findings via `checklist.py`:
    - For evidenced items: pass `--semantic-queries "<queries>"` when persisting findings:
      `python3 project/scripts/checklist.py -C <chat_id> --update <item_id> --set-status completed --notes "..." --queries "..." --semantic-queries "..."`

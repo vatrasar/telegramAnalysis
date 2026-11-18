@@ -211,6 +211,8 @@ def get_semantic_batch_results(
     chat_id: Optional[str] = None,
     participant_filter: Optional[str] = None,
     min_score: Optional[float] = None,
+    sphere_filter: Optional[str] = None,
+    threads_filter: Optional[List[str]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Execute batch semantic search over multiple psychological concepts."""
     if search_semantic_batch is not None:
@@ -221,6 +223,8 @@ def get_semantic_batch_results(
             chat_filter=chat_id,
             participant_filter=participant_filter,
             min_score=min_score,
+            sphere_filter=sphere_filter,
+            threads_filter=threads_filter,
         )
     elif search_semantic is not None:
         return {
@@ -231,6 +235,8 @@ def get_semantic_batch_results(
                 chat_filter=chat_id,
                 participant_filter=participant_filter,
                 min_score=min_score,
+                sphere_filter=sphere_filter,
+                threads_filter=threads_filter,
             )
             for c in concepts
         }

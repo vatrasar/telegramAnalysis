@@ -86,6 +86,8 @@ def search_semantic_batch(
     chat_filter: Optional[str] = None,
     participant_filter: Optional[str] = None,
     min_score: Optional[float] = None,
+    sphere_filter: Optional[str] = None,
+    threads_filter: Optional[List[str]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Search conversation threads by multiple semantic concepts in a single batch pass."""
     if not queries:
@@ -168,6 +170,23 @@ def search_semantic_batch(
         sql += " AND lower(te.participants) LIKE ? "
         params.append(f"%{str(participant_filter).strip().lower()}%")
 
+    if sphere_filter:
+        from query_engine.sharding import find_sphere_threads
+        s_threads = find_sphere_threads(conn, chat_filter or "", sphere_filter)
+        s_tids = {t["thread_id"] for t in s_threads}
+        if threads_filter:
+            s_tids = s_tids.intersection(set(threads_filter))
+        if not s_tids:
+            conn.close()
+            return {q: [] for q in queries}
+        placeholders = ",".join("?" for _ in s_tids)
+        sql += f" AND te.thread_id IN ({placeholders}) "
+        params.extend(list(s_tids))
+    elif threads_filter:
+        placeholders = ",".join("?" for _ in threads_filter)
+        sql += f" AND te.thread_id IN ({placeholders}) "
+        params.extend(list(threads_filter))
+
     cur.execute(sql, params)
     thread_rows = []
     for r in cur.fetchall():
@@ -223,6 +242,8 @@ def search_semantic(
     chat_filter: Optional[str] = None,
     participant_filter: Optional[str] = None,
     min_score: Optional[float] = None,
+    sphere_filter: Optional[str] = None,
+    threads_filter: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """Search conversation threads by a single semantic concept."""
     res = search_semantic_batch(
@@ -232,6 +253,8 @@ def search_semantic(
         chat_filter=chat_filter,
         participant_filter=participant_filter,
         min_score=min_score,
+        sphere_filter=sphere_filter,
+        threads_filter=threads_filter,
     )
     return res.get(query, [])
 

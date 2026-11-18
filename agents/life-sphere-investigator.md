@@ -145,12 +145,12 @@ python3 project/scripts/query_chat.py -C <chat_id> --shard-sphere <sphere_letter
 ### Step 1: Review Item Criteria & Search Lexicons
 Consult `project/skills/life-spheres-investigation/SKILL.md` for definitions, criteria, and suggested queries for each assigned `item_id`.
 
-### Step 2: Execute Primary Semantic Vector Queries (Targeted on Gaps Only)
+### Step 2: Execute Scoped Semantic Vector Queries (Targeted on Gaps Only)
 For criteria STILL lacking conclusive evidence after auditing the System-1 triaged threads from Step 0.5:
 ```bash
-python3 project/scripts/query_chat.py -C <chat_id> --semantic "<descriptive natural language query>" -k 5
+python3 project/scripts/query_chat.py -C <chat_id> --semantic "<descriptive natural language query>" --sphere <sphere_letter> -k 5
 ```
-**Anti-Blind-Fishing Rule:** Never execute broad, generic vector queries across the entire archive for criteria already substantiated by pre-mapped threads. Use semantic queries strictly as a gap-filling sniper.
+**Strict Scoped-Search Invariant (Absolute Ban on Global Vector Probes):** You are strictly forbidden from executing unconstrained global vector queries without `--sphere <sphere_letter>` or `-ts <tids>`. Running global searches across the whole 300+ thread database pulls dozens of irrelevant threads from other life domains, contaminating your context window and causing catastrophic token bloat. Semantic search MUST remain strictly scoped to your assigned sphere's threads.
 
 ### Step 3: Execute Targeted Lexical Searches
 ```bash
