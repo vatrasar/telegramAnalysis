@@ -15,6 +15,18 @@ import sys
 import argparse
 from typing import List, Dict, Tuple, Set, Optional, Any
 
+# Ensure script dir in path for local engine imports
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+from epistemic_engine import (
+    ParsedSection,
+    parse_subsections_from_markdown,
+    audit_sections_batch,
+    EpistemicAuditReport,
+)
+
 
 def find_subsection_files(subsections_dir: str) -> List[str]:
     """Find naturally sorted Markdown files in the subsections directory."""
@@ -83,7 +95,11 @@ def stitch_subsections(
     subsections_dir: str,
     output_filepath: str,
     chapter_title: Optional[str] = None,
-    enforce_qa: bool = True
+    enforce_qa: bool = True,
+    audit_epistemic: bool = False,
+    strict_epistemic: bool = False,
+    epistemic_threshold: float = 0.5,
+    decider_model: Optional[str] = None
 ) -> Dict[str, Any]:
     """Concatenate subsection files with QA checks into a unified chapter file."""
     files = find_subsection_files(subsections_dir)
@@ -93,6 +109,7 @@ def stitch_subsections(
     all_warnings: List[str] = []
     seen_quotes: Dict[int, List[str]] = {}  # msg_id -> list of section filenames
     stitched_blocks: List[str] = []
+    parsed_sections: List[ParsedSection] = []
     total_words = 0
 
     if chapter_title:
@@ -126,6 +143,11 @@ def stitch_subsections(
 
         stitched_blocks.append(content)
 
+        # Parse section components if epistemic audit is requested
+        if audit_epistemic:
+            sec_units = parse_subsections_from_markdown(content, filename=base)
+            parsed_sections.extend(sec_units)
+
     # Check for duplicate quotes across DIFFERENT subsections
     duplicates: Dict[int, List[str]] = {}
     for msg_id, sections in seen_quotes.items():
@@ -135,6 +157,23 @@ def stitch_subsections(
             all_warnings.append(
                 f"Duplicate quote anchor [#{msg_id}] reused across subsections: {', '.join(unique_sections)}"
             )
+
+    # Optional System-1 Epistemic Invariants Audit
+    epistemic_report = None
+    epistemic_breaches = 0
+    if audit_epistemic and parsed_sections:
+        report = audit_sections_batch(
+            sections=parsed_sections,
+            model=decider_model,
+            threshold=epistemic_threshold
+        )
+        epistemic_report = report
+        epistemic_breaches = report.total_breaches
+        for res in report.results:
+            for b in res.breaches:
+                all_warnings.append(f"[🚨 EPISTEMIC BREACH | {res.section_title}]: {b}")
+            for w in res.warnings:
+                all_warnings.append(f"[⚠️ Epistemic Warning | {res.section_title}]: {w}")
 
     unified_content = "\n\n---\n\n".join(stitched_blocks) + "\n"
 
@@ -153,13 +192,31 @@ def stitch_subsections(
         "unique_quotes_count": len(seen_quotes),
         "duplicate_quotes": duplicates,
         "warnings": all_warnings,
-        "files_merged": [os.path.basename(f) for f in files]
+        "files_merged": [os.path.basename(f) for f in files],
+        "epistemic_audit": {
+            "audited": audit_epistemic,
+            "total_breaches": epistemic_breaches,
+            "failed_sections": epistemic_report.failed_sections if epistemic_report else 0,
+            "cost_usd": epistemic_report.total_cost_usd if epistemic_report else 0.0,
+            "results": [
+                {
+                    "title": r.section_title,
+                    "source": r.source_file,
+                    "passed": r.passed,
+                    "verdict": r.verdict,
+                    "breaches": r.breaches,
+                    "warnings": r.warnings,
+                    "scores": r.scores
+                }
+                for r in (epistemic_report.results if epistemic_report else [])
+            ]
+        } if epistemic_report else None
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Stitch subsection markdown files into a unified chapter with coherence QA."
+        description="Stitch subsection markdown files into a unified chapter with coherence QA & Epistemic Audit."
     )
     parser.add_argument(
         "-d", "--subsections-dir", required=True,
@@ -178,6 +235,22 @@ def main() -> None:
         help="Fail with non-zero exit code if duplicate quotes or formatting warnings are found"
     )
     parser.add_argument(
+        "--audit-epistemic", action="store_true",
+        help="Run System-1 Decider audit on constitutional epistemic invariants (Irrealis, Medical, Evidence Fit)"
+    )
+    parser.add_argument(
+        "--strict-epistemic", action="store_true",
+        help="Fail with non-zero exit code if epistemic breaches are detected"
+    )
+    parser.add_argument(
+        "--threshold", type=float, default=0.5,
+        help="Confidence probability threshold for epistemic breaches (default: 0.5)"
+    )
+    parser.add_argument(
+        "--model", type=str, default=None,
+        help="Override OpenRouter Decider model name"
+    )
+    parser.add_argument(
         "--json", action="store_true",
         help="Output compilation metrics as JSON"
     )
@@ -188,7 +261,11 @@ def main() -> None:
         res = stitch_subsections(
             subsections_dir=args.subsections_dir,
             output_filepath=args.output,
-            chapter_title=args.chapter_title
+            chapter_title=args.chapter_title,
+            audit_epistemic=args.audit_epistemic,
+            strict_epistemic=args.strict_epistemic,
+            epistemic_threshold=args.threshold,
+            decider_model=args.model
         )
     except Exception as e:
         if args.json:
@@ -208,6 +285,10 @@ def main() -> None:
         print(f"Word Count:      {res['total_words']} words")
         print(f"Quote Anchors:   {res['unique_quotes_count']} unique citations")
 
+        if res.get("epistemic_audit"):
+            ea = res["epistemic_audit"]
+            print(f"Epistemic Audit: {'[✓] PASS' if ea['total_breaches'] == 0 else f'[🚨] {ea['total_breaches']} BREACHES DETECTED'} (Cost: ${ea['cost_usd']:.5f} USD)")
+
         if res["warnings"]:
             print(f"\n[!] QA Warnings / Coherence Flags ({len(res['warnings'])}):")
             for w in res["warnings"]:
@@ -216,6 +297,9 @@ def main() -> None:
             print("\n[✓] QA Coherence Check: PASS (Zero duplicate quotes, clean formatting, valid syntax).")
 
         print("===============================================\n")
+
+    if args.strict_epistemic and res.get("epistemic_audit", {}).get("total_breaches", 0) > 0:
+        sys.exit(3)
 
     if args.strict and res["warnings"]:
         sys.exit(2)

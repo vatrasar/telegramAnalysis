@@ -144,7 +144,8 @@ The `dossier-supervisor` dispatches specialized worker subagents in parallel (`M
     python3 project/scripts/stitch_chapter.py \
       -d reports/<subject>_sections/<chapter_name>_subsections/ \
       -o reports/<subject>_sections/<chapter_filename>.md \
-      --chapter-title "<Title>"
+      --chapter-title "<Title>" \
+      --audit-epistemic
     ```
 
 ### Step 3: Synthesis, QA & Gate-Checked Assembly

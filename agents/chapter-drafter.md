@@ -87,12 +87,13 @@ Dispatch a dedicated **`subsection-drafter`** (`Model: "flash"`) for each subsec
 * Pass relevant fact category or subtopic keyword filter.
 
 ### Step 3: Automated Chapter Stitching & Duplicate QA
-Once all subsection drafters report completion, execute the automated chapter stitcher:
+Once all subsection drafters report completion, execute the automated chapter stitcher with System-1 epistemic audit:
 ```bash
 python3 project/scripts/stitch_chapter.py \
   -d reports/<subject>_sections/<chapter_name>_subsections/ \
   -o reports/<subject>_sections/<chapter_filename>.md \
-  --chapter-title "<Full Chapter Title in Polish>"
+  --chapter-title "<Full Chapter Title in Polish>" \
+  --audit-epistemic
 ```
 
 ### Step 4: Editorial Coherence & Epistemic QA Audit
