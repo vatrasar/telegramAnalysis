@@ -57,25 +57,56 @@ DOMAIN_SPECS = {
         ),
         "target_category": "corroborating_academic_anxiety",
         "keywords": ["study", "medical", "doctor", "clinic", "shift", "exam", "thesis", "career", "money", "finance", "religion", "islam", "convert", "halal", "haram", "politics"]
+    },
+    "conflict_playbook": {
+        "name": "Kłótnie, Konflikty i Dynamika Reakcji Obronnych (Playbook)",
+        "description": "Interpersonal conflicts, arguments, ruptures, defensive reactions, emotional triggers, and coercive pressure episodes.",
+        "instructions": (
+            "Evaluate strictly whether this dialogue introduces ANY NOVEL, UNRECORDED CONFLICT EPISODE, argument, "
+            "interpersonal friction, relational rupture, or emotional trigger NOT already documented in the Conflict/Playbook baseline. "
+            "If this specific dispute, fight, or trigger with the given person/topic is ALREADY documented in the baseline and presents no novel "
+            "behavioral escalation or turning point, classify strictly as redundant."
+        ),
+        "target_category": "corroborating_conflict_playbook",
+        "keywords": ["conflict", "argument", "fight", "kłótnia", "klotnia", "pressure", "silent treatment", "ultimatum", "breakup", "rupture", "hostility", "trigger", "defense", "stonewalling", "resentment", "shouting"]
     }
 }
 
+CONFLICT_KEYWORDS = [
+    "conflict", "argument", "fight", "kłótnia", "klotnia", "pressure",
+    "silent treatment", "ultimatum", "breakup", "rupture", "hostility",
+    "trigger", "defense", "stonewalling", "resentment", "shouting",
+    "blame", "accusation", "awantura", "pretensje", "spór", "konflikt"
+]
+
+
+def is_conflict_related(text: str, category: str = "") -> bool:
+    """Check if fact or evidence text pertains to relational friction or defensive playbook."""
+    cat = (category or "").lower()
+    t = (text or "").lower()
+    if any(c in cat for c in ["conflict", "playbook", "argument", "rupture", "fight"]):
+        return True
+    return any(k in t for k in CONFLICT_KEYWORDS)
+
 
 def _classify_fact_to_domain(category: str, sphere_id: str) -> str:
-    """Classify a single fact into one of the 4 core domains."""
+    """Classify a single fact into one of the core domains."""
     cat = (category or "").lower()
     sid = (sphere_id or "").upper()
 
-    if "fam" in cat or "parent" in cat or sid == "A":
+    if "conflict" in cat or "klotnia" in cat or "kłótnia" in cat or "argument" in cat or "playbook" in cat or "trigger" in cat:
+        return "conflict_playbook"
+    if "fam" in cat or "parent" in cat or sid == "D":
         return "family"
-    if "romant" in cat or "court" in cat or "relat" in cat or sid == "B":
+    if "romant" in cat or "court" in cat or "relat" in cat or sid == "E":
         return "romantic"
-    if "med" in cat or "health" in cat or "attach" in cat or "psycho" in cat or "trigger" in cat or sid in ("D", "E"):
+    if "med" in cat or "health" in cat or "attach" in cat or "psycho" in cat or sid == "F":
         return "health_psychodynamics"
-    if "career" in cat or "academ" in cat or "politic" in cat or "socio" in cat or "cultur" in cat or "creativ" in cat or sid in ("C", "F"):
+    if "career" in cat or "academ" in cat or "politic" in cat or "socio" in cat or "cultur" in cat or sid in ("B", "C"):
         return "career_values"
+    if sid == "A":
+        return "family"
 
-    # Default fallback to family/roots if ambiguous
     return "family"
 
 
@@ -90,7 +121,7 @@ def build_fact_packets(
     """
     cur = conn.cursor()
     cur.execute("""
-    SELECT fact_id, category, coalesce(sphere_id, ''), fact_summary
+    SELECT fact_id, category, coalesce(sphere_id, ''), fact_summary, coalesce(subject, '')
     FROM discovered_facts
     WHERE chat_id = ?
     ORDER BY fact_id ASC;
@@ -101,13 +132,19 @@ def build_fact_packets(
         "family": [],
         "romantic": [],
         "health_psychodynamics": [],
-        "career_values": []
+        "career_values": [],
+        "conflict_playbook": []
     }
 
-    for fact_id, cat, sid, summary in rows:
+    for fact_id, cat, sid, summary, subj in rows:
         dom = _classify_fact_to_domain(cat, sid)
         clean_sum = summary.strip().replace("\n", " ")
-        domain_buckets[dom].append(f"[#{fact_id} | {cat}] {clean_sum}")
+        entry = f"[#{fact_id} | {cat}] {clean_sum}" if not subj else f"[#{fact_id} | {cat} | {subj}] {clean_sum}"
+        domain_buckets[dom].append(entry)
+
+        # Cross-register into conflict_playbook if conflict-related and not already primary dom
+        if dom != "conflict_playbook" and is_conflict_related(clean_sum, cat):
+            domain_buckets["conflict_playbook"].append(entry)
 
     # Supplement domains with low fact counts from life_spheres_checklist
     cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='life_spheres_checklist';")
@@ -120,7 +157,10 @@ def build_fact_packets(
         for sid, cat, evidence in cur.fetchall():
             dom = _classify_fact_to_domain(cat, sid)
             clean_ev = evidence.strip().replace("\n", " ")[:150]
-            domain_buckets[dom].append(f"[Sphere {sid} | {cat}] {clean_ev}")
+            entry = f"[Sphere {sid} | {cat}] {clean_ev}"
+            domain_buckets[dom].append(entry)
+            if dom != "conflict_playbook" and is_conflict_related(clean_ev, cat):
+                domain_buckets["conflict_playbook"].append(entry)
 
     # Chunk each domain into packets of max_per_chunk
     packets: List[Dict[str, Any]] = []
@@ -154,12 +194,21 @@ def build_fact_packets(
 def map_thread_to_domain(
     primary_category: str,
     summary_text: str,
-    radar_sources: str
+    radar_sources: str,
+    is_relational_conflict: int = 0
 ) -> str:
     """Determine the primary domain packet to evaluate a thread against."""
     cat = (primary_category or "").lower()
     sum_lower = (summary_text or "").lower()
     radar = (radar_sources or "").lower()
+
+    # If explicitly flagged as relational conflict and not bound to a specific kinship/romantic target
+    if is_relational_conflict or any(k in cat for k in ["conflict", "klotnia", "kłótnia", "playbook", "argument"]):
+        if any(k in sum_lower for k in ["caleb", "cj", "hilal", "suitor", "dating", "courtship", "ex-partner"]):
+            return "romantic"
+        if any(k in sum_lower for k in ["father", "mother", "sister", "brother", "parents", "arranged marriage"]):
+            return "family"
+        return "conflict_playbook"
 
     # Keyword overrides based on high-specificity domain indicators
     if any(k in sum_lower for k in ["caleb", "cj", "hilal", "suitor", "dating", "courtship", "ex-partner"]):
@@ -217,22 +266,31 @@ def evaluate_domain_novelty(
             is_echo = True
     elif domain == "family":
         if ("doctor" in summary or "tulakan" in summary or "retired" in summary or "clinic" in summary) and \
-           ("tulakan" in base_lower or "retired in march 2024" in base_lower) and not (is_bdown or is_crisis):
+           ("tulakan" in base_lower or "retired in march 2024" in base_lower) and not (is_bdown or is_crisis or is_rel):
             # Known background fact about father's job
             if not any(k in summary for k in ["arranged", "suitor", "marry", "marriage", "pressure", "ultimatum"]):
                 is_echo = True
     elif domain == "romantic":
         if ("caleb" in summary or "cj" in summary) and ("religious differences" in summary or "convert" in summary) and \
-           ("declines to convert" in base_lower or "terminates relationship" in base_lower):
+           ("declines to convert" in base_lower or "terminates relationship" in base_lower) and not is_rel:
             if not any(k in summary for k in ["relapse", "calling", "instagram", "brother", "facebook", "suicide"]):
+                is_echo = True
+    elif domain == "conflict_playbook":
+        conflict_in_base = False
+        if any(k in summary for k in ["father", "arranged", "marriage", "suitor"]) and any(k in base_lower for k in ["father", "arranged", "marriage"]):
+            conflict_in_base = True
+        elif any(k in summary for k in ["caleb", "convert", "religion", "breakup"]) and any(k in base_lower for k in ["caleb", "convert", "breakup"]):
+            conflict_in_base = True
+        if conflict_in_base and not (is_bdown or is_bizarre):
+            if not any(k in summary for k in ["police", "physical", "violence", "threat", "disown", "cut off", "lawyer"]):
                 is_echo = True
 
     if is_echo:
         return {
             "decision": "redundant",
             "novelty_score": 1.5,
-            "corroborating_theme": packet["target_category"],
-            "justification": f"Corroborates established baseline facts in {packet['name']}"
+            "corroborating_theme": packet.get("target_category", "corroborating_routine_baseline"),
+            "justification": f"Corroborates established baseline facts/conflicts in {packet['name']}"
         }
 
     # 2. Domain-specific novelty detection
@@ -270,6 +328,11 @@ def evaluate_domain_novelty(
         if any(k in summary for k in ["convert", "halal", "haram", "islamic prohibition", "alcohol"]):
             novelty_points += 1.8
             matched_reasons.append("explicit moral/religious boundary negotiation")
+
+    elif domain == "conflict_playbook":
+        if is_rel or any(k in summary for k in ["argument", "fight", "kłótnia", "ultimatum", "pressure", "silent treatment", "rupture"]):
+            novelty_points += 2.8
+            matched_reasons.append("unrecorded interpersonal conflict episode / defensive trigger")
 
     # Global crisis elevation
     if is_bdown:

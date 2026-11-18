@@ -38,7 +38,8 @@ CATEGORY_ALIASES: Dict[str, Tuple[str, Optional[str]]] = {
     "biography": ("biography_timeline", None), "timeline": ("biography_timeline", None), "history": ("biography_timeline", None),
     "psychodynamics": ("psychodynamics", None), "defense": ("psychodynamics", None), "trauma": ("psychodynamics", None), "crisis": ("psychodynamics", None),
     "ocean": ("personality_ocean", None), "bigfive": ("personality_ocean", None), "traits": ("personality_ocean", None),
-    "playbook": ("operational_playbook", None), "advice": ("operational_playbook", None), "rules": ("operational_playbook", None),
+    "playbook": ("operational_playbook", None), "advice": ("operational_playbook", None), "rules": ("operational_playbook", None), "playbook_trigger": ("operational_playbook", None),
+    "conflict": ("relational_conflict", None), "kłótnia": ("relational_conflict", None), "klotnia": ("relational_conflict", None), "argument": ("relational_conflict", None), "fight": ("relational_conflict", None), "rupture": ("relational_conflict", None), "relational_conflict": ("relational_conflict", None),
 }
 
 DEFAULT_TARGET_AGENTS: Dict[str, str] = {
@@ -46,7 +47,7 @@ DEFAULT_TARGET_AGENTS: Dict[str, str] = {
     "sphere_c_politics": "life-sphere-investigator", "sphere_d_family": "life-sphere-investigator",
     "sphere_e_romantic": "life-sphere-investigator", "sphere_f_leisure": "life-sphere-investigator",
     "biography_timeline": "chapter-drafter", "psychodynamics": "forensic-thread-investigator",
-    "personality_ocean": "chapter-drafter", "operational_playbook": "chapter-drafter",
+    "personality_ocean": "chapter-drafter", "operational_playbook": "chapter-drafter", "relational_conflict": "chapter-drafter",
 }
 
 

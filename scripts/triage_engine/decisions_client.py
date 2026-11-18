@@ -108,8 +108,9 @@ def call_openrouter_decisions(
             "is_relational_conflict": {
                 "type": "noul",
                 "instructions": (
-                    "Does this dialogue contain severe relational friction, an intense argument, verbal hostility, "
-                    "abrupt emotional coldness, or a rupture/breakup between participants or with an external person?"
+                    "Does this dialogue contain interpersonal friction, relational tension, an argument, fighting, "
+                    "disagreement, emotional coldness, stonewalling/silent treatment, guilt-tripping, coercive pressure "
+                    "(e.g. parental, marital, religious), accusatory/defensive tone, or a breakup/rupture between participants or with external figures?"
                 )
             },
             "is_medical_or_grief_crisis": {

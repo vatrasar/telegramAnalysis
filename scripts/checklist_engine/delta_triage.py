@@ -33,6 +33,7 @@ ALLOWED_THEMES = [
     "corroborating_health_somatic",
     "corroborating_dyadic_rapport",
     "corroborating_faith_and_values",
+    "corroborating_conflict_playbook",
     "novel_investigate"
 ]
 
@@ -62,7 +63,9 @@ def _call_delta_decisions_api(
 
     instructions = domain_instructions or (
         "Evaluate strictly whether this dialogue introduces ANY NOVEL, UNRECORDED "
-        "psychological facts, life milestones, crises, or relational disclosures NOT present in the baseline."
+        "psychological facts, life milestones, crises, relational conflicts, or disclosures NOT present in the baseline. "
+        "If a conflict, fight, or relational friction shown here is ALREADY documented in the baseline and introduces no "
+        "novel turning points, classify strictly as redundant."
     )
 
     payload = {
@@ -152,7 +155,8 @@ def _evaluate_heuristic_indicator(
     dom = map_thread_to_domain(
         row_dict.get("primary_category", ""),
         row_dict.get("summary_short", ""),
-        row_dict.get("radar_sources", "")
+        row_dict.get("radar_sources", ""),
+        row_dict.get("is_relational_conflict", 0)
     )
     pkts = domain_packets.get(dom) or []
     if not pkts:
@@ -314,8 +318,15 @@ def auto_triage_delta(
         def _worker(item: Dict[str, Any]) -> Tuple[str, Dict[str, Any], float]:
             tid = item["thread_id"]
             dtext = item.get("dialogue_text", "")
-            dom = map_thread_to_domain(item["primary_category"], item["summary_short"], item["radar_sources"])
-            pkts = domain_packets.get(dom) or (packets if packets else [])
+            dom = map_thread_to_domain(
+                item["primary_category"],
+                item["summary_short"],
+                item["radar_sources"],
+                item.get("is_relational_conflict", 0)
+            )
+            pkts = list(domain_packets.get(dom) or (packets if packets else []))
+            if item.get("is_relational_conflict") == 1 and "conflict_playbook" in domain_packets and dom != "conflict_playbook":
+                pkts.extend(domain_packets["conflict_playbook"])
             if not pkts:
                 parsed, cost = _call_delta_decisions_api(dtext, "", api_key, model=chosen_model)
                 return tid, parsed, cost
@@ -392,6 +403,28 @@ def auto_triage_delta(
                     formatted_quote = f'"{quote_text}"'
                     note_text += f" | Spotter Quote: {quote_text[:60]}..."
 
+                it_dict = next((it for it in threads_to_eval if it["thread_id"] == tid), None)
+                if it_dict and (it_dict.get("is_relational_conflict") == 1 or "conflict" in theme.lower()):
+                    from query_engine.facts_engine import add_discovered_fact
+                    sum_txt = str(it_dict.get("summary_short") or "").strip()
+                    c_subj = "Interpersonal"
+                    for kw, sname in [("father", "Father"), ("mother", "Mother"), ("sister", "Sister"), ("brother", "Brother"), ("caleb", "Caleb"), ("hilal", "Hilal"), ("suitor", "Suitor")]:
+                        if kw in sum_txt.lower():
+                            c_subj = sname
+                            break
+                    add_discovered_fact(
+                        conn=conn,
+                        chat_id=chat_id,
+                        category="relational_conflict",
+                        fact_summary=f"Relational conflict episode ({c_subj}): {sum_txt[:120]}",
+                        verbatim_quote=formatted_quote or quote_text or "Interpersonal conflict identified during delta triage",
+                        sphere_id="D" if c_subj in ["Father", "Mother", "Sister", "Brother"] else ("E" if c_subj in ["Caleb", "Hilal", "Suitor"] else None),
+                        thread_id=tid,
+                        anchor_msg_id=anchor_id,
+                        discovered_by="delta_triage",
+                        subject=c_subj
+                    )
+
                 cur.execute(
                     "UPDATE thread_audit_checklist SET key_quotes = coalesce(?, key_quotes), notes = coalesce(notes || ' | ', '') || ?, updated_at = ? WHERE chat_id = ? AND thread_id = ?;",
                     (formatted_quote, note_text, now_iso, chat_id, tid)
@@ -422,75 +455,4 @@ def auto_triage_delta(
     }
 
 
-def benchmark_delta_triage(
-    conn: sqlite3.Connection,
-    chat_id: str,
-    db_path: Optional[str] = None,
-    use_api: bool = True
-) -> Dict[str, Any]:
-    """Compare System 1 classification against historical baseline stored in chat.db."""
-    res = auto_triage_delta(
-        conn, chat_id, db_path=db_path, force=True, dry_run=True,
-        use_indicators_only=(not use_api)
-    )
-
-    cur = conn.cursor()
-    cur.execute("""
-    SELECT thread_id,
-           CASE WHEN findings_summary LIKE 'Theoretical Saturation%' THEN 'redundant' ELSE 'novel' END as orig_decision
-    FROM thread_audit_checklist
-    WHERE chat_id = ? AND status = 'completed';
-    """, (chat_id,))
-    ground_truth = {r[0]: r[1] for r in cur.fetchall()}
-
-    tp = fp = tn = fn = 0
-    results_map = res.get("results_map", {})
-
-    for tid, orig in ground_truth.items():
-        pred_dict = results_map.get(tid)
-        if not pred_dict:
-            continue
-        pred = pred_dict.get("decision", "redundant")
-
-        if pred == "novel" and orig == "novel":
-            tp += 1
-        elif pred == "novel" and orig == "redundant":
-            fp += 1
-        elif pred == "redundant" and orig == "redundant":
-            tn += 1
-        elif pred == "redundant" and orig == "novel":
-            fn += 1
-
-    total = tp + fp + tn + fn
-    accuracy = (tp + tn) / total if total > 0 else 0.0
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
-
-    packets = build_fact_packets(conn, chat_id, max_per_chunk=200)
-
-    return {
-        "total_benchmarked": total,
-        "accuracy_pct": round(accuracy * 100, 1),
-        "precision_pct": round(precision * 100, 1),
-        "recall_pct": round(recall * 100, 1),
-        "f1_score": round(f1, 3),
-        "confusion_matrix": {"TP_novel": tp, "FP_novel": fp, "TN_redundant": tn, "FN_redundant": fn},
-        "packets_summary": {
-            "total_packets": len(packets)
-        },
-        "token_comparison": {
-            "original_subagents_tokens": 3762578,
-            "original_supervisor_tokens": 9273883,
-            "system1_direct_tokens": 15000,
-            "estimated_token_savings": 12900000,
-            "savings_ratio_pct": 98.8
-        },
-        "time_comparison": {
-            "original_wall_clock": "18m 53s (1133s)",
-            "system1_wall_clock": f"{res['elapsed_seconds']}s",
-            "speedup_factor": f"{round(1133.0 / max(0.1, res['elapsed_seconds']), 1)}x"
-        },
-        "cost_usd": res.get("total_cost_usd", 0.0),
-        "model_used": res.get("model_used")
-    }
+from checklist_engine.benchmark import benchmark_delta_triage
