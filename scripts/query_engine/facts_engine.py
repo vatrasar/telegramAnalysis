@@ -1,10 +1,19 @@
-"""Discovered facts repository, sphere tagging, and thread inspection state tracking."""
+"""Discovered facts repository, 1:N quote evidence relations, and sphere tagging."""
 
 import re
 import json
 import sqlite3
 import datetime as dt_module
-from typing import List, Dict, Any, Optional, Tuple, Set
+from typing import List, Dict, Any, Optional, Tuple, Set, Union
+
+# Re-export thread inspection functions for backward compatibility
+from .inspected_threads import (
+    ensure_inspected_threads_table,
+    mark_thread_inspected,
+    get_inspected_threads,
+    is_thread_inspected,
+    print_inspected_threads,
+)
 
 VALID_SPHERES: Set[str] = {"A", "B", "C", "D", "E", "F"}
 
@@ -48,17 +57,13 @@ def normalize_category_and_sphere(raw_category: Optional[str], raw_sphere: Optio
 
     if sph in VALID_SPHERES and not cat:
         return SPHERE_TO_CATEGORY[sph], sph
-
     if cat in CATEGORY_ALIASES:
         c, s = CATEGORY_ALIASES[cat]
         return c, sph or s
-
     if cat in SPHERE_TO_CATEGORY.values():
         return cat, sph or CATEGORY_TO_SPHERE.get(cat)
-
     if sph in VALID_SPHERES:
         return cat or SPHERE_TO_CATEGORY[sph], sph
-
     return cat or "general_finding", sph
 
 
@@ -74,33 +79,9 @@ def extract_anchor_id_from_quote(quote: str) -> Optional[int]:
 
 
 def ensure_facts_tables(conn: sqlite3.Connection) -> None:
-    """Ensure inspected_threads and discovered_facts tables and indexes exist."""
+    """Ensure inspected_threads, discovered_facts, and fact_quotes tables and indexes exist."""
+    ensure_inspected_threads_table(conn)
     cur = conn.cursor()
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS inspected_threads (
-        chat_id TEXT NOT NULL,
-        thread_id TEXT NOT NULL,
-        inspected_by TEXT NOT NULL,
-        stage TEXT NOT NULL,
-        findings_summary TEXT,
-        thematic_tags TEXT,
-        covered_spheres TEXT,
-        inspected_at TEXT NOT NULL,
-        coverage TEXT DEFAULT 'full',
-        entities_detected TEXT,
-        unresolved_pronouns TEXT,
-        PRIMARY KEY (chat_id, thread_id)
-    );
-    """)
-    cur.execute("PRAGMA table_info(inspected_threads);")
-    cols = {c[1] for c in cur.fetchall()}
-    if "coverage" not in cols:
-        cur.execute("ALTER TABLE inspected_threads ADD COLUMN coverage TEXT DEFAULT 'full';")
-    if "entities_detected" not in cols:
-        cur.execute("ALTER TABLE inspected_threads ADD COLUMN entities_detected TEXT;")
-    if "unresolved_pronouns" not in cols:
-        cur.execute("ALTER TABLE inspected_threads ADD COLUMN unresolved_pronouns TEXT;")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_inspected_threads_chat ON inspected_threads(chat_id);")
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS discovered_facts (
@@ -126,155 +107,89 @@ def ensure_facts_tables(conn: sqlite3.Connection) -> None:
     cur.execute("CREATE INDEX IF NOT EXISTS idx_discovered_facts_sphere ON discovered_facts(chat_id, sphere_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_discovered_facts_thread ON discovered_facts(chat_id, thread_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_discovered_facts_subj ON discovered_facts(chat_id, subject);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_discovered_facts_global_subj ON discovered_facts(subject);")
-    conn.commit()
 
-
-def mark_thread_inspected(
-    conn: sqlite3.Connection,
-    chat_id: str,
-    thread_id: str,
-    inspected_by: str = "agent",
-    stage: str = "entity_discovery",
-    findings: str = "",
-    tags: str = "",
-    spheres: str = "",
-    coverage: str = "full",
-    entities_detected: str = "",
-    unresolved_pronouns: str = "",
-) -> Dict[str, Any]:
-    """Mark a thread as inspected/read so subsequent stages do not re-read it blindly."""
-    ensure_facts_tables(conn)
-    cur = conn.cursor()
-    now_iso = dt_module.datetime.now(dt_module.timezone.utc).isoformat()
-
+    # Table 2: 1:N Relation for Fact Quotes
     cur.execute("""
-    INSERT INTO inspected_threads (
-        chat_id, thread_id, inspected_by, stage, findings_summary, thematic_tags,
-        covered_spheres, inspected_at, coverage, entities_detected, unresolved_pronouns
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(chat_id, thread_id) DO UPDATE SET
-        inspected_by = excluded.inspected_by,
-        stage = excluded.stage,
-        findings_summary = CASE
-            WHEN length(coalesce(inspected_threads.findings_summary, '')) = 0 THEN excluded.findings_summary
-            WHEN length(coalesce(excluded.findings_summary, '')) = 0 THEN inspected_threads.findings_summary
-            WHEN instr(inspected_threads.findings_summary, excluded.findings_summary) > 0 THEN inspected_threads.findings_summary
-            ELSE inspected_threads.findings_summary || ' | ' || excluded.findings_summary
-        END,
-        thematic_tags = coalesce(inspected_threads.thematic_tags || ',', '') || excluded.thematic_tags,
-        covered_spheres = coalesce(inspected_threads.covered_spheres || ',', '') || excluded.covered_spheres,
-        inspected_at = excluded.inspected_at,
-        coverage = CASE
-            WHEN inspected_threads.coverage = 'full' OR excluded.coverage = 'full' THEN 'full'
-            ELSE 'partial'
-        END,
-        entities_detected = CASE
-            WHEN length(coalesce(inspected_threads.entities_detected, '')) = 0 THEN excluded.entities_detected
-            WHEN length(coalesce(excluded.entities_detected, '')) = 0 THEN inspected_threads.entities_detected
-            WHEN instr(inspected_threads.entities_detected, excluded.entities_detected) > 0 THEN inspected_threads.entities_detected
-            ELSE inspected_threads.entities_detected || '; ' || excluded.entities_detected
-        END,
-        unresolved_pronouns = coalesce(inspected_threads.unresolved_pronouns || '; ', '') || excluded.unresolved_pronouns;
-    """, (chat_id, thread_id, inspected_by, stage, findings, tags, spheres, now_iso, coverage, entities_detected, unresolved_pronouns))
+    CREATE TABLE IF NOT EXISTS fact_quotes (
+        quote_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fact_id INTEGER NOT NULL REFERENCES discovered_facts(fact_id) ON DELETE CASCADE,
+        chat_id TEXT NOT NULL,
+        thread_id TEXT,
+        msg_id INTEGER NOT NULL,
+        sender TEXT,
+        timestamp TEXT,
+        verbatim_quote TEXT NOT NULL,
+        evidence_role TEXT DEFAULT 'core_evidence',
+        created_at TEXT NOT NULL
+    );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_fact_quotes_fact_id ON fact_quotes(fact_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_fact_quotes_msg_id ON fact_quotes(chat_id, msg_id);")
 
-    # Also synchronize with thread_audit_checklist if table exists
-    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='thread_audit_checklist';")
-    if cur.fetchone()[0] > 0:
-        cur.execute("""
-        UPDATE thread_audit_checklist
-        SET status = CASE WHEN status = 'pending' THEN 'completed' ELSE status END,
-            findings_summary = coalesce(findings_summary || ' | ', '') || ?,
-            updated_at = ?
-        WHERE chat_id = ? AND thread_id = ?;
-        """, (f"[Inspected in {stage} by {inspected_by}] {findings}".strip(), now_iso, chat_id, thread_id))
-
+    # One-time automated backward migration of single quotes into fact_quotes
+    cur.execute("""
+    INSERT INTO fact_quotes (fact_id, chat_id, thread_id, msg_id, verbatim_quote, created_at, evidence_role)
+    SELECT f.fact_id, f.chat_id, f.thread_id, f.anchor_msg_id, f.verbatim_quote, f.created_at, 'core_evidence'
+    FROM discovered_facts f
+    WHERE f.anchor_msg_id IS NOT NULL AND length(trim(f.verbatim_quote)) > 0
+      AND NOT EXISTS (
+          SELECT 1 FROM fact_quotes fq WHERE fq.fact_id = f.fact_id AND fq.msg_id = f.anchor_msg_id
+      );
+    """)
     conn.commit()
-    return {
-        "status": "success",
-        "chat_id": chat_id,
-        "thread_id": thread_id,
-        "inspected_by": inspected_by,
-        "stage": stage,
-        "coverage": coverage,
-        "entities_detected": entities_detected,
-        "unresolved_pronouns": unresolved_pronouns,
-        "covered_spheres": spheres,
-        "inspected_at": now_iso,
-    }
 
 
-def get_inspected_threads(
-    conn: sqlite3.Connection,
-    chat_id: str,
-    sphere_id: Optional[str] = None,
-    tag: Optional[str] = None,
+def normalize_quote_entries(
+    raw_quotes: Union[None, str, List[Union[str, Dict[str, Any]]]],
+    fallback_quote: Optional[str] = None,
+    default_anchor: Optional[int] = None,
+    default_role: str = "core_evidence"
 ) -> List[Dict[str, Any]]:
-    """Retrieve catalog of threads inspected in the database."""
-    ensure_facts_tables(conn)
-    cur = conn.cursor()
-    sql = """
-    SELECT thread_id, inspected_by, stage, findings_summary, thematic_tags, covered_spheres, inspected_at
-    FROM inspected_threads
-    WHERE chat_id = ?
-    """
-    params: List[Any] = [chat_id]
-    if sphere_id:
-        sql += " AND (covered_spheres LIKE ? OR covered_spheres LIKE ?)"
-        params.extend([f"%{sphere_id}%", f"%{sphere_id.upper()}%"])
-    if tag:
-        sql += " AND thematic_tags LIKE ?"
-        params.append(f"%{tag}%")
-    sql += " ORDER BY inspected_at DESC;"
+    """Parse, extract anchor IDs, and normalize quotes into structured dictionaries."""
+    normalized: List[Dict[str, Any]] = []
 
-    cur.execute(sql, params)
-    rows = cur.fetchall()
-    results = []
-    for r in rows:
-        results.append({
-            "thread_id": r[0],
-            "inspected_by": r[1],
-            "stage": r[2],
-            "findings_summary": r[3] or "",
-            "thematic_tags": r[4] or "",
-            "covered_spheres": r[5] or "",
-            "inspected_at": r[6],
-        })
-    return results
+    items: List[Any] = []
+    if isinstance(raw_quotes, list):
+        items.extend(raw_quotes)
+    elif isinstance(raw_quotes, str) and raw_quotes.strip():
+        items.append(raw_quotes.strip())
 
+    if fallback_quote and fallback_quote.strip() and not items:
+        items.append(fallback_quote.strip())
 
-def is_thread_inspected(conn: sqlite3.Connection, chat_id: str, thread_id: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
-    """Check if a specific thread has already been inspected."""
-    ensure_facts_tables(conn)
-    cur = conn.cursor()
-    cur.execute("""
-    SELECT inspected_by, stage, findings_summary, thematic_tags, covered_spheres, inspected_at,
-           coverage, entities_detected, unresolved_pronouns
-    FROM inspected_threads
-    WHERE chat_id = ? AND thread_id = ?;
-    """, (chat_id, thread_id))
-    row = cur.fetchone()
-    if row:
-        return True, {
-            "inspected_by": row[0],
-            "stage": row[1],
-            "findings_summary": row[2] or "",
-            "thematic_tags": row[3] or "",
-            "covered_spheres": row[4] or "",
-            "inspected_at": row[5],
-            "coverage": row[6] or "full",
-            "entities_detected": row[7] or "",
-            "unresolved_pronouns": row[8] or "",
-        }
-    return False, None
+    for item in items:
+        if isinstance(item, dict):
+            q_text = item.get("quote") or item.get("verbatim_quote") or ""
+            m_id = item.get("msg_id") or item.get("anchor_msg_id") or extract_anchor_id_from_quote(q_text) or default_anchor
+            role = item.get("role") or item.get("evidence_role") or default_role
+            sender = item.get("sender") or ""
+            ts = item.get("timestamp") or item.get("date") or ""
+            if q_text:
+                normalized.append({
+                    "msg_id": int(m_id) if m_id else 0,
+                    "verbatim_quote": q_text.strip(),
+                    "evidence_role": role,
+                    "sender": sender,
+                    "timestamp": ts,
+                })
+        elif isinstance(item, str) and item.strip():
+            m_id = extract_anchor_id_from_quote(item) or default_anchor
+            normalized.append({
+                "msg_id": int(m_id) if m_id else 0,
+                "verbatim_quote": item.strip(),
+                "evidence_role": default_role,
+                "sender": "",
+                "timestamp": "",
+            })
+    return normalized
 
 
 def record_discovered_fact(
     conn: sqlite3.Connection,
     chat_id: str,
     fact_summary: str,
-    verbatim_quote: str,
+    verbatim_quote: Optional[str] = None,
+    quotes: Optional[List[Union[str, Dict[str, Any]]]] = None,
     category: Optional[str] = None,
     sphere_id: Optional[str] = None,
     thread_id: Optional[str] = None,
@@ -282,16 +197,72 @@ def record_discovered_fact(
     target_agent: Optional[str] = None,
     discovered_by: Optional[str] = None,
     subject: str = "",
+    fact_id: Optional[int] = None,
+    corroborate_with_system1: bool = True,
+    default_role: str = "core_evidence"
 ) -> Dict[str, Any]:
-    """Record an anchored discovered fact tagged for downstream report agents."""
+    """
+    Record an anchored discovered fact with 1:N quotes.
+    
+    If corroborate_with_system1 is True (and fact_id is None), calls System-1 Decider
+    to check whether this proposal matches an existing domain fact, attaching quotes
+    to that existing fact instead of creating an unwanted duplicate.
+    """
     ensure_facts_tables(conn)
     cur = conn.cursor()
     now_iso = dt_module.datetime.now(dt_module.timezone.utc).isoformat()
 
     canon_cat, canon_sph = normalize_category_and_sphere(category, sphere_id)
-    anchor_id = anchor_msg_id or extract_anchor_id_from_quote(verbatim_quote)
     agent = target_agent or DEFAULT_TARGET_AGENTS.get(canon_cat, "life-sphere-investigator")
     subj_val = (subject or "").strip()
+    norm_quotes = normalize_quote_entries(quotes, fallback_quote=verbatim_quote, default_anchor=anchor_msg_id, default_role=default_role)
+
+    # 1. Explicit target fact_id requested
+    target_fact_id = fact_id
+
+    # 2. Automated System-1 Corroboration / Deduplication Check
+    if not target_fact_id and corroborate_with_system1:
+        from .fact_corroboration_decider import match_or_deduplicate_fact
+        verdict, matched_id, rationale = match_or_deduplicate_fact(
+            conn=conn,
+            chat_id=chat_id,
+            candidate_summary=fact_summary,
+            category=canon_cat,
+            sphere_id=canon_sph,
+            candidate_quotes=norm_quotes,
+            subject=subj_val,
+        )
+        if verdict == "corroborates_existing" and matched_id:
+            target_fact_id = matched_id
+
+    # CASE A: Corroborate existing fact (Attach quotes)
+    if target_fact_id:
+        cur.execute("SELECT fact_id, fact_summary FROM discovered_facts WHERE fact_id = ? AND chat_id = ?;", (target_fact_id, chat_id))
+        row = cur.fetchone()
+        if row:
+            added_quotes = 0
+            for q in norm_quotes:
+                # Check for existing quote by msg_id
+                cur.execute("SELECT count(*) FROM fact_quotes WHERE fact_id = ? AND msg_id = ?;", (target_fact_id, q["msg_id"]))
+                if cur.fetchone()[0] == 0:
+                    cur.execute("""
+                    INSERT INTO fact_quotes (fact_id, chat_id, thread_id, msg_id, sender, timestamp, verbatim_quote, evidence_role, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    """, (target_fact_id, chat_id, thread_id, q["msg_id"], q.get("sender", ""), q.get("timestamp", ""), q["verbatim_quote"], q.get("evidence_role", "core_evidence"), now_iso))
+                    added_quotes += 1
+            conn.commit()
+            return {
+                "status": "corroborated",
+                "action": "quotes_attached",
+                "fact_id": target_fact_id,
+                "fact_summary": row[1],
+                "quotes_added": added_quotes,
+                "total_quotes_input": len(norm_quotes)
+            }
+
+    # CASE B: Create new fact + attach quotes
+    primary_anchor = norm_quotes[0]["msg_id"] if norm_quotes and norm_quotes[0]["msg_id"] > 0 else anchor_msg_id
+    primary_quote = norm_quotes[0]["verbatim_quote"] if norm_quotes else (verbatim_quote or "")
 
     cur.execute("""
     INSERT INTO discovered_facts (
@@ -299,24 +270,32 @@ def record_discovered_fact(
         target_agent, fact_summary, verbatim_quote, discovered_by, created_at, subject
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, (
-        chat_id, thread_id, anchor_id, canon_cat, canon_sph,
-        agent, fact_summary.strip(), verbatim_quote.strip(),
+        chat_id, thread_id, primary_anchor, canon_cat, canon_sph,
+        agent, fact_summary.strip(), primary_quote.strip(),
         discovered_by or "agent", now_iso, subj_val
     ))
-    fact_id = cur.lastrowid
-    conn.commit()
+    new_fact_id = cur.lastrowid
 
+    for q in norm_quotes:
+        cur.execute("""
+        INSERT INTO fact_quotes (fact_id, chat_id, thread_id, msg_id, sender, timestamp, verbatim_quote, evidence_role, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, (new_fact_id, chat_id, thread_id, q["msg_id"], q.get("sender", ""), q.get("timestamp", ""), q["verbatim_quote"], q.get("evidence_role", "core_evidence"), now_iso))
+
+    conn.commit()
     return {
         "status": "success",
-        "fact_id": fact_id,
+        "action": "created",
+        "fact_id": new_fact_id,
         "chat_id": chat_id,
         "subject": subj_val,
         "thread_id": thread_id,
-        "anchor_msg_id": anchor_id,
+        "anchor_msg_id": primary_anchor,
         "category": canon_cat,
         "sphere_id": canon_sph,
         "target_agent": agent,
         "fact_summary": fact_summary.strip(),
+        "quotes_count": len(norm_quotes),
         "created_at": now_iso,
     }
 
@@ -328,13 +307,15 @@ def record_facts_batch(
     discovered_by: Optional[str] = None,
     default_thread_id: Optional[str] = None,
     default_subject: Optional[str] = None,
+    corroborate_with_system1: bool = True,
 ) -> Dict[str, Any]:
-    """Batch record multiple discovered facts in a single transaction."""
+    """Batch record multiple discovered facts with 1:N quote support."""
     ensure_facts_tables(conn)
     recorded = []
     for item in facts:
         summary = item.get("summary") or item.get("fact_summary") or item.get("fact") or ""
-        quote = item.get("quote") or item.get("verbatim_quote") or ""
+        q_list = item.get("quotes") or item.get("evidence")
+        single_quote = item.get("quote") or item.get("verbatim_quote")
         cat = item.get("category") or item.get("suggested_category")
         sph = item.get("sphere") or item.get("sphere_id")
         tid = item.get("thread_id") or default_thread_id
@@ -342,15 +323,17 @@ def record_facts_batch(
         agent = item.get("target_agent")
         discov = item.get("discovered_by") or discovered_by
         subj = item.get("subject") or default_subject or ""
+        f_id = item.get("fact_id")
 
-        if not summary or not quote:
+        if not summary or (not q_list and not single_quote):
             continue
 
         res = record_discovered_fact(
             conn=conn,
             chat_id=chat_id,
             fact_summary=summary,
-            verbatim_quote=quote,
+            verbatim_quote=single_quote,
+            quotes=q_list,
             category=cat,
             sphere_id=sph,
             thread_id=tid,
@@ -358,6 +341,8 @@ def record_facts_batch(
             target_agent=agent,
             discovered_by=discov,
             subject=subj,
+            fact_id=f_id,
+            corroborate_with_system1=corroborate_with_system1
         )
         recorded.append(res)
 
@@ -377,8 +362,9 @@ def get_discovered_facts(
     target_agent: Optional[str] = None,
     thread_id: Optional[str] = None,
     subject: Optional[str] = None,
+    include_quotes: bool = True,
 ) -> List[Dict[str, Any]]:
-    """Retrieve filtered discovered facts for a chat."""
+    """Retrieve filtered discovered facts with their linked 1:N quotes."""
     ensure_facts_tables(conn)
     cur = conn.cursor()
     sql = """
@@ -418,8 +404,27 @@ def get_discovered_facts(
 
     results = []
     for r in rows:
+        fid = r[0]
+        linked_quotes = []
+        if include_quotes:
+            cur.execute("""
+            SELECT quote_id, msg_id, verbatim_quote, evidence_role, sender, timestamp
+            FROM fact_quotes
+            WHERE fact_id = ?
+            ORDER BY quote_id ASC;
+            """, (fid,))
+            for qr in cur.fetchall():
+                linked_quotes.append({
+                    "quote_id": qr[0],
+                    "msg_id": qr[1],
+                    "verbatim_quote": qr[2],
+                    "evidence_role": qr[3],
+                    "sender": qr[4],
+                    "timestamp": qr[5],
+                })
+
         results.append({
-            "fact_id": r[0],
+            "fact_id": fid,
             "chat_id": r[1],
             "thread_id": r[2],
             "anchor_msg_id": r[3],
@@ -431,14 +436,31 @@ def get_discovered_facts(
             "discovered_by": r[9],
             "created_at": r[10],
             "subject": r[11] or "",
+            "quotes": linked_quotes,
         })
     return results
 
 
+def export_chapter_evidence_package(
+    conn: sqlite3.Connection,
+    chat_id: str,
+    target_chapter: Optional[str] = None,
+    sphere_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Export complete evidence package with facts and linked quotes ready for Chapter Drafters."""
+    facts = get_discovered_facts(conn, chat_id, sphere_id=sphere_id, include_quotes=True)
+    return {
+        "chat_id": chat_id,
+        "target_chapter": target_chapter or "all",
+        "total_facts": len(facts),
+        "facts": facts
+    }
+
+
 def print_discovered_facts(facts: List[Dict[str, Any]], filter_label: Optional[str] = None) -> None:
-    """Pretty print discovered facts in terminal format."""
+    """Pretty print discovered facts and their linked quotes in terminal format."""
     print("\n" + "=" * 80)
-    title = f"📋 DISCOVERED FACTS & PRE-EXTRACTED EVIDENCE"
+    title = f"📋 DISCOVERED FACTS & LINKED EVIDENCE"
     if filter_label:
         title += f" [{filter_label}]"
     print(title)
@@ -453,31 +475,11 @@ def print_discovered_facts(facts: List[Dict[str, Any]], filter_label: Optional[s
         subj_str = f"Subject: {f['subject']} | " if f.get("subject") else ""
         sph_str = f"Sphere {f['sphere_id']} | " if f.get("sphere_id") else ""
         tid_str = f"Thread: {f['thread_id']} | " if f.get("thread_id") else ""
-        print(f"\n[Fact #{f['fact_id']}] {subj_str}{sph_str}Category: {f['category']} | Target: {f['target_agent']}")
+        quotes_count = len(f.get("quotes", []))
+        print(f"\n[Fact #{f['fact_id']}] {subj_str}{sph_str}Category: {f['category']} | Quotes: {quotes_count}")
         print(f"  {tid_str}Discovered by: {f['discovered_by']} ({f['created_at'][:10]})")
         print(f"  Summary: {f['fact_summary']}")
-        print(f"  Quote:   > {f['verbatim_quote']}")
+        for q in f.get("quotes", []):
+            role_tag = f"[{q['evidence_role']}] " if q.get("evidence_role") else ""
+            print(f"    ↳ {role_tag}[#{q['msg_id']}] {q['verbatim_quote'][:120]}")
     print("\n" + "=" * 80 + "\n")
-
-
-def print_inspected_threads(threads: List[Dict[str, Any]], chat_id: str) -> None:
-    """Pretty print inspected threads catalog in terminal format."""
-    print("\n" + "=" * 80)
-    print(f"🔍 INSPECTED THREADS RECONNAISSANCE CATALOG (Chat: {chat_id})")
-    print(f"Total Inspected: {len(threads)} threads")
-    print("=" * 80)
-
-    if not threads:
-        print("  (No threads marked as inspected yet)")
-        print("=" * 80 + "\n")
-        return
-
-    print(f"{'Thread ID':<12} {'Stage':<18} {'Inspector':<20} {'Spheres':<10} {'Inspected At'}")
-    print("-" * 80)
-    for t in threads:
-        sph = t.get("covered_spheres") or "-"
-        print(f"{t['thread_id']:<12} {t['stage']:<18} {t['inspected_by']:<20} {sph:<10} {t['inspected_at'][:16]}")
-        if t.get("findings_summary"):
-            summary_snippet = t['findings_summary'][:75] + ("..." if len(t['findings_summary']) > 75 else "")
-            print(f"  ↳ Findings: {summary_snippet}")
-    print("=" * 80 + "\n")

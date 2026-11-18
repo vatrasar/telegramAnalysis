@@ -57,9 +57,8 @@ Verify existing sections generated during earlier pipeline steps and establish t
 - `03_custom_<slug>.md`: Any approved custom sections passed by the Main Coordinator
 - `04_attachment_ocean.md`: Attachment Style Diagnosis & Big Five (OCEAN)
 - `05_tactical_playbook.md`: Tactical Communication & De-escalation Playbook (Chapter 7)
-- `06_creed_and_quirks.md`: Personal Creed, Social Norms & Quirks Matrix (Chapter 8)
-- `07_reliability_and_defenses.md`: Statement Reliability Index, Blind Spots & Defenses (Chapter 9)
-- `08_matrix.md`: Concluding Summary Matrix (Chapter 10)
+- `06_reliability_and_defenses.md`: Statement Reliability Index, Blind Spots & Defenses (Chapter 8)
+- `07_matrix.md`: Concluding Summary Matrix (Chapter 9)
 
 ### Step 2: Parallel Drafter Subagent Delegation
 
@@ -74,17 +73,16 @@ Dispatch worker subagents in parallel (`Model: "flash"`). Note that `chapter-dra
      - Stitches subsections using `stitch_chapter.py`.
 3. **Approved Custom Sections:**
    - For each approved custom section, dispatch a dedicated `chapter-drafter` subagent to draft `reports/<subject>_sections/03_custom_<slug>.md`.
-4. **Chapters 7, 8, 9 (Tactical Playbook, Personal Creed, Statement Reliability):**
+4. **Chapters 7, 8 (Tactical Playbook, Statement Reliability):**
    - Dispatch `chapter-drafter` for:
      - `05_tactical_playbook.md` (Triggers, de-escalation protocols, Do's & Don'ts case studies, boundaries).
-     - `06_creed_and_quirks.md` (Dating & relational rules, socioeconomic philosophy, lifestyle comfort quirks, culinary pet peeves).
-     - `07_reliability_and_defenses.md` (Statement reliability index, blind spots, unspoken core need, defusing distortions).
+     - `06_reliability_and_defenses.md` (Statement reliability index, blind spots, unspoken core need, defusing distortions).
      - Each chapter deconstructs into 4 subsections delegated to `subsection-drafter` and assembled via `stitch_chapter.py`.
 
 ### Step 3: Concluding Summary Matrix & Editorial QA
 
-1. **Synthesize Chapter 10 (Concluding Summary Matrix):**
-   - Draft `reports/<subject>_sections/08_matrix.md` synthesizing findings across OCEAN, Attachment Style, Social Stance, Responsibility / Defenses, and Core Unmet Need into the standardized Markdown table.
+1. **Synthesize Chapter 9 (Concluding Summary Matrix):**
+   - Draft `reports/<subject>_sections/07_matrix.md` synthesizing findings across OCEAN, Attachment Style, Social Stance, Responsibility / Defenses, and Core Unmet Need into the standardized Markdown table.
 2. **Editorial QA Audit & Epistemic Verification:**
    - Scan all section files in `reports/<subject>_sections/`:
      - Validate that all code fences are properly closed.

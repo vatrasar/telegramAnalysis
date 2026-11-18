@@ -139,8 +139,8 @@ CHECKLIST_DEFINITIONS: List[Dict[str, str]] = [
         "sphere_id": "B",
         "sphere_name": "Professional Sphere, Work Ethic, Ambitions & Financial Psychology",
         "category": "Financial Psychology & Spending Habits",
-        "sub_item": "Attitude Toward Money",
-        "description": "Is money viewed as existential safety, scorecard of self-worth, an instrument of autonomy, or an object of chronic anxiety?"
+        "sub_item": "Attitude Toward Money & Financial Sovereignty",
+        "description": "Is money viewed as existential safety, scorecard of self-worth, an instrument of autonomy, or an object of chronic anxiety? Stance on long-term financial sovereignty, private capital accumulation, and self-reliance vs. state welfare."
     },
     {
         "item_id": "prof_frugality_vs_lavishness",
@@ -163,8 +163,8 @@ CHECKLIST_DEFINITIONS: List[Dict[str, str]] = [
         "sphere_id": "B",
         "sphere_name": "Professional Sphere, Work Ethic, Ambitions & Financial Psychology",
         "category": "Financial Psychology & Spending Habits",
-        "sub_item": "Everyday Budgeting & Financial Dynamics",
-        "description": "How do they handle everyday budgeting, luxury purchases, debts, investments, or treating others?"
+        "sub_item": "Everyday Budgeting, Debt & Capital Strategy",
+        "description": "How do they handle everyday budgeting, luxury purchases, debts, investments, inflation hedges, private retirement accumulation, and financial independence vs. reliance on external aid?"
     },
 
     # -------------------------------------------------------------
@@ -263,8 +263,8 @@ CHECKLIST_DEFINITIONS: List[Dict[str, str]] = [
         "sphere_id": "C",
         "sphere_name": "Worldview, Politics & Technology Stance",
         "category": "Socio-Economic & Institutional Order",
-        "sub_item": "Socio-Economic Philosophy & State Order",
-        "description": "Attitudes toward the role of the state, taxation, pension systems (e.g. civic/universal pensions vs. capital/state systems), free market vs. social safety net, civil liberties, and institutional authority."
+        "sub_item": "Socio-Economic Philosophy, Taxation & Pension Systems",
+        "description": "Comprehensive socio-economic philosophy and stance on state institutions: (1) Taxation & fiscal burden (attitudes toward high vs. low taxes, flat vs. progressive taxation, tax avoidance vs. civic duty, taxes as theft vs. necessary contribution); (2) Pension systems & retirement security (civic/universal pensions vs. private capital accumulation vs. state ZUS systems, retirement age, reliance on state vs. self-reliance); (3) Economic order & state role (free market capitalism vs. social safety net/welfare state 'socjal', state paternalism, wealth redistribution vs. individual meritocracy); (4) Institutional trust (cynicism vs. respect toward public administration, legal systems, and civic obligations)."
     },
 
     # -------------------------------------------------------------

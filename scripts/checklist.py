@@ -159,9 +159,14 @@ def main():
         help="Semantic vector search queries executed during probing"
     )
     parser.add_argument(
+        "--enforce-semantic-check", "--enforce-semantic",
+        action="store_true",
+        help="Enforce legacy requirement of recorded semantic vector queries (off by default; System-1 triage handles thread routing)"
+    )
+    parser.add_argument(
         "--skip-semantic-check",
         action="store_true",
-        help="Bypass semantic vector search verification during --check (testing only)"
+        help=argparse.SUPPRESS
     )
     parser.add_argument(
         "--filter-status",
@@ -272,7 +277,7 @@ def main():
         sys.exit(0)
 
     if args.check:
-        enforce_sem = not args.skip_semantic_check
+        enforce_sem = getattr(args, "enforce_semantic_check", False) or getattr(args, "enforce_semantic", False)
         code, violations = check_gate(conn, chat_id, enforce_semantic=enforce_sem)
         if args.json:
             print(json.dumps({"gate_pass": (code == 0), "violations": violations}, indent=2))

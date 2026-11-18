@@ -17,10 +17,11 @@ You are bound by the **strict epistemic invariants, search discipline, and anti-
 
 ## 1. Non-Negotiable Epistemic Invariants & Probing Discipline
 
-### 1.1 Semantic Vector Primacy & Ban on Keyword-Only `no_data`
-- Human attitudes (politics, financial saving habits, work ethic, unfulfilled ambitions, defense mechanisms) are dispersed across thousands of messages and rarely appear under formal textbook terms.
-- **Mandatory Vector Search:** You MUST execute descriptive English semantic queries via `query_chat.py --semantic` before drawing any conclusions.
-- **Ban on Keyword-Only Absence:** Concluding that an attitude is absent or unevidenced (`no_data`) after running only literal keyword searches (`-s`) is an **epistemic breach**. You MUST substantiate absence with documented, executed semantic vector queries.
+### 1.1 System-1 Triage Primacy & Scoped Vector Gap-Filling
+- Human attitudes (politics, financial saving habits, work ethic, unfulfilled ambitions, defense mechanisms) are mapped during Step B.1 System-1 triage into `thread_triage.covered_spheres` and extracted anchors (`locate`).
+- **Primary Evidentiary Baseline:** Audit pre-mapped threads (`--shard-sphere <sphere_letter>`), pre-extracted facts (`--facts-for-sphere`), and audited threads (`--inspected-threads`) FIRST before open searching.
+- **Scoped Vector Gap-Filling:** For criteria lacking definitive evidence after evaluating System-1 pre-mapped threads, execute scoped semantic queries strictly within your sphere's threads (`query_chat.py --semantic "<query>" --sphere <sphere_letter>`).
+- **Ban on Unsubstantiated Absence:** Concluding that an attitude is unevidenced (`no_data`) after running only a superficial keyword search (`-s`) is an epistemic breach. Absence must be verified by auditing all pre-mapped sphere threads and documenting the audit in `--notes`.
 
 ### 1.2 Hybrid Thread Traversal & Directional Investigation Protocol
 - An isolated search hit is never self-explanatory. You are strictly forbidden from drawing psychological conclusions or recording facts from a single detached turn.
@@ -173,23 +174,32 @@ Ensure no incidental geographic or biographical adjectives are imported from adj
 ### Step 6: Update Checklist in SQLite
 Record findings directly using `checklist.py`:
 ```bash
-# When evidence is found:
+# When evidence is found (from System-1 triaged threads, pre-extracted facts, or targeted probes):
 python3 project/scripts/checklist.py -C <chat_id> --update <item_id> \
   --set-status completed \
-  --notes "<Rigorous clinical synthesis of behavioral patterns, tensions, or declared vs actual habits>" \
-  --queries "<comma-separated lexical queries executed>" \
-  --semantic-queries "<comma-separated semantic queries executed>"
+  --notes "<Rigorous clinical synthesis of behavioral patterns, tensions, or declared vs actual habits with [#ID | YYYY-MM-DD]>"
 
-# When no evidence exists after comprehensive probing (MANDATORY no_data STATUS):
+# When no evidence exists after comprehensive sphere thread audit and gap probing:
 python3 project/scripts/checklist.py -C <chat_id> --update <item_id> \
   --set-status no_data \
-  --notes "No conclusive evidence found across longitudinal record." \
-  --queries "<comma-separated lexical queries executed>" \
-  --semantic-queries "<comma-separated semantic queries executed>"
+  --notes "No mentions found across System-1 triaged sphere threads or targeted queries."
 ```
 
 > [!WARNING]
-> **Status Bug Warning:** When no evidence exists after comprehensive semantic and lexical probing, set `--set-status no_data` (**NEVER** `completed`!), record `--notes "No conclusive evidence found across longitudinal record."`, and **MANDATORILY** pass `--semantic-queries "<queries>"`. Marking `no_data` without documenting executed semantic queries will trigger gate verification failure.
+> **Status Bug Warning:** When no evidence exists after auditing sphere threads and targeted probes, set `--set-status no_data` (**NEVER** `completed`!), and record explanatory notes documenting that the sphere threads and queries confirmed absence. An item marked `no_data` with blank notes will be blocked by the verification gate.
+
+### Step 6.5: Direct Evidence & Fact Persistence (1:N Quote Relations)
+When you discover substantial biographical facts, relational crises, or behavioral patterns, record them directly into the fact repository with all supporting verbatim quotes:
+```bash
+python3 project/scripts/query_chat.py -C <chat_id> --record-fact \
+  --findings "<1-2 sentence core psychological claim/fact>" \
+  --category "<category>" --sphere "<sphere_letter>" \
+  --fact-thread <thread_id> \
+  --quote "[#ID1 | YYYY-MM-DD] \"<verbatim quote 1>\"" \
+  --quote "[#ID2 | YYYY-MM-DD] \"<verbatim quote 2>\""
+```
+- **Automated System-1 Corroboration:** If this fact was already partially known from earlier phases, the engine automatically detects it via System-1 `choice` and attaches your new quotes to the existing fact without creating duplicates!
+- **Direct Persistence Principle:** As a Phase 3 worker, you are authorized to persist facts directly to SQLite, returning only a lightweight receipt (`fact_id`, quotes count) to your supervisor so their prompt context does not bloat.
 
 ### Step 7: Direct Chapter Section Synthesis (Anti-Evidence-Graveyard Standard)
 Once all assigned criteria are audited and updated in `checklist.py`, draft the corresponding modular section file directly to disk:

@@ -16,6 +16,7 @@ from .facts_engine import (
     is_thread_inspected,
     print_inspected_threads,
     normalize_category_and_sphere,
+    export_chapter_evidence_package,
 )
 
 
@@ -117,9 +118,26 @@ def handle_facts_and_inspection_actions(
             print("[!] Error: Please specify chat using -C <chat_id> for --record-fact.")
             sys.exit(1)
         summary = getattr(args, "fact_summary", None) or getattr(args, "findings", None)
-        quote = getattr(args, "quote", None) or getattr(args, "quotes", None)
-        if not summary or not quote:
-            print("[!] Error: --record-fact requires both --fact-summary (or --findings) and --quote (or --quotes).")
+        
+        quotes_input: List[Any] = []
+        raw_quotes = getattr(args, "quote", None) or getattr(args, "quotes", None)
+        if isinstance(raw_quotes, list):
+            quotes_input.extend(raw_quotes)
+        elif isinstance(raw_quotes, str) and raw_quotes.strip():
+            quotes_input.append(raw_quotes.strip())
+
+        raw_json_quotes = getattr(args, "quotes_json", None)
+        if raw_json_quotes:
+            try:
+                parsed_q = json.loads(raw_json_quotes)
+                if isinstance(parsed_q, list):
+                    quotes_input.extend(parsed_q)
+            except Exception as e:
+                print(f"[!] Error parsing --quotes-json: {e}")
+                sys.exit(1)
+
+        if not summary or not quotes_input:
+            print("[!] Error: --record-fact requires both --fact-summary (or --findings) and at least one --quote (or --quotes-json).")
             sys.exit(1)
 
         conn = sqlite3.connect(args.db)
@@ -127,7 +145,7 @@ def handle_facts_and_inspection_actions(
             conn=conn,
             chat_id=resolved_chat_id,
             fact_summary=summary,
-            verbatim_quote=quote,
+            quotes=quotes_input,
             category=getattr(args, "category", None),
             sphere_id=getattr(args, "sphere", None),
             thread_id=getattr(args, "fact_thread", None) or getattr(args, "thread_id", None),
@@ -135,14 +153,22 @@ def handle_facts_and_inspection_actions(
             target_agent=getattr(args, "target_agent", None),
             discovered_by=getattr(args, "discovered_by", None) or "agent",
             subject=getattr(args, "subject", None),
+            fact_id=getattr(args, "fact_id", None),
+            corroborate_with_system1=not getattr(args, "no_corroborate", False),
+            default_role=getattr(args, "quote_role", "core_evidence"),
         )
         conn.close()
         if args.json:
             print(json.dumps(res, indent=2, ensure_ascii=False))
         else:
-            print(f"\n[✓] Recorded Fact #{res['fact_id']} for chat {resolved_chat_id}.")
-            print(f"    Category: {res['category']} | Sphere: {res['sphere_id'] or 'None'} | Target: {res['target_agent']}")
-            print(f"    Summary: {res['fact_summary']}\n")
+            if res.get("status") == "corroborated":
+                print(f"\n[✓] Corroborated existing Fact #{res['fact_id']} for chat {resolved_chat_id}.")
+                print(f"    Summary: {res.get('fact_summary')}")
+                print(f"    Attached {res.get('quotes_added', 0)} new quotes to existing fact. Total input: {res.get('total_quotes_input', 0)}\n")
+            else:
+                print(f"\n[✓] Recorded new Fact #{res['fact_id']} for chat {resolved_chat_id} ({res.get('quotes_count', 1)} quotes).")
+                print(f"    Category: {res['category']} | Sphere: {res['sphere_id'] or 'None'} | Target: {res['target_agent']}")
+                print(f"    Summary: {res['fact_summary']}\n")
         return True
 
     # 5. Record batch facts: --record-facts-batch <file_or_string>
@@ -226,7 +252,37 @@ def handle_facts_and_inspection_actions(
             print_discovered_facts(facts, filter_label=f"Chat {resolved_chat_id}")
         return True
 
-    # 8. Index facts into vector store: --index-facts
+    # 8. Export structured chapter evidence package: --export-chapter-evidence <chapter>
+    if getattr(args, "export_chapter_evidence", None):
+        if not resolved_chat_id:
+            print("[!] Error: Please specify chat using -C <chat_id> for --export-chapter-evidence.")
+            sys.exit(1)
+        conn = sqlite3.connect(args.db)
+        res = export_chapter_evidence_package(
+            conn=conn,
+            chat_id=resolved_chat_id,
+            target_chapter=args.export_chapter_evidence,
+            sphere_id=getattr(args, "sphere", None)
+        )
+        conn.close()
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            print("\n" + "=" * 80)
+            print(f"📦 CHAPTER EVIDENCE PACKAGE: '{args.export_chapter_evidence}' (Total: {res['total_facts']} facts)")
+            print("=" * 80)
+            for f in res["facts"]:
+                quotes_count = len(f.get("quotes", []))
+                sph_tag = f" [Sphere {f['sphere_id']}]" if f.get("sphere_id") else ""
+                print(f"\n[Fact #{f['fact_id']}]{sph_tag} Category: {f['category']} | Quotes: {quotes_count}")
+                print(f"  Summary: {f['fact_summary']}")
+                for q in f.get("quotes", []):
+                    role_lbl = f"[{q['evidence_role']}]" if q.get("evidence_role") else ""
+                    print(f"  ↳ {role_lbl} [#{q['msg_id']}] {q['verbatim_quote']}")
+            print("=" * 80 + "\n")
+        return True
+
+    # 9. Index facts into vector store: --index-facts
     if getattr(args, "index_facts", False):
         try:
             from vector_engine import index_facts

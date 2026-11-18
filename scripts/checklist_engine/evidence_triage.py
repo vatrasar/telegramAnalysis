@@ -29,7 +29,6 @@ ALLOWED_CHAPTERS = [
     "lifestyle",
     "attachment",
     "playbook_tactics",
-    "creed_quirks",
     "reliability_defenses",
     "discard_noise"
 ]
@@ -40,22 +39,21 @@ Evaluate whether each evidence item contains substantive, diagnostically valuabl
 or should be discarded (e.g. routine logistical chitchat, filler, or personal biographical disclosures of the interlocutor only).
 
 If valuable, assign it to the most relevant report chapter from the allowed list:
-- 'romantic': Romantic relationships, courtship, suitors, dating apps, ex-partners.
+- 'romantic': Romantic relationships, courtship, suitors, dating apps, ex-partners, dating and gender norms.
 - 'family': Family dynamics, parental authority, sibling relationships, birth order/filial expectations.
 - 'attachment': Attachment style, abandonment fears, rejection sensitivity, boundary porosity/selectivity.
 - 'playbook_tactics': Communication friction, red buttons, triggers, de-escalation, manipulation defenses.
 - 'reliability_defenses': Psychological defenses, rationalization, suppression, denial, emotional decompensation.
-- 'creed_quirks': Deep personal creed, idiosyncrasies, specific habits, non-religious ethical codes.
-- 'worldview': Religious orthodoxy, halal/haram, moral fatalism, political or cultural worldview.
-- 'lifestyle': Daily habits, studies/thesis, healthcare work, sleep patterns, somatic symptoms.
-- 'career': Professional trajectory, work accomplishments, vocational conflicts.
+- 'worldview': Religious orthodoxy, socio-economic philosophy (taxes, pensions, state role, welfare vs free market), politics.
+- 'lifestyle': Daily habits, studies/thesis, healthcare work, sleep patterns, somatic symptoms, lifestyle comfort quirks, culinary tastes.
+- 'career': Professional trajectory, work accomplishments, vocational conflicts, financial psychology, savings, budgeting.
 - 'discard_noise': Interlocutor-only personal monologues, trivial chitchat, or zero psychological relevance.
 
 Respond strictly with a JSON object:
 {
   "is_valuable_subject_evidence": boolean,
   "salience_score": number (1.0 to 5.0),
-  "target_chapter": "family" | "career" | "worldview" | "romantic" | "lifestyle" | "attachment" | "playbook_tactics" | "creed_quirks" | "reliability_defenses" | "discard_noise",
+  "target_chapter": "family" | "career" | "worldview" | "romantic" | "lifestyle" | "attachment" | "playbook_tactics" | "reliability_defenses" | "discard_noise",
   "significance": "1-sentence concise psychological takeaway justifying chapter allocation or discard reason"
 }"""
 
@@ -99,13 +97,12 @@ def _call_system1_api(
                     "instructions": "Assign to the most relevant report chapter",
                     "criteria": {
                         "family": "Family dynamics, parental authority, sibling relationships",
-                        "career": "Professional trajectory, work accomplishments, vocational conflicts",
-                        "worldview": "Religious orthodoxy, halal/haram, moral fatalism, political worldview",
-                        "romantic": "Romantic relationships, courtship, suitors, dating apps, ex-partners",
-                        "lifestyle": "Daily habits, studies/thesis, healthcare work, sleep patterns",
+                        "career": "Professional trajectory, work accomplishments, vocational conflicts, financial psychology, budgeting",
+                        "worldview": "Religious orthodoxy, socio-economic philosophy (taxes, pensions, state role), politics",
+                        "romantic": "Romantic relationships, courtship, suitors, dating apps, ex-partners, dating and gender norms",
+                        "lifestyle": "Daily habits, studies/thesis, healthcare work, sleep patterns, lifestyle comfort quirks, culinary tastes",
                         "attachment": "Attachment style, abandonment fears, rejection sensitivity, boundary porosity",
                         "playbook_tactics": "Communication friction, red buttons, triggers, manipulation defenses",
-                        "creed_quirks": "Deep personal creed, idiosyncrasies, specific habits, non-religious ethical codes",
                         "reliability_defenses": "Psychological defenses, rationalization, suppression, emotional decompensation",
                         "discard_noise": "Interlocutor-only monologues, trivial chitchat, or zero psychological relevance"
                     }

@@ -218,7 +218,8 @@ def main():
 
                 print(f"[*] Verifying Mandatory Triple Hard-Stop Blocking Gates for chat '{cid}' in '{db_path}'...")
                 watchdog_code = check_watchdog_gate(conn, cid)
-                spheres_code = check_spheres_gate(conn, cid)
+                spheres_res = check_spheres_gate(conn, cid)
+                spheres_code = spheres_res[0] if isinstance(spheres_res, tuple) else spheres_res
                 threads_code = check_threads_gate(conn, cid)
                 conn.close()
 

@@ -7,12 +7,18 @@ from checklist_engine.spheres_def import MANDATORY_SEMANTIC_ITEMS
 from checklist_engine.spheres_db import get_checklist_stats
 
 
-def check_gate(conn: sqlite3.Connection, chat_id: str, enforce_semantic: bool = True) -> Tuple[int, List[Dict[str, Any]]]:
+def check_gate(conn: sqlite3.Connection, chat_id: str, enforce_semantic: bool = False) -> Tuple[int, List[Dict[str, Any]]]:
     """
     Check pipeline blocking gate.
     Returns (exit_code, violations).
-    Exit code 0: complete/waived and all semantic invariants satisfied.
-    Exit code 1: pending items remain or semantic invariants violated.
+    Exit code 0: complete/waived and all evidentiary invariants satisfied.
+    Exit code 1: pending items remain or evidentiary invariants violated.
+    
+    In the modern System-1 architecture, threads are pre-classified via
+    OpenRouter Decisions API (covered_spheres, locate anchors) and pre-extracted
+    facts. Therefore, substantive evidence documented from System-1 triage or
+    dialogue inspection satisfies the gate without requiring artificial legacy
+    semantic vector queries unless enforce_semantic is explicitly True.
     """
     stats = get_checklist_stats(conn, chat_id)
     if stats.get("is_waived"):
@@ -21,9 +27,6 @@ def check_gate(conn: sqlite3.Connection, chat_id: str, enforce_semantic: bool = 
         return 1, [{"item_id": "ALL", "sphere_id": "-", "sub_item": "Checklist uninitialized", "status": "pending", "issue": "Checklist is not initialized. Run --init first."}]
     if not stats.get("is_complete", False):
         return 1, [{"item_id": "PENDING", "sphere_id": "-", "sub_item": f"{stats['pending']} items pending", "status": "pending", "issue": f"{stats['pending']} items remain pending audit."}]
-
-    if not enforce_semantic:
-        return 0, []
 
     cur = conn.cursor()
     cur.execute("""
@@ -36,26 +39,47 @@ def check_gate(conn: sqlite3.Connection, chat_id: str, enforce_semantic: bool = 
     violations = []
     for r in rows:
         i_id, s_id, s_name, sub_item, status, notes, q_used, sem_used = r
+        notes_clean = (notes or "").strip()
+        q_clean = (q_used or "").strip()
         sem_clean = (sem_used or "").strip()
 
-        # Invariant 1: Unverified Negative Claims (no_data without vector probing)
-        if status == "no_data" and not sem_clean:
-            violations.append({
-                "item_id": i_id,
-                "sphere_id": s_id,
-                "sub_item": sub_item,
-                "status": status,
-                "issue": "Concluded 'no_data' without mandatory semantic vector probing. Lexical keyword absence does NOT prove empirical absence in dialogue."
-            })
-        # Invariant 2: Abstract / Attitudinal / Psychological dimensions completed without vector probing
-        elif status == "completed" and i_id in MANDATORY_SEMANTIC_ITEMS and not sem_clean:
-            violations.append({
-                "item_id": i_id,
-                "sphere_id": s_id,
-                "sub_item": sub_item,
-                "status": status,
-                "issue": f"Core psychological/attitudinal item ({s_name}) marked 'completed' without recorded semantic vector search. Chat participants do not speak in clinical/diagnostic keywords."
-            })
+        # Invariant 1: Completed items must have substantive documented evidence
+        if status == "completed":
+            if not notes_clean:
+                violations.append({
+                    "item_id": i_id,
+                    "sphere_id": s_id,
+                    "sub_item": sub_item,
+                    "status": status,
+                    "issue": f"Item '{i_id}' marked 'completed' without documented evidence summary or quote citations in notes."
+                })
+            elif enforce_semantic and i_id in MANDATORY_SEMANTIC_ITEMS and not sem_clean:
+                violations.append({
+                    "item_id": i_id,
+                    "sphere_id": s_id,
+                    "sub_item": sub_item,
+                    "status": status,
+                    "issue": f"Core psychological/attitudinal item ({s_name}) marked 'completed' without recorded semantic vector search (enforce_semantic active)."
+                })
+
+        # Invariant 2: Absence claims (no_data) must have documented audit notes or query terms
+        elif status == "no_data":
+            if not notes_clean and not q_clean and not sem_clean:
+                violations.append({
+                    "item_id": i_id,
+                    "sphere_id": s_id,
+                    "sub_item": sub_item,
+                    "status": status,
+                    "issue": f"Item '{i_id}' marked 'no_data' without documented audit notes or probe details explaining absence across sphere threads."
+                })
+            elif enforce_semantic and not sem_clean:
+                violations.append({
+                    "item_id": i_id,
+                    "sphere_id": s_id,
+                    "sub_item": sub_item,
+                    "status": status,
+                    "issue": "Concluded 'no_data' without mandatory semantic vector probing (enforce_semantic active)."
+                })
 
     if violations:
         return 1, violations

@@ -70,10 +70,10 @@ Use these detailed criteria and standardized `item_id`s when auditing the archiv
 - `prof_coping_failure` — **Aspirations & Ambitions: Coping with Failure & Rationalization:** How do they handle stalled projects or unrealized dreams? Mature self-reflection and realistic recalibration vs. externalized blame (blaming systems, bosses, bad timing) and rationalization.
 - `prof_team_vs_lone_wolf` — **Team Player vs. Lone Wolf:** Are they cooperative and supportive in group endeavors, or individualistic, territorial, or resistant to shared ownership and teamwork?
 - `prof_authority_relations` — **Authority Relations & Hierarchy Stance:** Respect for meritocratic leadership vs. knee-jerk defiance, submissiveness, cynical contempt for hierarchy, or impostor syndrome.
-- `prof_money_attitude` — **Financial Psychology: Attitude Toward Money:** Is money viewed as existential safety, scorecard of self-worth, an instrument of autonomy, or an object of chronic anxiety?
+- `prof_money_attitude` — **Financial Psychology: Attitude Toward Money & Financial Sovereignty:** Is money viewed as existential safety, scorecard of self-worth, an instrument of autonomy, or an object of chronic anxiety? Stance on long-term financial sovereignty, private capital accumulation, and building an independent financial fortress vs. relying on state welfare or external support.
 - `prof_frugality_vs_lavishness` — **Financial Psychology: Frugality vs. Lavishness / Extravagance (Oszczędność vs. Rozrzutność):** Calculated, restrictive saver vs. impulsive, lavish spender. Do they indulge in higher-end lifestyle spending or show extreme frugality, guilt, or anxiety when spending money?
 - `prof_premium_vs_budget` — **Financial Psychology: Appetite for Premium vs. Budget Goods:** Preference for expensive, flagship consumer electronics and branded items (e.g. desire for flagship smartphones, premium gadgets, designer goods) vs. deliberate satisfaction with economical, functional, cheaper alternatives.
-- `prof_budgeting_dynamics` — **Financial Psychology: Everyday Budgeting & Financial Dynamics:** How do they handle everyday budgeting, luxury purchases, debts, investments, or treating others?
+- `prof_budgeting_dynamics` — **Financial Psychology: Everyday Budgeting, Debt & Capital Strategy:** How do they handle everyday budgeting, luxury purchases, debts, loans, investments, inflation hedges, private retirement accumulation, and financial obligations toward others?
 
 ---
 
@@ -89,7 +89,11 @@ Use these detailed criteria and standardized `item_id`s when auditing the archiv
 - `world_tech_reaction_innovations` — **Attitude Toward AI & Modern Technology: Reaction to Introduced Tools & Innovations:** When an interlocutor recommends or introduces a new digital tool, software, or technology, does the subject show curiosity and try it, or do they simply show a lack of interest, shrug it off, or prefer familiar routines? (Avoid forcing far-fetched psychological diagnoses when a reaction simply reflects standard disinterest).
 - `world_tech_practical_usage` — **Attitude Toward AI & Modern Technology: Practical Digital Tool Usage:** How do they actually utilize digital infrastructure? (Advanced workflows and intellectual exploration vs. purely basic communication, administrative utilities, and low-friction mobile games).
 - `world_cognitive_debate_style` — **Cognitive Style in Debate:** Do they lean on empirical evidence and formal logic, or emotional appeal and moral superiority? Do they respect ideological opponents or dehumanize them?
-- `world_socio_economic_and_civic_order` — **Socio-Economic Philosophy & State Order:** Attitudes toward the role of the state, taxation, pension systems (e.g. civic/universal pensions vs. capital/state systems), free market vs. social safety net, civil liberties, and institutional authority.
+- `world_socio_economic_and_civic_order` — **Socio-Economic Philosophy, Taxation & Pension Systems:** Comprehensive institutional and economic philosophy:
+  1. **Taxation & Fiscal Burden:** Stance on taxes (high vs. low, flat vs. progressive tax rates, fiscal compliance vs. tax avoidance, viewing taxes as civic contribution vs. state extortion/theft).
+  2. **Pension Systems & Retirement Security:** State/ZUS pensions vs. private capital accumulation, civic/universal basic pensions vs. private investments/real estate, retirement age, reliance on the state in old age vs. building personal financial independence.
+  3. **Role of the State & Economic Order:** Free market capitalism vs. social safety net / welfare state ("socjal"), state paternalism and interventionism vs. individual deregulation, private property vs. wealth redistribution.
+  4. **Institutional Trust:** Cynicism vs. respect toward public administration, legal systems, and civic obligations.
 
 ---
 
@@ -130,8 +134,8 @@ During comprehensive profiling (Mode B), every dimension in the database must tr
 
 ### Valid Item Statuses:
 - `pending`: Unexamined / audit in progress (initial state).
-- `completed`: Audited, evidence found, analyzed and documented with citations (`[#ID | YYYY-MM-DD]`). For core psychological/attitudinal items (Spheres B, C, E, key items in A, D), semantic vector search (`--semantic-queries`) is strictly mandatory.
-- `no_data`: Audited via both lexical and semantic vector queries, but unmentioned / absent in archive. **MANDATORY:** Must document executed semantic vector probes in `--semantic-queries`. (A failed keyword search alone NEVER justifies `no_data`).
+- `completed`: Audited, evidence found, analyzed and documented with citations (`[#ID | YYYY-MM-DD]`). Evidence originates from System-1 triage (`covered_spheres`, `locate` quotes), pre-extracted facts, or targeted dialogue inspection/queries.
+- `no_data`: Audited across System-1 triaged sphere threads and targeted probes, but unmentioned / absent in archive. **MANDATORY:** Must document audit findings and probe details in `--notes` / `--queries`. (A bare unevidenced claim without audit notes NEVER justifies `no_data`).
 - `not_applicable`: Explicitly outside the scope of analysis.
 
 ### Command Toolchain:
@@ -168,7 +172,7 @@ python3 project/scripts/checklist.py -C <chat_id> --batch-update item1 item2 \
   --semantic-queries "concept 1, concept 2"
 
 # PIPELINE BLOCKING GATE CHECK (Exit 0 = Passed, Exit 1 = Blocked):
-# Verifies 100% resolution AND semantic vector search compliance!
+# Verifies 100% resolution AND evidentiary audit compliance (rejects completed items with empty notes or unverified no_data):
 python3 project/scripts/checklist.py --check -C <chat_id>
 
 # SAFETY WAIVER / DISABLING (For ad-hoc queries, partial tasks, or Mode A):
@@ -248,8 +252,9 @@ python3 project/scripts/query_chat.py --db chat.db -f <message_id> -w 5
 
 | Analytical Target | Polish Query Keywords (`-s`, `-st`) | English / Semantic Vector Queries (`--semantic`) | Primary Focus & Diagnostic Questions |
 | :--- | :--- | :--- | :--- |
-| **Ways of Saving & Financial Psychology** | `pieniądze OR oszczędzać OR wydać OR drogo OR tanio OR kupić OR finanse OR kredyt OR OLX OR Allegro` | `saving money, frugal habits, hunting for bargains, buying used goods, financial anxiety, guilt when spending, reluctance to take loans, debt aversion` | Restrictive saver vs. impulsive spender; money as existential security vs. guilt; reluctance to spend on self vs. treating others. |
-| **Political & Societal Worldview** | `polityka OR wybory OR rząd OR podatki OR partia OR państwo OR wolność OR urzędy OR inflacja` | `political opinions, voting decisions, attitude towards government policies, municipal taxes, societal order, state institutions, civic duty, skepticism of authority` | Socio-political orientation; stance on governance, civic duties, liberty, tradition; empirical debate style vs. moral superiority. |
+| **Ways of Saving & Financial Psychology** | `pieniądze OR oszczędzać OR wydać OR drogo OR tanio OR kupić OR finanse OR kredyt OR OLX OR Allegro OR inwestycje` | `saving money, frugal habits, hunting for bargains, buying used goods, financial anxiety, guilt when spending, reluctance to take loans, debt aversion, financial sovereignty` | Restrictive saver vs. impulsive spender; money as existential security vs. guilt; reluctance to spend on self vs. treating others; private capital strategy. |
+| **Political & Societal Worldview** | `polityka OR wybory OR rząd OR partia OR państwo OR wolność OR urzędy` | `political opinions, voting decisions, attitude towards government policies, societal order, state institutions, civic duty, skepticism of authority` | Socio-political orientation; stance on governance, civic duties, liberty, tradition; empirical debate style vs. moral superiority. |
+| **Socio-Economic Philosophy, Taxes & Pensions** | `podatki OR emerytura OR ZUS OR socjal OR państwo OR wolny rynek OR ustrój OR kapitalizm OR socjalizm OR inflacja OR urzędy OR prawo OR składki OR zapomogi` | `socioeconomic philosophy, attitude towards taxes, tax burden, flat vs progressive tax, state pension vs private capital, retirement age, welfare state vs free market capitalism, institutional trust vs cynicism, social safety net` | Stance on tax burden, citizen/state pensions, ZUS trust vs private retirement, welfare state vs free market capitalism, institutional trust vs systemic cynicism. |
 | **Unfulfilled Ambitions & Dropped Goals** | `marzenie OR chciałem OR planowałem OR rzuciłem OR zrezygnowałem OR nie wyszło OR startup OR studia OR żałuję` | `unfulfilled ambition, abandoned project, dropped out of university, career regret, deferred dreams, failed startup, unfinished creative work` | Catalogue of unrealized dreams; dropped degrees/startups; open psychic wounds vs. mature mourning and recalibration. |
 | **Work Ethic & Diligence** | `praca OR pracować OR nadgodziny OR zapieprz OR harować OR obowiązki OR sumienny OR deadline OR awans` | `work ethic, hardworking grinder, working overtime, professional diligence, conscientiousness, taking ownership vs slacking, coasting, procrastination` | Conscientious grinder ("pracuś") vs. coasting, slacking ("obijanie"), or minimal viable effort. |
 | **Domestic Order & Cleanliness** | `sprzątanie OR bałagan OR porządek OR syf OR kurz OR sprzątać OR myć OR zmywać OR pranie OR czysto OR brudno` | `domestic cleanliness, orderliness, cleaning apartment, doing dishes, messy room, clutter tolerance, household chores as stress coping` | Domestic orderliness vs. chaos/mess tolerance; cleaning as stress coping; environment as psychological mirror. |
@@ -284,13 +289,13 @@ python3 project/scripts/query_chat.py --db chat.db -f <message_id> -w 5
 3. **Execute Targeted Lexical Searches:** If probing for specific named entities (colleges, employers, pet names, devices), execute Polish lexical searches (`-s` / `-st`).
 4. **Contextual Verification ($N-5 \dots N+5$):** Inspect candidate matches via `-c <id>` or `-f <id> -w 5` or `-ts <thread_id>`. Verify speaker identity and genuine intent (rule out sarcasm, pasted text, and immediate rebuttals).
 5. **Update Checklist State in Database:**
-   - If evidence is found: update item to `completed` with quote anchors `[#ID | YYYY-MM-DD]`, logging both `--queries` and `--semantic-queries`.
-   - If unmentioned after exhaustive searches: update item to `no_data`, **strictly documenting the executed semantic vector search in `--semantic-queries`**.
+   - If evidence is found: update item to `completed` with quote anchors `[#ID | YYYY-MM-DD]`, logging substantive notes and citations.
+   - If unmentioned after exhaustive audit of sphere threads: update item to `no_data`, documenting the examined sphere threads and targeted search attempts in `--notes` and `--queries`.
 6. **Direct Chapter Section Synthesis (Anti-Evidence Graveyard):**
    Immediately after auditing criteria for a sphere, the investigator writes the modular markdown section:
    `reports/<chat_id>_sections/05_<sphere_letter>_<sphere_name>.md`
    Incorporate exact anchored quotes (`[#ID | YYYY-MM-DD]`), diagnostic analysis, behavioral patterns, and unfulfilled ambitions directly while context is fresh.
-7. **Run Gate Verification:** Run `python3 project/scripts/checklist.py --check -C <chat_id>`. Ensure exit code 0 before proceeding to Step B.5. The gate will block if any `no_data` or core psychological/attitudinal items lack semantic vector probe verification.
+7. **Run Gate Verification:** Run `python3 project/scripts/checklist.py --check -C <chat_id>`. Ensure exit code 0 before proceeding to Step B.5. The gate rejects completed items with empty notes or unverified `no_data` claims.
 
 ---
 
@@ -298,10 +303,10 @@ python3 project/scripts/query_chat.py --db chat.db -f <message_id> -w 5
 
 Before completing an inquiry into lifestyle or behavioral spheres, verify:
 - [ ] Was `python3 project/scripts/checklist.py --init` executed (if Mode B)?
-- [ ] Were semantic vector queries (`--semantic`) executed for all investigated dimensions?
-- [ ] Were query terms executed in the appropriate language (lexical `-s`/`-st` strictly adapted to the conversation's language, English or native language for `--semantic`)?
-- [ ] Did all items resolved as `no_data` have documented semantic vector queries in `--semantic-queries`?
-- [ ] Did all core psychological and attitudinal items (Spheres B, C, E, key items in A, D) have documented `--semantic-queries`?
+- [ ] Were System-1 triaged threads and pre-extracted facts consulted for the assigned sphere?
+- [ ] Were targeted semantic/lexical queries executed for remaining evidentiary gaps?
+- [ ] Did all items resolved as `completed` have substantive anchored evidence in `--notes`?
+- [ ] Did all items resolved as `no_data` have documented audit notes explaining absence across sphere threads?
 - [ ] Were candidate quotes verified in surrounding context ($N-5 \dots N+5$)?
 - [ ] Were speaker identities disambiguated (subject vs. interlocutor vs. quoted text)?
 - [ ] Does `python3 project/scripts/checklist.py --check -C <chat_id>` exit with code 0?

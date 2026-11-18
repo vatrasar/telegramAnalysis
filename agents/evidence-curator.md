@@ -60,9 +60,10 @@ For each high-value evidence item, classify into one of three destinations:
   ```bash
   python3 project/scripts/thread_checklist.py -C <chat_id> --route-evidence <thread_id> \
     --target-agent "chapter-drafter" \
-    --target-chapter "<playbook_tactics|creed_quirks|reliability_defenses>" \
+    --target-chapter "<playbook_tactics|reliability_defenses>" \
     --significance "<specific trigger or de-escalation takeaway>"
   ```
+  *(Note: Stances on socioeconomic order, taxes, and pensions route to `worldview`; financial psychology routes to `career`; everyday habits route to `lifestyle`; dating norms route to `romantic`).*
 
 ### Decision C: Propose Novel Custom Section (`--propose-custom-section`)
 - **Criteria:** Identifies a significant, high-impact theme that cannot be adequately covered within standard life spheres or playbook templates (e.g., secret gambling addiction, unmapped acute medical crisis, profound creative project, sudden religious conversion, covert parallel relationship).

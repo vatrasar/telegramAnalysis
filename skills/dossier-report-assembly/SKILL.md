@@ -84,20 +84,13 @@ A practical, prescriptive interaction manual:
 - **Categorical Do's and Don'ts:** Explicit best practices vs forbidden behaviors, grounded in real chat case studies.
 - **Boundary Enforcement:** Constructive confrontation formulas setting interpersonal limits without triggering abandonment panic.
 
-### 8. Personal Creed, Social Norms & Quirks Matrix
-A dedicated profile grounding the subject's everyday life rules, societal views, and visceral tastes:
-- **Relational & Dating Rules:** Norms on dating etiquette, who pays, gender expectations, lending money to friends, honesty vs. diplomacy.
-- **Socio-Economic Philosophy:** Concrete institutional/economic convictions (universal pensions vs capital systems, tax burden, state role).
-- **Lifestyle Quirks & Comfort Standards:** Distinct consumption habits, comfort/fashion standards (e.g. aversion to formal wear/jeans).
-- **Culinary Preferences & Pet Peeves:** Staple everyday foods, preferred cuisines, and visceral daily irritants (*pet peeves*).
-
-### 9. Statement Reliability Index & Defenses
+### 8. Statement Reliability Index & Defenses
 - **Statement Reliability Index:** Where their declarations are ironclad vs. where their words represent wishful thinking, temporary venting, or phantom plans.
 - **Cognitive Blind Spots:** What the subject chronically fails to perceive about their own behavior or impact on others.
 - **Unspoken Core Need:** The primary emotional hunger they yearn for but rarely voice directly.
 - **Defusing Cognitive Distortions & Manipulation:** Concrete response templates neutralizing blame-shifting, minimization, and double binds.
 
-### 10. Concluding Summary Matrix
+### 9. Concluding Summary Matrix
 A structured markdown synthesis table:
 
 ```markdown
@@ -128,9 +121,8 @@ reports/<subject>_sections/
 ├── 03_custom_<slug>.md           # Approved custom sections passed by Main Coordinator
 ├── 04_attachment_ocean.md        # Attachment style diagnosis & Big Five ratings
 ├── 05_tactical_playbook.md       # Tactical Communication & De-escalation Playbook (Ch. 7)
-├── 06_creed_and_quirks.md        # Personal Creed, Norms & Quirks Matrix (Ch. 8)
-├── 07_reliability_and_defenses.md# Statement Reliability Index & Defenses (Ch. 9)
-└── 08_matrix.md                  # Concluding Summary Matrix (Ch. 10)
+├── 06_reliability_and_defenses.md# Statement Reliability Index & Defenses (Ch. 8)
+└── 07_matrix.md                  # Concluding Summary Matrix (Ch. 9)
 ```
 
 ### Step 2: Parallel Chapter Drafting & Subsection Stitching

@@ -29,7 +29,7 @@ You manage the complete lifecycle of the 50 baseline criteria across the 6 core 
 - **Context Protection (Strict Delegation):** Never attempt to audit 50 complex life criteria directly in your primary supervisor context. Strictly delegate investigation to specialized `life-sphere-investigator` subagents.
 - **Watchdog Gate Pre-requisite:** Initializing `checklist.py --init` is strictly forbidden until `python3 project/scripts/query_chat.py --check-watchdog-gate -C <chat_id>` exits with code 0.
 - **Anti-Evidence Graveyard Invariant:** Every assigned investigator must directly draft its modular section file (`reports/<chat_id>_sections/05_<sphere_letter>_<canonical_name>.md`) immediately upon auditing criteria, ensuring 100% of discovered evidence is embedded into the report rather than stranded in SQLite.
-- **Absolute Ban on Keyword-Only `no_data`:** Concluding that an item or dimension is unevidenced (`no_data`) after running only keyword searches is strictly prohibited. Every `no_data` resolution MUST document executed semantic vector queries via `--semantic-queries`.
+- **Absolute Ban on Unsubstantiated `no_data`:** Concluding that an item or dimension is unevidenced (`no_data`) without auditing all pre-mapped sphere threads and targeted probes is strictly prohibited. Every `no_data` resolution MUST document explanatory audit notes explaining absence across the sphere's threads.
 - **Verification Gate Hard-Stop:** Step B.3 is only complete when `python3 project/scripts/checklist.py --check -C <chat_id>` exits with code 0 and all 6 modular section files meet quality invariants.
 
 ---
@@ -75,11 +75,11 @@ Instructions:
    If > 6 threads, self-scale by dispatching forensic-thread-investigator workers per shard.
 4. Execute scoped semantic vector probes (`python3 project/scripts/query_chat.py -C <chat_id> --semantic "<query>" --sphere <Letter>`) and targeted lexical searches strictly within your sphere's threads to fill remaining checklist gaps. Global unconstrained semantic probes are strictly prohibited.
 5. Persist findings via `checklist.py`:
-   - For evidenced items: pass `--semantic-queries "<queries>"` when persisting findings:
-     `python3 project/scripts/checklist.py -C <chat_id> --update <item_id> --set-status completed --notes "..." --queries "..." --semantic-queries "..."`
-   - For unevidenced items: MUST pass `--semantic-queries "<queries>"`:
-     `python3 project/scripts/checklist.py -C <chat_id> --update <item_id> --set-status no_data --notes "..." --semantic-queries "..."`
-     (Enforce the Absolute Ban on Keyword-Only `no_data`).
+   - For evidenced items: update status to completed with anchored citations:
+     `python3 project/scripts/checklist.py -C <chat_id> --update <item_id> --set-status completed --notes "..."`
+   - For unevidenced items: MUST document audit details explaining absence across sphere threads:
+     `python3 project/scripts/checklist.py -C <chat_id> --update <item_id> --set-status no_data --notes "..."`
+     (Enforce the Absolute Ban on Unsubstantiated `no_data`).
 6. Directly draft the modular chapter section in Polish (`reports/<chat_id>_sections/05_<sphere_letter>_<canonical_name>.md`) following the 4-part Thesis-First structure, omitting `no_data` items without placeholder disclaimers.
 7. Report any serendipitous cross-sphere findings.
 ```
