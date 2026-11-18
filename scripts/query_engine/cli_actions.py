@@ -27,6 +27,8 @@ from .candidate_clustering import (
 from .conflation_audit import (
     run_conflation_audit,
     print_conflation_audit,
+    resolve_entity_cluster,
+    resolve_distinct_pairs_batch,
 )
 from .staging_actions import handle_staging_cli_actions
 from .watchdog_api import (
@@ -178,6 +180,38 @@ def handle_entity_actions(args: Any, batch_config: Dict[str, Any], resolved_chat
             print(json.dumps(clusters_data, indent=2, ensure_ascii=False))
         else:
             print_suggested_clusters(clusters_data, chat_name=resolved_chat_name)
+        return True
+
+    if getattr(args, "resolve_cluster", None):
+        if not resolved_chat_id:
+            print("[!] Error: Please specify target chat via -C <chat_id> for --resolve-cluster.")
+            sys.exit(1)
+        reason = getattr(args, "reason", "")
+        if not reason:
+            print("[!] Error: --resolve-cluster requires an explicit --reason '<audit findings & anchors>'")
+            sys.exit(1)
+        res = resolve_entity_cluster(args.db, resolved_chat_id, args.resolve_cluster, reason)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            if "error" in res:
+                print(f"[!] Error: {res['error']}")
+            else:
+                print(f"[✓] Cluster '{res['cluster']}' resolved ({res['entities_count']} entities, {res['pairs_recorded']} pairs recorded in SQLite).")
+        return True
+
+    if getattr(args, "resolve_distinct_batch", None):
+        if not resolved_chat_id:
+            print("[!] Error: Please specify target chat via -C <chat_id> for --resolve-distinct-batch.")
+            sys.exit(1)
+        res = resolve_distinct_pairs_batch(args.db, resolved_chat_id, args.resolve_distinct_batch)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            if "error" in res:
+                print(f"[!] Error: {res['error']}")
+            else:
+                print(f"[✓] Batch resolved: recorded {res['total_pairs_recorded']} distinct entity pairs in SQLite.")
         return True
 
     if args.conflation_audit or batch_config.get("conflation_audit", False):
