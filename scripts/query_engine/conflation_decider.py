@@ -22,7 +22,7 @@ from .conflation_audit import run_conflation_audit, resolve_entity_cluster
 def _call_openrouter_json(
     messages: List[Dict[str, str]],
     api_key: str,
-    model: str = "google/gemini-2.5-flash",
+    model: str,
     max_retries: int = 3
 ) -> Dict[str, Any]:
     """Execute structured JSON completion via OpenRouter API."""
@@ -67,7 +67,7 @@ def evaluate_cohort_system1(
     cohort_title: str,
     members: List[Dict[str, Any]],
     api_key: str,
-    model: str = "google/gemini-2.5-flash"
+    model: str
 ) -> Dict[str, Any]:
     """Evaluate an entire cohort of entities with System-1 to detect duplicates or confirm distinctness."""
     lines = [f"Evaluate the following cohort of entities sharing the role/theme '{cohort_title}':\n"]
@@ -104,7 +104,7 @@ def evaluate_pair_system1(
     e1: Dict[str, Any],
     e2: Dict[str, Any],
     api_key: str,
-    model: str = "google/gemini-2.5-flash"
+    model: str
 ) -> Dict[str, Any]:
     """Evaluate an isolated pair of entities with System-1."""
     prompt = (

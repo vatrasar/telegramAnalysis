@@ -147,14 +147,12 @@ def auto_triage_evidence(
     if not api_key or api_key == "YOUR_OPENROUTER_API_KEY_HERE":
         raise ValueError("Missing or unconfigured OpenRouter API key in config/embeddings_config.json")
 
-    raw_model = model or config.get("triage_model") or "google/gemini-2.5-flash"
+    raw_model = model or config.get("triage_model")
+    if not raw_model:
+        raise ValueError("Missing triage_model in config/embeddings_config.json")
     if raw_model.startswith("~"):
         raw_model = raw_model.lstrip("~")
-    # Ensure a viable model is selected if pplx-decider is specified but unavailable
-    if "pplx-decider" in raw_model:
-        chosen_model = "google/gemini-2.5-flash"
-    else:
-        chosen_model = raw_model
+    chosen_model = raw_model
 
     # Select completed threads needing triage
     if force:
