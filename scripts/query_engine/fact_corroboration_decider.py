@@ -112,7 +112,7 @@ def match_or_deduplicate_fact(
     if not resolved_key:
         return "new_fact", None, "missing_api_key_fallback_to_new"
 
-    resolved_model = model or config.get("decider_model") or config.get("system1_model") or config.get("model")
+    resolved_model = model or config.get("triage_model") or config.get("decider_model") or config.get("system1_model") or "perplexity/pplx-decider-v1.3"
     if not resolved_model:
         return "new_fact", None, "missing_decider_model_fallback_to_new"
 

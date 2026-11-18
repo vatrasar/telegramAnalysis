@@ -51,20 +51,13 @@ SPHERE_DEFINITIONS: Dict[str, Dict[str, str]] = {
 
 
 def build_sphere_questions() -> Dict[str, Any]:
-    """Generate discrete binary noul questions for multi-label sphere classification + locate quote."""
+    """Generate discrete binary noul questions for multi-label sphere classification."""
     questions: Dict[str, Any] = {}
     for _, meta in SPHERE_DEFINITIONS.items():
         questions[meta["name"]] = {
             "type": "noul",
             "instructions": meta["instructions"]
         }
-    questions["key_evidence_quote"] = {
-        "type": "locate",
-        "instructions": (
-            "Locate the exact verbatim sentence representing the peak personal disclosure, "
-            "confession, core habit, or conflict in this dialogue."
-        )
-    }
     return questions
 
 

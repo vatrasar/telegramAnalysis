@@ -165,10 +165,6 @@ def evaluate_grounding_candidate_system1(
                     "unexecuted_plan": "A future desire, proposal, wish, or unconfirmed plan",
                     "not_applicable": "Not an authentic personal self-disclosure"
                 }
-            },
-            "verbatim_fact": {
-                "type": "locate",
-                "instructions": f"Locate the exact verbatim clause or sentence confirming the personal fact regarding {domain}."
             }
         }
     }
@@ -178,6 +174,8 @@ def evaluate_grounding_candidate_system1(
     status = decisions.get("status_nature", {}).get("choice", "not_applicable")
     quote_obj = decisions.get("verbatim_fact", {})
     quote_text = quote_obj.get("text", "").strip() if quote_obj else ""
+    if not quote_text:
+        quote_text = str(candidate.get("text", "")).strip()
 
     if p_fact >= 0.65 and status in ("active_current", "historical_past") and quote_text:
         return {
@@ -361,10 +359,6 @@ def classify_dyad_episode_system1(
             "dyadic_tension": {
                 "type": "score",
                 "instructions": "Rate emotional intimacy depth and relational tension in this exchange (1: minimal/routine, 3: moderate personal disclosure, 5: critical turning point or intense emotional clash)."
-            },
-            "relational_anchor_quote": {
-                "type": "locate",
-                "instructions": "Locate the exact verbatim turn defining the core dyadic stance or pivotal emotional moment in this thread."
             }
         }
     }

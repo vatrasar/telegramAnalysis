@@ -65,10 +65,6 @@ def _call_custom_scanner_api(
                     "High direct evidence or turning point",
                     "Critical defining crisis, confession, or milestone"
                 ]
-            },
-            "evidence_quote": {
-                "type": "locate",
-                "instructions": "Locate the exact verbatim sentence from the dialogue representing the key evidence, turning point, or milestone for the matched custom section theme."
             }
         }
     }

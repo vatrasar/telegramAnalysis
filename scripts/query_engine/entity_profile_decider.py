@@ -89,22 +89,6 @@ def evaluate_entity_thread_system1(
             "relational_depth": {
                 "type": "score",
                 "instructions": "Rate the psychological and interpersonal salience of this entity to the subject (1: passing mention/tangential, 3: personal interaction/disclosure, 5: pivotal turning point/trauma/major conflict)."
-            },
-            "occupation_job": {
-                "type": "locate",
-                "instructions": f"Locate the exact verbatim phrase describing the occupation, job, or workplace of '{entity_name}', if present."
-            },
-            "geographic_origin": {
-                "type": "locate",
-                "instructions": f"Locate the exact verbatim phrase describing the city, region, or country of '{entity_name}', if present."
-            },
-            "biographical_markers": {
-                "type": "locate",
-                "instructions": f"Locate any explicit personal traits of '{entity_name}' (age, marital status, health/illness, background)."
-            },
-            "relational_anchor_quote": {
-                "type": "locate",
-                "instructions": f"Locate the exact verbatim turn defining the subject's emotional reaction, conflict, or attachment dynamic regarding '{entity_name}'."
             }
         }
     }

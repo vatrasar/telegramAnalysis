@@ -94,10 +94,6 @@ def _call_delta_decisions_api(
                     "redundant": "Corroborates established baseline facts without novel turning points",
                     "novel": "Introduces novel, unrecorded facts or psychological turning points"
                 }
-            },
-            "unrecorded_quote": {
-                "type": "locate",
-                "instructions": "Locate the exact verbatim sentence from the dialogue representing the novel, unrecorded fact, crisis, or turning point not present in the baseline."
             }
         }
     }
