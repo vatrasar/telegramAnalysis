@@ -195,6 +195,30 @@ def _evaluate_heuristic_indicator(
     }
 
 
+def _find_quote_anchor(conn: sqlite3.Connection, chat_id: str, thread_id: str, quote: str) -> Optional[int]:
+    """Locate message_id matching verbatim quote or distinct words in thread."""
+    if not quote or len(quote.strip()) < 5:
+        return None
+    cur = conn.cursor()
+    clean_q = quote.strip().replace('"', '').replace("'", "")
+    cur.execute(
+        "SELECT message_id FROM messages WHERE chat_id = ? AND thread_id = ? AND text LIKE ? ORDER BY message_id ASC LIMIT 1;",
+        (chat_id, thread_id, f"%{clean_q[:40]}%")
+    )
+    row = cur.fetchone()
+    if row:
+        return row[0]
+    words = [w for w in clean_q.split() if len(w) >= 4]
+    if len(words) >= 2:
+        cur.execute(
+            "SELECT message_id FROM messages WHERE chat_id = ? AND thread_id = ? AND text LIKE ? ORDER BY message_id ASC LIMIT 1;",
+            (chat_id, thread_id, f"%{words[0]}%{words[1]}%")
+        )
+        r2 = cur.fetchone()
+        return r2[0] if r2 else None
+    return None
+
+
 def auto_triage_delta(
     conn: sqlite3.Connection,
     chat_id: str,
@@ -357,20 +381,29 @@ def auto_triage_delta(
         if decision == "novel" and score >= novelty_threshold:
             novel_count += 1
             if not dry_run:
+                quote_text = str(res.get("unrecorded_quote") or "").strip()
+                anchor_id = _find_quote_anchor(conn, chat_id, tid, quote_text)
                 note_text = f"System-1 Novel Candidate (score {score:.1f}): {justification}"
-                cur.execute("UPDATE thread_audit_checklist SET notes = coalesce(notes || ' | ', '') || ?, updated_at = ? WHERE chat_id = ? AND thread_id = ?;", (note_text, now_iso, chat_id, tid))
+                formatted_quote = None
+                if anchor_id and quote_text:
+                    formatted_quote = f'[#{anchor_id}] "{quote_text}"'
+                    note_text += f" | Spotter Epicenter: #{anchor_id}"
+                elif quote_text:
+                    formatted_quote = f'"{quote_text}"'
+                    note_text += f" | Spotter Quote: {quote_text[:60]}..."
+
+                cur.execute(
+                    "UPDATE thread_audit_checklist SET key_quotes = coalesce(?, key_quotes), notes = coalesce(notes || ' | ', '') || ?, updated_at = ? WHERE chat_id = ? AND thread_id = ?;",
+                    (formatted_quote, note_text, now_iso, chat_id, tid)
+                )
         else:
             redundant_count += 1
             themes_breakdown[theme] = themes_breakdown.get(theme, 0) + 1
             if not dry_run:
-                cur.execute("""
-                UPDATE thread_audit_checklist
-                SET status = 'completed',
-                    findings_summary = 'Theoretical Saturation: Redundant discussion corroborating established baseline',
-                    notes = coalesce(notes || ' | ', '') || 'Corroborating: ' || ?,
-                    updated_at = ?
-                WHERE chat_id = ? AND thread_id = ?;
-                """, (theme, now_iso, chat_id, tid))
+                cur.execute(
+                    "UPDATE thread_audit_checklist SET status = 'completed', findings_summary = 'Theoretical Saturation: Redundant discussion corroborating established baseline', notes = coalesce(notes || ' | ', '') || 'Corroborating: ' || ?, updated_at = ? WHERE chat_id = ? AND thread_id = ?;",
+                    (theme, now_iso, chat_id, tid)
+                )
 
     if not dry_run:
         conn.commit()

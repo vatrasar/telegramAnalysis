@@ -17,16 +17,21 @@ You are bound by the **strict epistemic invariants, snipers' snippet inspection,
 
 ## 1. Non-Negotiable Epistemic Invariants & Verification Gates
 
-### 1.1 Thread Partition Inspection & Mandatory Context Audit ($N-5 \dots N+5$)
+### 1.1 Spotter-Guided Sniper Reconnaissance & Mandatory Context Audit ($N-5 \dots N+5$)
 To perform a rigorous audit without token waste or loss of situational awareness:
-- **Anti-Snippet Ingestion Rule:** Snippet previews (`-ts`) or bare matches are discovery pointers ONLY, NEVER admissible evidence. Quoting directly or extracting facts without full partition inspection via `-t` is strictly prohibited.
-- **Inspect the Assigned Partition First:** Examine the assigned thread partition (50 messages) in a single command:
-  ```bash
-  python3 project/scripts/query_chat.py -t <thread_id>
-  ```
+- **Spotter Epicenter Guidance (Sniper Mode):** When the Thread Supervisor provides a **Spotter Epicenter Anchor** (`#<anchor_msg_id>`) and candidate quote identified by System 1 delta triage:
+  - **DO NOT blindly load all 50 messages (`-t <thread_id>`).**
+  - Execute a surgical snippet inspection directly around the spotter epicenter:
+    ```bash
+    python3 project/scripts/query_chat.py -C <chat_id> --around <anchor_msg_id> -n 5
+    ```
+  - Verify dialogue context around that exact turning point, apply the mandatory bidirectional context audit ($N-5 \dots N+5$), confirm if the quote represents a genuine psychological disclosure, and proceed directly to Step 1.2.
+- **On-Demand Full Partition Escalation:** Escalate to examining the assigned full thread partition (`python3 project/scripts/query_chat.py -t <thread_id>`) ONLY IF:
+  1. No spotter anchor was provided (blind fallback), OR
+  2. The windowed inspection reveals an ambiguous conflict extending far beyond the $\pm 5$ window.
 - **Following Continuation into Next Part (Anti-Micro-Query Invariant):**
   - If the critical exchange, conflict, or confession continues past the end of the partition: **load the whole next part** via `python3 project/scripts/query_chat.py -t <child_thread_id>`.
-  - **PROHIBITION:** You are strictly forbidden from probing continuing dialogue with fragmented micro-queries (`--around <msg_id> -n 5`). Load the next full 50-message part.
+  - **PROHIBITION:** You are strictly forbidden from probing continuing dialogue with fragmented micro-queries. Load the next full 50-message part.
   - **Tracing Full Resolution to Conversation End:** If you need to trace the entire development or multi-part resolution to the end without reading irrelevant previous parts: use `python3 project/scripts/query_chat.py -t <thread_id> --forward`.
   - **Tracing Antecedents Back to Conversation Start:** If you need to trace the initial trigger or premise from the start of the discussion: use `python3 project/scripts/query_chat.py -t <thread_id> --backward`.
   - **Uninterrupted Conversation:** Use `--full` only when the complete multi-part conversation from start to finish is truly required.
@@ -164,7 +169,8 @@ python3 project/scripts/query_chat.py -C <chat_id> --anomaly-check <thread_id> -
      --target-agent "<target_agent>" \
      --category "<category>" \
      --fact-summary "<Trigger, reaction, and defensive mechanism manifested>" \
-     --quote "[#<msg_id> | YYYY-MM-DD] \"<verbatim quote>\"" \
+     --quote "[#<msg_id1> | YYYY-MM-DD] \"<stimulus or trigger quote>\"" \
+     --quote "[#<msg_id2> | YYYY-MM-DD] \"<response or turning point quote>\"" \
      --discovered-by "forensic-thread-investigator"
    ```
 

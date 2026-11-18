@@ -60,8 +60,11 @@ When assigned a `chat_id` by the Main Coordinator:
 
 ### Step 3: Phase 2 — Forensic Deep Dives
 For each thread classified as `novel`:
-1. Dispatch a dedicated `forensic-thread-investigator` subagent (`Model: "flash"`).
-2. Worker verifies dialogue context, extracts 2–3 anchored quotes `[#ID | YYYY-MM-DD]`, executes adversarial post-check (`--anomaly-check`), and updates the checklist:
+1. Check if the thread has a **Spotter Target Epicenter** (`key_quotes` or anchor `#ID` from `thread_checklist.py --status` or `--next`).
+2. Dispatch a dedicated `forensic-thread-investigator` subagent (`Model: "flash"`):
+   - Pass `thread_id` and the **Spotter Epicenter Anchor** (`#<anchor_id>` and quote text) if present.
+   - Instruct the worker to use **Surgical Sniper Reconnaissance**: inspect the spotter epicenter directly via `query_chat.py --around <anchor_id> -n 5` and perform the $N-5 \dots N+5$ context audit, instead of reading all 50 messages blindly.
+3. Worker verifies dialogue context, extracts 2–3 anchored quotes `[#ID | YYYY-MM-DD]`, executes adversarial post-check (`--anomaly-check`), and updates the checklist:
    ```bash
    python3 project/scripts/thread_checklist.py -C <chat_id> --update <thread_id> \
      --set-status completed \
@@ -69,8 +72,8 @@ For each thread classified as `novel`:
      --quotes "<anchored quotes>" \
      --tags "#tag1 #tag2"
    ```
-3. Monitor worker completion until 100% of novel threads are marked `completed`.
-4. **Evidentiary Integrity Spot-Check (Step 3.4):** Before moving to Phase 3, spot-check submitted findings and quotes:
+4. Monitor worker completion until 100% of novel threads are marked `completed`.
+5. **Evidentiary Integrity Spot-Check (Step 3.4):** Before moving to Phase 3, spot-check submitted findings and quotes:
    - Ensure all quotes submitted by workers are fully anchored with exact message ID and date (`[#ID | YYYY-MM-DD]`).
    - Confirm that surrounding dialogue context ($N-5 \dots N+5$) was thoroughly audited to rule out sarcasm, irony, hyperbole, or interlocutor rebuttal.
    - Enforce the **Actuation Gate**: verify that modal desires, hypothetical thoughts, aspirations, or venting fantasies are never recorded as biographical facts.

@@ -76,12 +76,13 @@ def print_thread_status(stats: Dict[str, Any]):
 
 def print_next_thread(conn: sqlite3.Connection, chat_id: str):
     """Fetch and print the next pending thread with metadata and instructions."""
+    import re
     cur = conn.cursor()
     cur.execute("""
     SELECT t.thread_id, t.chat_id, t.start_date, t.end_date, t.message_count,
            t.participants, t.initiator, t.dialogue_text,
            tac.radar_sources, tac.salience_score, tac.primary_category,
-           tac.status
+           tac.status, coalesce(tac.key_quotes, ''), coalesce(tac.notes, '')
     FROM thread_audit_checklist tac
     JOIN threads t ON tac.thread_id = t.thread_id
     WHERE tac.chat_id = ? AND tac.status = 'pending'
@@ -104,6 +105,8 @@ def print_next_thread(conn: sqlite3.Connection, chat_id: str):
     radars = row[8]
     score = row[9]
     cat = row[10]
+    spotter_quote = row[12]
+    spotter_notes = row[13]
 
     preview = dialogue[:1200]
     if len(dialogue) > 1200:
@@ -116,6 +119,13 @@ def print_next_thread(conn: sqlite3.Connection, chat_id: str):
     print(f"  • Participants:  {parts} (Initiator: {init})")
     print(f"  • Volume:        {msgs} messages | Salience Score: {score:.2f} | Category: {cat}")
     print(f"  • Radar Flags:   {radars}")
+    if spotter_quote:
+        print(f"  • 🎯 Spotter Quote: {spotter_quote}")
+        m_match = re.search(r"\[#(\d+)\]", spotter_quote)
+        if m_match:
+            print(f"  👉 SNIPER COMMAND:  python3 project/scripts/query_chat.py -C {chat_id} --around {m_match.group(1)} -n 4")
+    elif spotter_notes and "Spotter" in spotter_notes:
+        print(f"  • 🎯 Spotter Note:  {spotter_notes}")
     print("-" * 80)
     print("📜 DIALOGUE TRANSCRIPT PREVIEW:")
     print("-" * 80)
@@ -144,6 +154,8 @@ def print_delta_manifest(manifest: List[Dict[str, Any]], chat_id: str):
     for i, m in enumerate(manifest, 1):
         print(f"[{i:03d}] Thread {m['thread_id']} | Date: {m['date']} | Msgs: {m['messages']} | Score: {m['salience_score']:.1f} | Radars: {m['radar_sources']}")
         print(f"      Summary:  {m['summary']}")
+        if m.get('key_quotes'):
+            print(f"      🎯 Spotter Target: {m['key_quotes']}")
         if m['candidate_entities'] and m['candidate_entities'] != "[]":
             print(f"      Entities: {m['candidate_entities']}")
         print(f"      Snippet:  \"{m['sample_snippet'][:120]}...\"\n")

@@ -29,7 +29,8 @@ def export_delta_manifest(
         SELECT tac.thread_id, tac.radar_sources, tac.salience_score, tac.primary_category,
                tac.start_date, tac.message_count, tac.total_words,
                {sum_col}, {ent_col},
-               substr(t.dialogue_text, 1, 300)
+               substr(t.dialogue_text, 1, 300),
+               coalesce(tac.key_quotes, ''), coalesce(tac.notes, '')
         FROM thread_audit_checklist tac
         JOIN threads t ON tac.thread_id = t.thread_id
         LEFT JOIN thread_triage tt ON tac.thread_id = tt.thread_id
@@ -41,7 +42,8 @@ def export_delta_manifest(
         SELECT tac.thread_id, tac.radar_sources, tac.salience_score, tac.primary_category,
                tac.start_date, tac.message_count, tac.total_words,
                'No summary generated yet', '[]',
-               substr(t.dialogue_text, 1, 300)
+               substr(t.dialogue_text, 1, 300),
+               coalesce(tac.key_quotes, ''), coalesce(tac.notes, '')
         FROM thread_audit_checklist tac
         JOIN threads t ON tac.thread_id = t.thread_id
         WHERE tac.chat_id = ? AND tac.status = 'pending'
@@ -70,7 +72,9 @@ def export_delta_manifest(
             "words": r[6],
             "summary": r[7],
             "candidate_entities": r[8],
-            "sample_snippet": r[9].strip().replace("\n", " ") if r[9] else ""
+            "sample_snippet": r[9].strip().replace("\n", " ") if r[9] else "",
+            "key_quotes": r[10],
+            "notes": r[11]
         })
     return manifest
 
