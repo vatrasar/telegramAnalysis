@@ -2,7 +2,7 @@
 Domain Fact Packets & Specialized Decider Routing Engine (Track B).
 
 Partitions the established facts baseline into targeted, domain-specific packets
-(max 50 facts per chunk) with customized decider instructions for each life sphere.
+(max 200 facts per chunk) with customized decider instructions for each life sphere.
 Prevents cognitive overload and attention degradation in System-1 models.
 """
 
@@ -82,11 +82,11 @@ def _classify_fact_to_domain(category: str, sphere_id: str) -> str:
 def build_fact_packets(
     conn: sqlite3.Connection,
     chat_id: str,
-    max_per_chunk: int = 50
+    max_per_chunk: int = 200
 ) -> List[Dict[str, Any]]:
     """
     Build partitioned domain fact packets from discovered_facts and life_spheres_checklist.
-    Ensures that no packet chunk exceeds max_per_chunk (default: 50 facts).
+    Ensures that no packet chunk exceeds max_per_chunk (default: 200 facts).
     """
     cur = conn.cursor()
     cur.execute("""

@@ -281,7 +281,7 @@ def auto_triage_delta(
             "payload": payload
         })
 
-    packets = build_fact_packets(conn, chat_id, max_per_chunk=50)
+    packets = build_fact_packets(conn, chat_id, max_per_chunk=200)
     domain_packets: Dict[str, List[Dict[str, Any]]] = {}
     for p in packets:
         domain_packets.setdefault(p["domain"], []).append(p)
@@ -434,7 +434,7 @@ def benchmark_delta_triage(
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
-    packets = build_fact_packets(conn, chat_id, max_per_chunk=50)
+    packets = build_fact_packets(conn, chat_id, max_per_chunk=200)
 
     return {
         "total_benchmarked": total,
