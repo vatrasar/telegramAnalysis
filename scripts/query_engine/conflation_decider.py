@@ -146,10 +146,12 @@ def auto_triage_conflations(
     if not api_key:
         return {"error": "OpenRouter API key missing. Configure in config/embeddings_config.json"}
 
-    raw_model = model or config.get("triage_model") or "google/gemini-2.5-flash"
+    raw_model = model or config.get("triage_model")
+    if not raw_model:
+        return {"error": "No triage model specified via --conflation-model or configured in config/embeddings_config.json"}
     if raw_model.startswith("~"):
         raw_model = raw_model.lstrip("~")
-    chosen_model = "google/gemini-2.5-flash" if "pplx-decider" in raw_model else raw_model
+    chosen_model = raw_model
 
     start_time = time.time()
     audit_res = run_conflation_audit(db_path, chat_id)
