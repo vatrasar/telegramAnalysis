@@ -43,6 +43,10 @@ from checklist_engine.evidence_triage import (
     auto_triage_evidence,
     batch_route_evidence,
 )
+from checklist_engine.delta_triage import (
+    auto_triage_delta,
+    benchmark_delta_triage,
+)
 from checklist_engine.custom_sections import (
     ensure_custom_sections_table,
     propose_custom_section,
@@ -93,6 +97,8 @@ __all__ = [
     "get_evidence_for_target",
     "auto_triage_evidence",
     "batch_route_evidence",
+    "auto_triage_delta",
+    "benchmark_delta_triage",
     "ensure_custom_sections_table",
     "propose_custom_section",
     "get_custom_sections",

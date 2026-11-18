@@ -19,10 +19,18 @@ Subagent Thread Delta Auditing must occur **strictly after completing Step B.4 L
 
 ---
 
-## 2. Phase 1: Delta Triage Subagent (Novelty vs. Redundancy - Up to 5 Threads per Worker)
+## 2. Phase 1: Delta Triage (Redundancy vs. Novelty)
 
-### Step 1.1: Export Delta Manifest
-Export pending threads with their System-1 summaries and candidate entities:
+### Step 1.1: Automated System-1 Delta Triage (Primary Fast Path)
+To eliminate subagent proliferation and supervisor context exhaustion, run the native System-1 classifier:
+```bash
+python3 project/scripts/thread_checklist.py -C <chat_id> --auto-triage-delta
+```
+This automatically evaluates pending threads against the established Life Spheres baseline, marks redundant/corroborating threads as completed in SQLite with saturation notes, and leaves truly novel threads open for snipers.
+
+### Step 1.2: Fallback Manual Delta Slicing & Subagent Delegation ($\le 5$ Threads per Worker)
+If manual inspection is required:
+1. Export the delta manifest:
 ```bash
 python3 project/scripts/thread_checklist.py -C <chat_id> --export-delta-manifest
 ```

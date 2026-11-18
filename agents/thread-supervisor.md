@@ -47,19 +47,16 @@ When assigned a `chat_id` by the Main Coordinator:
    python3 project/scripts/thread_checklist.py -C <chat_id> --init
    ```
 
-### Step 2: Phase 1 — Delta Triage (5 Threads per Worker)
-1. Export delta manifest:
+### Step 2: Phase 1 — Delta Triage (System-1 Automated or Multi-Agent)
+1. **Primary Path (System-1 Auto-Triage):** To eliminate subagent proliferation and save ~12M tokens across the supervisor subtree, invoke the automated System-1 classifier:
    ```bash
-   python3 project/scripts/thread_checklist.py -C <chat_id> --export-delta-manifest
+   python3 project/scripts/thread_checklist.py -C <chat_id> --auto-triage-delta
    ```
-2. Slice pending threads into batches of **up to 5 threads per worker**.
-3. Invoke `thread-delta-triage` subagents in parallel (`Model: "flash"`):
-   - Provide the established psychological baseline from Life Spheres.
-   - Provide the slice of up to 5 pending threads.
-4. Collect triage reports and formally resolve redundant threads:
-   ```bash
-   python3 project/scripts/thread_checklist.py -C <chat_id> --resolve-redundant <id1> <id2> ... --reason "<theme>"
-   ```
+   This automatically resolves all redundant/corroborating threads in SQLite with saturation notes and leaves truly novel threads open for snipers.
+2. **Fallback / Manual Slicing Path (5 Threads per Worker):**
+   - Export delta manifest: `python3 project/scripts/thread_checklist.py -C <chat_id> --export-delta-manifest`
+   - Invoke `thread-delta-triage` subagents in parallel (`Model: "flash"`) for slices of up to 5 threads.
+   - Formally resolve redundant threads: `python3 project/scripts/thread_checklist.py -C <chat_id> --resolve-redundant <ids...> --reason "<theme>"`
 
 ### Step 3: Phase 2 — Forensic Deep Dives
 For each thread classified as `novel`:

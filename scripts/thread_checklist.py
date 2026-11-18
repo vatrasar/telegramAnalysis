@@ -38,6 +38,10 @@ from checklist_engine.evidence_triage import (
     auto_triage_evidence,
     batch_route_evidence,
 )
+from checklist_engine.delta_triage import (
+    auto_triage_delta,
+    benchmark_delta_triage,
+)
 from checklist_engine.custom_sections import (
     ensure_custom_sections_table,
     propose_custom_section,
@@ -100,6 +104,9 @@ def main():
     parser.add_argument("--evidence-catalog", action="store_true", help="Display thematic category/tag catalog of audited evidence to guide modular chapter drafting")
     parser.add_argument("--route-evidence", type=str, metavar="THREAD_ID", help="Route audited evidence to a target drafter agent and report chapter")
     parser.add_argument("--auto-triage-evidence", action="store_true", help="Automatically triage and route all audited evidence to chapters using System 1")
+    parser.add_argument("--auto-triage-delta", action="store_true", help="Automatically triage pending delta threads (redundant vs novel) using System 1")
+    parser.add_argument("--benchmark-delta", action="store_true", help="Benchmark System-1 delta triage against historical ground truth in database")
+    parser.add_argument("--novelty-threshold", type=float, default=3.0, help="Novelty threshold for System-1 delta triage (default: 3.0)")
     parser.add_argument("--batch-route", type=str, metavar="FILE_OR_JSON", help="Batch route evidence items from a JSON file or JSON string")
     parser.add_argument("--concurrency", "-c", type=int, default=4, help="Concurrency for System-1 triage (default: 4)")
     parser.add_argument("--threshold", "-t", type=float, default=2.5, help="Salience threshold for System-1 evidence triage (default: 2.5)")
@@ -240,6 +247,61 @@ def main():
                 print("    Chapter breakdown:")
                 for ch, cnt in sorted(res["chapter_breakdown"].items()):
                     print(f"      • {ch}: {cnt} items")
+            print(f"    Latency:    {res['elapsed_seconds']}s | Cost: ${res['total_cost_usd']:.5f}")
+            if res.get("dry_run"):
+                print("    [!] Dry-run mode: database was not modified.")
+            else:
+                print("    [✓] Database updated and committed.")
+        sys.exit(0)
+
+    if args.benchmark_delta:
+        res = benchmark_delta_triage(conn, chat_id)
+        conn.close()
+        if args.json:
+            print(json.dumps(res, indent=2))
+        else:
+            print(f"\n=======================================================")
+            print(f"📊 SYSTEM-1 DELTA TRIAGE BENCHMARK REPORT (chat: {chat_id})")
+            print(f"=======================================================")
+            print(f"Evaluated Threads:    {res['total_benchmarked']}")
+            print(f"Classification Acc:   {res['accuracy_pct']}%")
+            print(f"Precision (Novel):    {res['precision_pct']}%")
+            print(f"Recall (Novel):       {res['recall_pct']}%")
+            print(f"F1 Score:             {res['f1_score']}")
+            print(f"Confusion Matrix:     TP={res['confusion_matrix']['TP_novel']}, FP={res['confusion_matrix']['FP_novel']}, TN={res['confusion_matrix']['TN_redundant']}, FN={res['confusion_matrix']['FN_redundant']}")
+            print(f"\n--- TOKEN & COST IMPACT ---")
+            print(f"Original Multi-Agent: {res['token_comparison']['original_subagents_tokens']:,} tokens (Triage Workers) + {res['token_comparison']['original_supervisor_tokens']:,} (Supervisor)")
+            print(f"System-1 Direct:      ~{res['token_comparison']['system1_direct_tokens']:,} tokens")
+            print(f"Token Savings:        ~{res['token_comparison']['estimated_token_savings']:,} tokens ({res['token_comparison']['savings_ratio_pct']}%)")
+            print(f"\n--- SPEEDUP FACTOR ---")
+            print(f"Original Duration:    {res['time_comparison']['original_wall_clock']}")
+            print(f"System-1 Duration:    {res['time_comparison']['system1_wall_clock']}")
+            print(f"Throughput Speedup:   {res['time_comparison']['speedup_factor']}")
+            print(f"=======================================================\n")
+        sys.exit(0)
+
+    if args.auto_triage_delta:
+        res = auto_triage_delta(
+            conn, chat_id,
+            db_path=args.db,
+            model=args.model,
+            concurrency=args.concurrency,
+            novelty_threshold=args.novelty_threshold,
+            force=args.force,
+            dry_run=args.dry_run
+        )
+        conn.close()
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            print(f"[✓] System-1 Delta Triage completed for chat '{chat_id}':")
+            print(f"    Evaluated:  {res['total_evaluated']} threads (Engine: {res.get('model_used', 'default')})")
+            print(f"    Redundant:  {res['redundant_count']} resolved as theoretical saturation")
+            print(f"    Novel:      {res['novel_count']} flagged for forensic deep dive")
+            if res.get("themes_breakdown"):
+                print("    Corroborating themes breakdown:")
+                for th, cnt in sorted(res["themes_breakdown"].items()):
+                    print(f"      • {th}: {cnt} threads")
             print(f"    Latency:    {res['elapsed_seconds']}s | Cost: ${res['total_cost_usd']:.5f}")
             if res.get("dry_run"):
                 print("    [!] Dry-run mode: database was not modified.")
